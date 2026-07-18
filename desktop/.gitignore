@@ -1,0 +1,11 @@
+# dependencies / build output
+node_modules/
+dist/
+
+# Tauri / Rust (icons ARE committed, like a standard Tauri project)
+src-tauri/target/
+src-tauri/gen/
+
+# misc
+.DS_Store
+*.log
