@@ -41,7 +41,7 @@ an onramp, not as a substitute for ABA demand.
 if demand for slice/add-on:
     earn ABA from buyer escrow
 else if GPU or CPU free:
-    mine best coin -> auto-convert -> ABA to host (10% cut; 90% to host)
+    mine best coin -> auto-convert -> ABA to host (12% cut; 88% to host)
 else:
     storage / RAM wait for rental (no mining path)
 ```
@@ -60,6 +60,13 @@ else:
   fees, genesis allocation and validator economics.
 - Technical base: open Akash marketplace modules (Apache-2.0 lineage) adapted
   to Abakos parameters and settlement.
+- **Native EVM** (`cosmos/evm`, EIP-155 chain id 9721): Ethereum JSON-RPC and
+  MetaMask alongside the Cosmos side, so Solidity contracts run natively.
+- **Zero-fee (gasless):** transactions cost nothing on both the Cosmos and EVM
+  sides (`no_base_fee`, `min_gas_price = 0`, `eth_gasPrice = 0`); spam is bounded
+  by consensus `block.max_gas` and a capped mempool, not by price.
+- **On-chain ABA/USDT DEX:** a Uniswap-v2 fork (0.30% swap fee to LPs) is the
+  buyback venue and price oracle. Stablecoin standard is USDT (BEP20).
 - Earlier PoUW / GEMM / reward-split work remains research archive only.
 
 ### 3.2 Console & marketplace
@@ -87,10 +94,16 @@ automatically. That is required for Chat and streaming API UX.
 - Serves paid Console jobs and rentals first.
 - When GPU/CPU would be idle: mine the most profitable coin, auto-convert,
   pay host in ABA.
-- Protocol cut on buyback conversion: **10%** (90% to host; 5% to stakers,
-  5% to treasury). Conversion is automatic; hosts always earn the network asset.
+- Protocol cut on buyback conversion: **12%** (88% to host; 4% to stakers,
+  4% to treasury, 4% burn). Conversion is automatic; hosts always earn the
+  network asset.
+- **Payout by verified shares:** miners connect to the Abakos stratum proxy with
+  their ABA address as the login; the proxy relays to the upstream pool (Kryptex,
+  auto-exchange to USDT) and counts difficulty-weighted *accepted* shares per
+  address. The Agent pays each host proportional to those verified shares, so
+  self-reported hashrate cannot inflate a payout.
 - Provider Dashboard shows utilization, rentals, add-on earnings, mining
-  buyback, uptime and reputation.
+  buyback, connected providers, verified shares, uptime and reputation.
 
 ### 3.4 Model registry & AI workloads
 Open-weight models only for network-served inference (Llama, Qwen, DeepSeek
@@ -98,14 +111,17 @@ and similar). Closed frontier APIs are never falsely claimed. Large models
 stay inside one provider's multi-GPU box; no weight sharding across the
 public internet in v1.
 
-### 3.5 Current implementation status (Phase 0)
+### 3.5 Current implementation status (Public sandbox live)
 
 Radical transparency is part of the design. Live status: **status.abakos.ai**.
 
-- **Live today:** website, waitlist, public narrative for the architecture
-  pivot.
-- **In design / not live:** PoS fork, Provider Agent, Console,
-  escrow, buyback pipeline, public explorer, API, Chat, fiat onramp.
+- **Live today (public sandbox):** PoS chain + EVM (id 9721), zero-fee
+  transactions, web wallet, public explorer, faucet, on-chain ABA/USDT DEX, and
+  the Provider Agent + Dashboard with a real on-chain buyback and payout by
+  verified shares. Single-operator for now.
+- **In design / not live:** Console (bundles, add-ons, on-chain escrow),
+  Developer API, Chat, external validators (decentralization), fiat onramp,
+  mainnet.
 - Nothing above is a ship-date promise.
 
 ## 4. Abakos Chat & Developer API
@@ -115,7 +131,7 @@ Radical transparency is part of the design. Live status: **status.abakos.ai**.
   the same idea as a managed inference API like AkashML.
 - **Chat + streaming (Phase 4):** consumer demand on the same rails. Chat
   may later hide crypto on the surface; MVP settlement remains ABA.
-  Product markup: **+10%** (4% stakers, 3% treasury, 3% burn); provider net
+  Product markup: **+12%** (4% stakers, 4% treasury, 4% burn); provider net
   matches the Console, then the usual 3% fee applies.
 
 ## 5. Economics & token (ABA)
@@ -125,15 +141,19 @@ Radical transparency is part of the design. Live status: **status.abakos.ai**.
 - **Illustrative allocation:** Liquidity 32%, Treasury 18%, Ecosystem 15%,
   Reserve 15%, Team 12% (1-year cliff, 3-year linear), Community 8%.
 - **Illustrative DEX start:** ~$0.002 (~$20M FDV), staged liquidity seeding.
-- **Fees:**
+- **Transaction fees:** **zero** (gasless L1; `eth_gasPrice = 0`). The figures
+  below are the protocol *revenue share* on real activity, not gas.
+- **Protocol revenue:**
   - Console / API / CPU / storage settlement: **3%** = 1% stakers + 1% burn +
     1% treasury.
-  - Idle mining buyback cut: **10%** (90% host, 5% stakers, 5% treasury).
-  - Chat product markup: **+10%** = 4% stakers + 3% treasury + 3% burn, then
-    standard settlement fee.
-- **Burn:** settlement burn (1%) + Chat markup burn (3% of the markup). Zero
-  inflation plus these burns makes ABA net deflationary; the buyback cut itself
-  is not a burn.
+  - Idle mining buyback cut: **12%** (88% host, 4% stakers, 4% treasury, 4% burn).
+  - Chat / API product markup: **+12%** = 4% stakers + 4% treasury + 4% burn,
+    then standard settlement fee.
+- **Stablecoin standard:** USDT (BEP20) for pool payouts and the ABA/USDT DEX
+  (0.30% swap fee to LPs).
+- **Burn:** a burn slice on every revenue source (1% of Console/Marketplace
+  settlement; 4% of the idle-mining, Chat and API cuts) permanently removes ABA
+  from supply. Zero inflation plus these burns makes ABA net **deflationary**.
 - **MVP payments:** ABA wallet. Fiat to ABA onramp post-launch.
 - **Fundraising preference:** compute vouchers / grants / strategic capital
   against fixed-supply design, not a public token-sale page.
@@ -143,7 +163,7 @@ Radical transparency is part of the design. Live status: **status.abakos.ai**.
 - Novel surface: marketplace escrow, Agent buyback pipeline, matching and
   Console tooling. Base Cosmos/Akash lineage reduces reinventing consensus
   from scratch, but **Abakos-specific modules need audit before mainnet**.
-- Launch gate: public testnet → external audit → mainnet + liquidity.
+- Launch gate: public sandbox (live) → external audit → mainnet + liquidity.
 - Honesty policy: status badges distinguish live vs planned; no claim that
   PoUW reward-split is the product.
 
@@ -158,8 +178,8 @@ Radical transparency is part of the design. Live status: **status.abakos.ai**.
 
 Phase numbers match **status.abakos.ai**.
 
-- **Phase 0:** Architecture pivot.
-- **Phase 1:** Testnet, explorer, Provider Agent + Dashboard.
+- **Phase 0 (done):** Architecture pivot.
+- **Phase 1 (live):** Public sandbox &mdash; PoS chain + EVM, zero-fee, wallet, explorer, ABA/USDT DEX, faucet, Provider Agent + Dashboard.
 - **Phase 2:** Console, bundles, add-ons, ABA escrow, idle buyback.
 - **Phase 3:** Developer API (batch).
 - **Phase 4:** Chat + streaming API.

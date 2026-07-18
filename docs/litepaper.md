@@ -25,15 +25,17 @@ Abakos is a **Proof-of-Stake compute network** (an Akash-based Cosmos fork) buil
 
 ## How it works (in one paragraph)
 
-A buyer deploys from a template or funds a batch job, locking ABA in escrow against a base slice (CPU + RAM + ephemeral disk) and any add-ons (GPU, persistent volume, dedicated IP). The Console auto-matches the cheapest qualified active provider. The Provider Agent serves the rental or job. If GPU or CPU capacity would otherwise be free, the Agent mines the most profitable coin, takes a 10% protocol cut (90% to the host), auto-converts to ABA, and pays the host. Settlement releases ABA to the provider; the settlement fee is 3% (1% staker, 1% burn, 1% treasury). ABA has zero inflation: validators and stakers are paid from protocol fees plus the staker share of the mining and Chat cuts, never from minting.
+A buyer deploys from a template or funds a batch job, locking ABA in escrow against a base slice (CPU + RAM + ephemeral disk) and any add-ons (GPU, persistent volume, dedicated IP). The Console auto-matches the cheapest qualified active provider. The Provider Agent serves the rental or job. If GPU or CPU capacity would otherwise be free, the Agent mines the most profitable coin, takes a 12% protocol cut (88% to the host), auto-converts to ABA, and pays the host by verified accepted shares. Settlement releases ABA to the provider; the settlement fee is 3% (1% staker, 1% burn, 1% treasury). ABA has zero inflation: validators and stakers are paid from protocol fees plus the staker share of the mining and Chat cuts, never from minting.
 
 ## Token (ABA) & value accrual
 
 - **Utility:** pay for compute and add-ons; receive earnings (jobs or idle buyback); stake for validators; later governance.
 - **MVP settlement:** ABA wallet only. Fiat to ABA (card purchase that market-buys ABA) is post-launch, not MVP.
-- **Fees:** 3% on Console / API / rental settlement (1% staker + 1% burn + 1% treasury). Idle mining buyback cut 10% (90% host, 5% stakers, 5% treasury). Chat adds a +10% product markup (4% stakers, 3% treasury, 3% burn); provider net matches the Console before the 3% fee.
-- **Supply:** **10B ABA** fixed at genesis, **zero inflation** (deflationary via fee burns). No mining-emission bucket for providers. Illustrative allocation: Liquidity 32%, Treasury 18%, Ecosystem 15%, Reserve 15%, Team 12% (1y cliff, 3y linear), Community 8%.
-- **Illustrative DEX start:** about $0.002 (~$20M FDV), with meaningful pool depth rather than dumping the full liquidity bucket at once.
+- **Transaction fees: zero.** The L1 is intentionally zero-fee (gasless) for both Cosmos and EVM transactions; `eth_gasPrice = 0`. Spam is bounded by consensus and mempool limits, not price.
+- **Protocol revenue (separate from gas):** 3% on Console / API / rental settlement (1% staker + 1% burn + 1% treasury). Idle mining buyback cut 12% (88% host, 4% stakers, 4% treasury, 4% burn). Chat / API adds a +12% product markup (4% stakers, 4% treasury, 4% burn); provider net matches the Console before the 3% fee.
+- **Stablecoin standard: USDT (BEP20).** Pool payouts (Kryptex) and the on-chain ABA/USDT DEX (Uniswap-v2 fork, 0.30% swap fee to LPs) use USDT.
+- **Supply:** **10B ABA** fixed at genesis, **zero inflation**, net **deflationary** via the burn slice on every revenue source. No mining-emission bucket for providers. Illustrative allocation: Liquidity 32%, Treasury 18%, Ecosystem 15%, Reserve 15%, Team 12% (1y cliff, 3y linear), Community 8%.
+- **Illustrative DEX start:** about $0.002 (~$20M FDV), with meaningful USDT pool depth rather than dumping the full liquidity bucket at once.
 
 ## Who buys / who supplies
 
@@ -54,8 +56,8 @@ A buyer deploys from a template or funds a batch job, locking ABA in escrow agai
 
 Phase numbers match **status.abakos.ai**.
 
-- **Phase 0:** Architecture pivot (PoS fork design, Provider Agent spec, ABA wallet economics).
-- **Phase 1:** Public testnet, explorer, Provider Agent + Provider Dashboard.
+- **Phase 0 (done):** Architecture pivot (PoS fork design, Provider Agent spec, ABA wallet economics).
+- **Phase 1 (live):** Public sandbox &mdash; PoS chain + EVM (id 9721), wallet, explorer, ABA/USDT DEX, faucet, Provider Agent + Dashboard, zero-fee transactions.
 - **Phase 2:** Console (templates, bundles, persistent storage, IP leases), ABA escrow, idle buyback pipeline.
 - **Phase 3:** Developer API (batch).
 - **Phase 4:** Abakos Chat + API streaming.
@@ -64,7 +66,7 @@ Phase numbers match **status.abakos.ai**.
 
 ## Status & contact
 
-Website and waitlist are live. Public PoS testnet, the Console, API and Chat are not live yet. Continuously updated status: **status.abakos.ai**.
+Website, waitlist and the public sandbox (PoS chain + EVM, wallet, explorer, ABA/USDT DEX, faucet, Provider Agent + Dashboard, zero-fee) are live. The Console, API and Chat, external validators and mainnet are not live yet. Continuously updated status: **status.abakos.ai**.
 
 CTA: **join the waitlist** · **become a provider** · **partner / invest** · **Discord** (https://discord.gg/zBxNvdMjtM).
 

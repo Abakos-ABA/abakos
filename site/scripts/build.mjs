@@ -227,7 +227,7 @@ for (const [slug, filename, title, description, status] of [
 for (const [slug, meta, bodyFile] of [
   [
     "wallet",
-    { title: "Abakos Wallet", description: "Connect Keplr, Leap, Cosmostation or MetaMask to the Abakos sandbox: balance, send, delegate, faucet.", eyebrow: "Sandbox tool", status: ["SANDBOX", "development"], h1: "Wallet", lede: "Connect Keplr, Leap or Cosmostation (native Cosmos wallets), or MetaMask via the Cosmos Extension snap, to the Abakos sandbox. Get test ABA, send and delegate. ABA here has no value." },
+    { title: "Abakos Wallet", description: "Connect Keplr, Leap, Cosmostation or MetaMask to the Abakos sandbox: balance, send, delegate, faucet.", eyebrow: "Sandbox tool", status: ["LIVE", "live"], h1: "Wallet", lede: "Connect Keplr, Leap or Cosmostation (native Cosmos wallets), or MetaMask via the Cosmos Extension snap, to the Abakos sandbox. Get test ABA, send and delegate. ABA here has no value." },
     "wallet.body.html",
   ],
   [
@@ -237,7 +237,7 @@ for (const [slug, meta, bodyFile] of [
   ],
   [
     "dashboard",
-    { title: "Provider Dashboard", description: "Live Abakos Provider Agent: idle-mining the most profitable coin, buyback into ABA, 88/4/4/4 split, on-chain payouts.", eyebrow: "Sandbox tool", status: ["SANDBOX", "development"], h1: "Provider Dashboard", lede: "The Provider Agent serves rentals first, mines the most profitable coin on idle GPU/CPU, buys back ABA and pays the host on-chain (88% host / 4% stakers / 4% treasury / 4% burn). Mining is simulated on the sandbox; the payouts are real." },
+    { title: "Provider Dashboard", description: "Live Abakos Provider Agent: idle-mining the most profitable coin, buyback into ABA, 88/4/4/4 split, on-chain payouts.", eyebrow: "Sandbox tool", status: ["LIVE", "live"], h1: "Provider Dashboard", lede: "The Provider Agent serves rentals first, mines the most profitable coin on idle GPU/CPU, buys back ABA and pays the host on-chain (88% host / 4% stakers / 4% treasury / 4% burn) by verified accepted shares. Mining is simulated on the sandbox; the payouts are real." },
     "dashboard.body.html",
   ],
   [
@@ -262,7 +262,7 @@ const manifest = {
     console: { mode: "planned", publicUrl: null },
     api: { mode: "in_development", publicUrl: null },
     chat: { mode: "planned", publicUrl: null },
-    provider: { mode: "in_development", publicUrl: "https://abakos.ai/dashboard/" },
+    provider: { mode: "live", publicUrl: "https://abakos.ai/dashboard/" },
   },
 };
 await mkdir(path.join(outDir, "status"), { recursive: true });

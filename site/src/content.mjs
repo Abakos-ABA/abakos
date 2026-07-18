@@ -1,9 +1,9 @@
 export const release = {
-  phase: "Phase 0",
-  label: "ARCHITECTURE PIVOT",
+  phase: "Phase 1",
+  label: "PUBLIC SANDBOX LIVE",
   summary:
-    "Forked-Akash PoS chain with an EVM and a Provider Agent for full hardware utilization: Console deploys plus idle GPU/CPU mining into ABA. A public sandbox test network is live (wallet, explorer, ABA/USDT DEX, EVM chain 9721, Provider Agent dashboard, faucet, zero-fee transactions); mainnet follows after an audit and external validator onboarding.",
-  updated: "2026-07-17",
+    "Forked-Akash PoS chain with an EVM and a Provider Agent for full hardware utilization: Console deploys plus idle GPU/CPU mining into ABA. The public sandbox is live (wallet, explorer, ABA/USDT DEX, EVM chain 9721, Provider Agent + Dashboard, faucet, zero-fee transactions); mainnet follows after an audit and external validator onboarding.",
+  updated: "2026-07-18",
 };
 
 // Nav/footer render identically on every host (including the console/chat/
@@ -45,12 +45,12 @@ export const phases = [
   [
     "Phase 0",
     "Architecture pivot",
-    "Forked-Akash PoS design, Provider Agent spec, ABA wallet settlement (no fiat credits yet). Earlier PoUW research is archived, not the live product claim.",
-    "development",
+    "Done: Forked-Akash PoS design, Provider Agent spec, ABA wallet settlement (no fiat credits yet). Earlier PoUW research is archived, not the live product claim.",
+    "done",
   ],
   [
     "Phase 1",
-    "Public sandbox testnet (live)",
+    "Public sandbox (live)",
     "Live: public sandbox chain with an EVM (id 9721), wallet, explorer, ABA/USDT DEX, faucet, Provider Agent + Dashboard, and zero-fee transactions. Single-operator for now; decentralization comes with mainnet.",
     "live",
   ],
@@ -118,14 +118,14 @@ export const home = {
       <canvas id="grid" aria-hidden="true"></canvas>
       <div class="wrap hero-grid">
         <div>
-          <div class="hero-status"><span class="status-dot"></span>Phase 0 architecture pivot · Provider Agent and PoS fork in development</div>
+          <div class="hero-status"><span class="status-dot"></span>Phase 1 · public sandbox live: chain + EVM, wallet, explorer, ABA/USDT DEX, Provider Agent</div>
           <h1>Hardware that<br><span class="accent-gradient">stays fully used.</span></h1>
           <p class="hero-copy">The goal is maximum income from every machine. Deploy CPU, RAM, GPU and storage through the Console when there is demand. When GPU or CPU would sit idle, the Provider Agent mines the most profitable coin and auto-converts the proceeds into ABA. No empty hours. No minting ABA as a fake subsidy. Buyers pay from an ABA wallet at launch.</p>
           <div class="actions">
             <a class="btn btn-fill" href="https://console.abakos.ai/">Rent compute →</a>
             <a class="btn btn-line" href="/providers/">Maximize your hardware →</a>
           </div>
-          <p class="fineprint">Console, Provider Dashboard, Chat and API are in development. See <a href="https://status.abakos.ai/">delivery status</a> for what is live today.</p>
+          <p class="fineprint">Wallet, explorer, DEX and the Provider Dashboard are live on the sandbox; Console, Chat and API are in development. See <a href="https://status.abakos.ai/">delivery status</a> for what is live today.</p>
         </div>
         <div class="hero-console" aria-label="Abakos utilization preview">
           <div class="console-head"><span>AGENT · HOST-07</span><span class="status-badge status-development">TARGET UX</span></div>
@@ -204,7 +204,7 @@ export const home = {
           <div><b>ABA wallet</b><span>no fiat MVP</span></div>
           <div><b>10B</b><span>fixed genesis supply</span></div>
         </div>
-        <p class="source-note">Current status: the public sandbox test network is live (wallet, explorer, ABA/USDT DEX, EVM chain 9721, Provider Agent dashboard, faucet, zero-fee transactions), single-operator for now. Mainnet (external validators, audit, token with real value) and the Console/API/Chat products are not live yet.</p>
+        <p class="source-note">Current status: the public sandbox is live (wallet, explorer, ABA/USDT DEX, EVM chain 9721, Provider Agent dashboard, faucet, zero-fee transactions), single-operator for now. Mainnet (external validators, audit, token with real value) and the Console/API/Chat products are not live yet.</p>
       </div>
     </section>
 
@@ -234,7 +234,7 @@ export const home = {
         <div>
           <div class="section-label">Investor proof</div>
           <h2>A measurable infrastructure thesis.</h2>
-          <p class="lede">The proof point is not a token narrative alone. A public sandbox test network is already live &mdash; wallet, explorer, ABA/USDT DEX and the Provider Agent buyback are visible on-chain. Mainnet (audit + external validators) is next.</p>
+          <p class="lede">The proof point is not a token narrative alone. The public sandbox is already live &mdash; wallet, explorer, ABA/USDT DEX and the Provider Agent buyback are visible on-chain. Mainnet (audit + external validators) is next.</p>
           <div class="actions"><a class="btn btn-line" href="/investors/">Investor overview</a><a class="btn btn-line" href="/network/">Protocol details</a></div>
         </div>
         <div class="milestone-list">
@@ -253,7 +253,7 @@ export const home = {
           ["What does \"maximum income\" mean in practice?", "The Provider Agent tries to keep every rentable resource earning. CPU, RAM, GPU and storage can be rented via the Console. If GPU or CPU capacity would sit idle, the Agent mines the most profitable coin, auto-converts the proceeds into ABA (12% protocol cut split 4% stakers / 4% treasury / 4% burn; 88% to the host), and pays the host. Storage and RAM have no mining fallback; they earn when rented."],
           ["How do providers earn if there is no mining subsidy?", "From real paths only. A customer pays ABA for a rental or job, or idle GPU/CPU mining is converted into ABA. Validators and stakers earn from protocol fees and the staker share of the mining and Chat cuts; ABA has zero inflation. Compute hosts are not paid by minting ABA for work."],
           ["What is escrow, in plain terms?", "Escrow is ABA set aside and locked before work starts. The buyer's payment sits untouched until the provider proves delivery, then it is released. That protects both sides: the buyer is not billed for nothing, and the provider is not working on a promise."],
-          ["Is the network live?", "Yes - a public sandbox test network is live: wallet, explorer, ABA/USDT DEX (EVM chain 9721), faucet, Provider Agent dashboard and zero-fee transactions, all publicly reachable. ABA on the sandbox has no value. It runs single-operator for now; mainnet adds an external audit, outside validators and a token with real value. We can move from the sandbox straight to mainnet once those are in place."],
+          ["Is the network live?", "Yes - the public sandbox is live: wallet, explorer, ABA/USDT DEX (EVM chain 9721), faucet, Provider Agent dashboard and zero-fee transactions, all publicly reachable. ABA on the sandbox has no value. It runs single-operator for now; mainnet adds an external audit, outside validators and a token with real value. We can move from the sandbox straight to mainnet once those are in place."],
           ["How do I rent compute?", "The Console is designed like a modern deploy console: one-click templates or a visual deploy flow, always as resource bundles (vCPU+RAM+disk, optional GPU), paid from an ABA wallet. Optional add-ons include persistent storage and a dedicated IP lease. It is not live yet. See console.abakos.ai for the target design and status.abakos.ai for current status."],
           ["Is everything included in the container price?", "No. The base price covers the CPU+RAM+ephemeral-disk slice (and GPU if you attach one). Persistent storage and IP leases are optional add-ons with their own ABA line items, the same model Akash uses. Default hostnames and exposed ports ride with the base lease."],
           ["Can I supply compute in bulk?", "Yes. The Provider page has a partner track for data centers and GPU cloud operators who want to list capacity at scale. Hosts use the Provider Agent Dashboard."],
@@ -430,10 +430,10 @@ response = client.embeddings.create(
   providers: {
     title: "Compute Providers",
     description: "Maximize hardware income: rent CPU, RAM, GPU and storage via the Console, or idle-mine GPU and CPU into ABA.",
-    eyebrow: "Supply · Agent + Dashboard in development",
+    eyebrow: "Supply · Agent + Dashboard live on sandbox",
     h1: "Maximum income. Hardware always busy.",
     lede: "The Provider Agent is built for full utilization, the same idea as running an Akash provider or a Homenode, but any idle hour keeps earning. Rent CPU, RAM, GPU and storage through the Console when buyers show up. When GPU or CPU would sit idle, mine the most profitable coin and auto-convert it into ABA. No ABA is minted as a compute subsidy. Buyers pay with ABA wallets at the start.",
-    status: ["IN DEVELOPMENT", "development"],
+    status: ["SANDBOX LIVE", "live"],
     primary: ["Join the list", "#waitlist"],
     secondary: ["Apply as a partner", "mailto:info@abakos.ai?subject=Abakos%20compute%20partner"],
     body: `
@@ -498,12 +498,12 @@ response = client.embeddings.create(
         <div class="section-label">Two ways to provide</div>
         <h2>From a single card to a full data center.</h2>
         <div class="product-system">
-          ${statusCard("Phase 1 PLANNED", "Independent host", "Install the Provider Agent, open the Provider Dashboard, list one bundle or a small rack, keep control.")}
+          ${statusCard("SANDBOX LIVE", "Independent host", "Run the Provider Agent and open the Provider Dashboard now: point a miner at the sandbox and earn ABA by verified shares. Bundle rentals arrive with the Console.", "live")}
           ${statusCard("Phase 2 PLANNED", "Compute partner", "Data centers and GPU cloud operators bring many machines at once, with uptime terms and a dedicated technical contact.")}
         </div>
       </div></section>
       <section><div class="wrap"><div class="section-label">Provider path</div><h2>From Agent install to full utilization.</h2>${steps([
-        ["Phase 1", "Install Agent + Dashboard", "Run the Provider Agent, connect to the public test network, register hardware, and open the Provider Dashboard."],
+        ["Phase 1", "Install Agent + Dashboard", "Run the Provider Agent, connect to the public sandbox, register hardware, and open the Provider Dashboard."],
         ["Phase 2", "List bundles + add-ons", "Set CPU, RAM, disk, optional GPU, optional persistent storage and IP lease prices. The Console matches rentals automatically when you are the cheapest qualified option."],
         ["Phase 2", "Idle mine", "When GPU or CPU would sit free, the Agent mines the most profitable coin and auto-converts it into ABA."],
         ["Launch", "Operate", "Track utilization, rentals, mining buyback, uptime and reputation in the Provider Dashboard."],
@@ -516,10 +516,10 @@ response = client.embeddings.create(
   network: {
     title: "Abakos Network",
     description: "PoS compute chain built for full hardware utilization: Console rentals plus idle GPU/CPU mining into ABA.",
-    eyebrow: "Protocol · Phase 0 architecture",
+    eyebrow: "Protocol · Public sandbox live",
     h1: "PoS rails. Full utilization. ABA settlement.",
     lede: "Abakos forks the open Akash marketplace stack onto its own PoS chain so ABA can capture value. The Provider Agent keeps hardware busy: rent CPU, RAM, GPU and storage via the Console, or idle-mine GPU and CPU into ABA. Buyers pay with ABA wallets at the start. Earlier PoUW research is archived.",
-    status: ["Phase 0 PIVOT", "development"],
+    status: ["SANDBOX LIVE", "live"],
     primary: ["Read the technical docs", "/docs/"],
     secondary: ["View delivery status", "https://status.abakos.ai/"],
     body: `
@@ -586,10 +586,10 @@ response = client.embeddings.create(
   status: {
     title: "Project Status",
     description: "Canonical delivery status for every Abakos product surface, including the mainnet readiness gate: one page, nowhere else.",
-    eyebrow: "Status · Updated 17 July 2026",
+    eyebrow: "Status · Updated 18 July 2026",
     h1: "One source of truth.",
     lede: "Everything about what is live on the public sandbox, what is in design, and what mainnet still needs, on this one page. This is the only status page; it lives at status.abakos.ai.",
-    status: ["Phase 0 PIVOT", "development"],
+    status: ["SANDBOX LIVE", "live"],
     primary: ["Join the list", "#waitlist"],
     secondary: ["Read the docs", "https://abakos.ai/docs/"],
     body: `
@@ -621,7 +621,7 @@ response = client.embeddings.create(
     eyebrow: "Investor overview · Pre-seed",
     h1: "Compute that pays for itself. An investment thesis you can check against milestones.",
     lede: "Abakos is building a PoS compute network for maximum hardware income: buyers deploy CPU, RAM, GPU and storage via the Console in ABA; idle GPU/CPU mines the most profitable coin and auto-converts into ABA. ABA is not minted as a compute subsidy. Claims below are design targets or named milestones, not live production facts.",
-    status: ["PRE-TESTNET", "development"],
+    status: ["SANDBOX LIVE", "live"],
     primary: ["Get in touch", "mailto:info@abakos.ai?subject=Abakos%20pre-seed"],
     secondary: ["Read the litepaper", "/litepaper/"],
     body: `
@@ -673,8 +673,8 @@ response = client.embeddings.create(
             <thead><tr><th>Flow</th><th>Rate</th><th>Split / note</th></tr></thead>
             <tbody>
               <tr><td>Console / API / CPU / Storage settlement</td><td>3%</td><td>1% stakers + 1% burn + 1% treasury</td></tr>
-              <tr><td>Idle mining buyback cut</td><td>10%</td><td>90% to host as ABA; 5% stakers + 5% treasury</td></tr>
-              <tr><td>Abakos Chat product markup</td><td>+10%</td><td>4% stakers + 3% treasury + 3% burn; provider net matches the Console, then 3% fee</td></tr>
+              <tr><td>Idle mining buyback cut</td><td>12%</td><td>88% to host as ABA; 4% stakers + 4% treasury + 4% burn</td></tr>
+              <tr><td>Abakos Chat / API product markup</td><td>+12%</td><td>4% stakers + 4% treasury + 4% burn; provider net matches the Console, then 3% fee</td></tr>
               <tr><td>Inflation</td><td>0%</td><td>Fixed 10B supply; stakers paid from fees + cut shares, not minting</td></tr>
             </tbody>
           </table>
@@ -685,8 +685,8 @@ response = client.embeddings.create(
             <thead><tr><th>Illustrative unit economics, 1 GPU-month</th><th>Assumption</th><th>Gross</th><th>Protocol take</th></tr></thead>
             <tbody>
               <tr><td>Rented hours</td><td>~$0.50/hr, 55% of 730h</td><td>~$200</td><td>3% = ~$6.00</td></tr>
-              <tr><td>Idle hours mined to ABA</td><td>~$0.15/hr equiv, 45% of 730h</td><td>~$49</td><td>10% = ~$4.90</td></tr>
-              <tr><td>Host keeps</td><td>after fees, both paths</td><td>~$238</td><td></td></tr>
+              <tr><td>Idle hours mined to ABA</td><td>~$0.15/hr equiv, 45% of 730h</td><td>~$49</td><td>12% = ~$5.88</td></tr>
+              <tr><td>Host keeps</td><td>after fees, both paths</td><td>~$237</td><td></td></tr>
             </tbody>
           </table>
         </div>
@@ -713,7 +713,7 @@ response = client.embeddings.create(
       </div></section>
       <section><div class="wrap">
         <div class="section-label">The ask</div>
-        <h2>$1.5M shaped pre-seed. Runway to public testnet and audit.</h2>
+        <h2>$1.5M shaped pre-seed. Runway to mainnet: audit + external validators.</h2>
         <div class="economics-panel">
           <div><span>Target raise</span><b>$1.5M</b><small>Pre-seed. Staged option: smaller first close</small></div>
           <div><span>Preferred path</span><b class="accent">Vouchers</b><small>Compute credits / grants over a public SAFT sale narrative</small></div>
@@ -748,7 +748,7 @@ response = client.embeddings.create(
         <div class="actions"><a class="btn btn-fill" href="mailto:info@abakos.ai?subject=Abakos%20pre-seed">Get in touch</a></div>
       </div></section>
       <section><div class="wrap split"><div><div class="section-label">Next proof points</div><h2>Milestones investors can inspect themselves.</h2><p class="lede">Full phase-by-phase roadmap: <a href="https://status.abakos.ai/">status.abakos.ai</a>.</p></div><div class="milestone-list">
-        <div><span>01</span><p><b>Public PoS testnet:</b> external validator, explorer, Provider Agent Dashboard.</p></div>
+        <div><span>01</span><p><b>Public sandbox (live):</b> chain + EVM, wallet, explorer, ABA/USDT DEX, Provider Agent + Dashboard.</p></div>
         <div><span>02</span><p><b>Console:</b> first funded ABA job via template or bundle, visible settlement.</p></div>
         <div><span>03</span><p><b>Idle buyback live:</b> mine best coin then auto-convert to ABA, working end to end.</p></div>
         <div><span>04</span><p><b>API demand:</b> a developer request creates an explorer-visible job.</p></div>
@@ -765,7 +765,7 @@ response = client.embeddings.create(
           ["Why own-chain instead of deploying on Akash?", "So ABA can be the settlement and staking asset with native fee capture, genesis allocation and validator economics. Forking open Akash modules is the technical path; remaining a tenant app would not capture that value."],
           ["Is there provider token inflation?", "No. Providers earn from buyer ABA or from mining proceeds auto-converted into ABA. Validator inflation is separate and small, for chain security only."],
           ["What happened to Proof-of-Useful-Work?", "Earlier PoUW / btcd research is archived. The product thesis is now maximum hardware utilization on a PoS compute chain: Console rentals plus idle GPU/CPU mining into ABA."],
-          ["What happens if the testnet timeline slips?", "Any staged second tranche should be gated on publicly verifiable milestones, so a slip delays the next tranche instead of rewriting history."],
+          ["What happens if the mainnet timeline slips?", "Any staged second tranche should be gated on publicly verifiable milestones (the sandbox is already live and inspectable), so a slip delays the next tranche instead of rewriting history."],
           ["Is ABA a security?", "Undetermined and not overclaimed either way. A legal opinion is required before any public sale. Private instruments are structured with counsel so protection does not hinge on a slogan."],
           ["Why is this solo-founder-led right now?", "Because the project is built to reach this stage capital-efficiently before hiring. Team is the largest line item in the use-of-funds table precisely because this round funds a technical co-founder and early engineering hires."],
         ])}
@@ -796,10 +796,10 @@ response = client.embeddings.create(
     primary: ["Read the roadmap", "https://status.abakos.ai/"],
     secondary: ["Contact", "/contact/"],
     body: `<section><div class="wrap narrow"><div class="section-label">Principles</div><h2>Honesty is part of the protocol story.</h2>${steps([
-      ["01", "Show current state", "Separate design, testnet and production. Do not claim planned products, or the archived PoUW work, as live."],
+      ["01", "Show current state", "Separate design, sandbox and production. Do not claim planned products, or the archived PoUW work, as live."],
       ["02", "Maximize real utilization", "Rent via the Console when demanded; mine idle GPU/CPU into ABA. No provider inflation."],
       ["03", "Use open standards", "Open models, OpenAI-shaped APIs, an auditable fork of open compute rails."],
-      ["04", "Gate mainnet", "Testnet, audit and legal review before real economic launch."],
+      ["04", "Gate mainnet", "Sandbox, audit and legal review before real economic launch."],
     ])}</div></section>`,
   },
   contact: {
@@ -831,12 +831,12 @@ response = client.embeddings.create(
         <div>
           <div class="section-label">Community</div>
           <h2>Public, real-time, unmoderated hype.</h2>
-          <p class="lede">Discord is where delivery updates, testnet status and honest questions get answered fastest, including "is X actually live yet?"</p>
+          <p class="lede">Discord is where delivery updates, sandbox status and honest questions get answered fastest, including "is X actually live yet?"</p>
         </div>
         <div class="surface-card">
           <span class="status-badge status-live">LIVE</span>
           <h3>Discord</h3>
-          <p>Product updates, testnet status and direct access to the team.</p>
+          <p>Product updates, sandbox status and direct access to the team.</p>
           <div class="actions"><a class="btn btn-fill" href="https://discord.gg/zBxNvdMjtM" target="_blank" rel="noopener">Join the Discord</a></div>
         </div>
       </div></section>
@@ -850,7 +850,7 @@ response = client.embeddings.create(
     h1: "Privacy notice.",
     lede: "A plain-language interim notice for the current website and waitlist.",
     status: ["DRAFT", "development"],
-    body: `<section><div class="wrap narrow legal-copy"><h2>Current data collection</h2><p>The current site collects email addresses submitted voluntarily through segmented waitlists, together with submission time, segment, referring path and IP address for abuse prevention.</p><h2>Purpose</h2><p>Data is used to respond to product interest, testnet participation, provider onboarding and investor enquiries. It is not sold.</p><h2>Retention and contact</h2><p>Before production products launch, this notice will be replaced by reviewed terms covering accounts, billing and compute inputs. Contact <a href="mailto:info@abakos.ai">info@abakos.ai</a> for access or deletion requests.</p></div></section>`,
+    body: `<section><div class="wrap narrow legal-copy"><h2>Current data collection</h2><p>The current site collects email addresses submitted voluntarily through segmented waitlists, together with submission time, segment, referring path and IP address for abuse prevention.</p><h2>Purpose</h2><p>Data is used to respond to product interest, sandbox participation, provider onboarding and investor enquiries. It is not sold.</p><h2>Retention and contact</h2><p>Before production products launch, this notice will be replaced by reviewed terms covering accounts, billing and compute inputs. Contact <a href="mailto:info@abakos.ai">info@abakos.ai</a> for access or deletion requests.</p></div></section>`,
   },
   terms: {
     title: "Terms",
@@ -859,7 +859,7 @@ response = client.embeddings.create(
     h1: "Website terms.",
     lede: "The current website is informational and does not execute financial or GPU transactions.",
     status: ["DRAFT", "development"],
-    body: `<section><div class="wrap narrow legal-copy"><h2>No production service</h2><p>The Console, API, Chat, tokens and public testnet access are not currently offered as production services. Illustrative figures, listings and prices shown on this site are target designs, not live offers.</p><h2>No financial advice</h2><p>ABA parameters and timelines are drafts. Nothing on this site is an offer, investment recommendation or guarantee of returns.</p><h2>Contact</h2><p>Questions may be sent to <a href="mailto:info@abakos.ai">info@abakos.ai</a>.</p></div></section>`,
+    body: `<section><div class="wrap narrow legal-copy"><h2>No production service</h2><p>The Console, API, Chat, tokens and mainnet access are not currently offered as production services. The public sandbox is for testing only and ABA on it has no value. Illustrative figures, listings and prices shown on this site are target designs, not live offers.</p><h2>No financial advice</h2><p>ABA parameters and timelines are drafts. Nothing on this site is an offer, investment recommendation or guarantee of returns.</p><h2>Contact</h2><p>Questions may be sent to <a href="mailto:info@abakos.ai">info@abakos.ai</a>.</p></div></section>`,
   },
 };
 

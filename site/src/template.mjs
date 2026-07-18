@@ -15,7 +15,7 @@ const roadmap = () => `
           <article class="roadmap-item ${status === "live" ? "current" : ""}">
             <div class="roadmap-top">
               <span>${esc(phase)}</span>
-              <span class="status-badge status-${status}">${status === "live" ? "LIVE" : status === "development" ? "IN DEVELOPMENT" : "PLANNED"}</span>
+              <span class="status-badge status-${status}">${status === "live" ? "LIVE" : status === "done" ? "DONE" : status === "development" ? "IN DEVELOPMENT" : "PLANNED"}</span>
             </div>
             <h3>${esc(title)}</h3>
             <p>${esc(text)}</p>
@@ -68,7 +68,7 @@ const navigation = (active = "") => `
 const statusStrip = () => `
   <div class="global-status" role="status">
     <div class="wrap">
-      <span class="status-badge status-development">${esc(release.phase)} · ${esc(release.label)}</span>
+      <span class="status-badge status-live">${esc(release.phase)} · ${esc(release.label)}</span>
       <span class="global-status-text">${esc(release.summary)}</span>
       <a href="https://status.abakos.ai/"><span class="status-link-full">View delivery status</span><span class="status-link-short">Status</span> →</a>
     </div>
@@ -85,7 +85,7 @@ const waitlist = (segment = "general") => `
       <div>
         <div class="section-label">One list, every update</div>
         <h2>Join the Abakos list.</h2>
-        <p class="lede">Updates on all progress and products &mdash; testnet, Console, API and Chat. For the fastest small updates and quick answers, hop into our <a href="https://discord.gg/zBxNvdMjtM" target="_blank" rel="noopener">Discord</a>. Never token-price hype.</p>
+        <p class="lede">Updates on all progress and products &mdash; sandbox, Console, API and Chat. For the fastest small updates and quick answers, hop into our <a href="https://discord.gg/zBxNvdMjtM" target="_blank" rel="noopener">Discord</a>. Never token-price hype.</p>
       </div>
       <div>
         <form class="wl" data-waitlist="${esc(segment)}">
@@ -106,7 +106,7 @@ const footer = () => `
         <div class="footer-brand">
           <a class="brand brand-footer" href="https://abakos.ai/"><img class="brand-logo" src="/assets/logo-horizontal.png?v=4" alt="Abakos"></a>
           <p>Hardware that stays fully used.</p>
-          <span class="status-badge status-development">PUBLIC TESTNET IN DEVELOPMENT</span>
+          <span class="status-badge status-live">PUBLIC SANDBOX LIVE</span>
         </div>
         <div class="footer-column"><h4>Products</h4><a href="https://console.abakos.ai/">Console</a><a href="https://chat.abakos.ai/">Chat</a><a href="https://abakos.ai/developers/">API</a><a href="https://abakos.ai/wallet/">Wallet</a><a href="https://abakos.ai/providers/">Providers</a></div>
         <div class="footer-column"><h4>Network</h4><a href="https://abakos.ai/network/">Protocol</a><a href="https://status.abakos.ai/">Status</a><a href="https://abakos.ai/explorer/">Explorer</a><a href="https://abakos.ai/dex/">DEX</a><a href="https://abakos.ai/investors/">Investors</a></div>
@@ -116,7 +116,7 @@ const footer = () => `
         <span>© <span id="yr">2026</span> Abakos</span>
         <div><a href="https://abakos.ai/about/">About</a><a href="https://abakos.ai/privacy/">Privacy</a><a href="https://abakos.ai/terms/">Terms</a><a href="https://abakos.ai/contact/">Contact</a></div>
       </div>
-      <p class="disc">Abakos is pre-testnet infrastructure in development. Timelines and protocol parameters are drafts. Nothing on this site is financial advice or a guarantee of compute price, token value, provider revenue, or launch date.</p>
+      <p class="disc">Abakos is pre-mainnet infrastructure; the public sandbox is live for testing (ABA has no value there). Timelines and protocol parameters are drafts. Nothing on this site is financial advice or a guarantee of compute price, token value, provider revenue, or launch date.</p>
     </div>
   </footer>`;
 

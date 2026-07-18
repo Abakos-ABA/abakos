@@ -66,6 +66,7 @@ h3{font-size:21px;line-height:1.2}
 .fineprint a{color:var(--abk-text-soft);text-decoration:underline}
 .status-badge{display:inline-flex;align-items:center;width:max-content;padding:5px 8px;border:1px solid var(--abk-line);border-radius:var(--abk-radius-sm);font-family:var(--abk-font-mono);font-size:10px;line-height:1;letter-spacing:.09em;text-transform:uppercase;color:var(--abk-text-muted);background:var(--abk-card)}
 .status-live{border-color:rgba(var(--abk-green-rgb),.5);color:var(--abk-green)}
+.status-done{border-color:rgba(var(--abk-green-rgb),.35);color:var(--abk-green);opacity:.85}
 .status-development{border-color:#536078;color:var(--abk-text-soft)}
 .status-planned{color:var(--abk-text-muted)}
 
