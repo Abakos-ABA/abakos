@@ -1,0 +1,52 @@
+---
+description: House writing style, avoid AI-sounding prose in site copy and docs
+alwaysApply: true
+---
+
+# Write like a person, not like an LLM
+
+This applies to all prose written for this project: website copy
+(`site/src/content.mjs`, `site/src/template.mjs`), docs (`docs/**/*.md`),
+commit messages, and code comments. Marketing/investor copy especially gets
+read closely for "this was written by AI" tells. Avoid them.
+
+## Hard rule: no em dashes
+
+Never use the em dash (`—`) or spaced en dash as a sentence connector. This is
+the single most obvious AI-writing tell. Rewrite with the punctuation that
+actually fits:
+
+- Two related independent clauses → a period, or a semicolon.
+- A clarifying aside → parentheses, or a comma.
+- A list lead-in → a colon.
+- A contrast → "but" / "while" / "though", not a dash.
+
+```text
+❌ Empty mining stays available for security — it just pays less.
+✅ Empty mining stays available for security. It just pays less.
+
+❌ Escrow — money held safely until the work is checked — protects both sides.
+✅ Escrow (money held safely until the work is checked) protects both sides.
+```
+
+Hyphens inside compound words (`self-serve`, `stand-in`) and en dashes in
+number ranges (`25–100%`, `2020–2026`) are fine. Only the sentence-connector
+dash is banned.
+
+## Other tells to avoid
+
+- Buzzwords: "leverage," "seamless," "robust," "delve into," "unlock" (as
+  filler), "elevate," "game-changer," "cutting-edge," "unprecedented,"
+  "holistic," "in today's fast-paced world."
+- "It's not just X, it's Y" / "It's not about X, it's about Y" constructions.
+- Starting consecutive sentences or bullets with the same bolded lead-in
+  pattern ("**Word:** rest of sentence") more than 2-3 times in a row.
+- Rule-of-three lists that feel forced ("fast, reliable, and secure") when
+  the real content only supports two points or four uneven ones.
+- Hedge-padding: "It's worth noting that," "It's important to remember,"
+  before a claim that could just be stated directly.
+
+## Before finishing any content edit
+
+Re-read what you wrote and check for em dashes and the list above. Fix them
+before considering the edit done, don't leave cleanup for later.

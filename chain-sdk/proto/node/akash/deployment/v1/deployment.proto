@@ -1,0 +1,95 @@
+syntax = "proto3";
+package akash.deployment.v1;
+
+import "gogoproto/gogo.proto";
+import "cosmos_proto/cosmos.proto";
+import "google/protobuf/duration.proto";
+
+option go_package = "pkg.akt.dev/go/node/deployment/v1";
+
+// DeploymentID represents a unique identifier for a specific deployment on the network.
+// It is composed of two fields: an owner address and a sequence number (dseq).
+message DeploymentID {
+  option (gogoproto.equal)            = true;
+  option (gogoproto.goproto_stringer) = false;
+
+  // Owner is the account bech32 address of the user who owns the deployment.
+  // It is a string representing a valid bech32 account address.
+  //
+  // Example:
+  //   "akash1..."
+  string owner = 1 [
+    (cosmos_proto.scalar) = "cosmos.AddressString",
+    (gogoproto.jsontag)   = "owner",
+    (gogoproto.moretags)  = "yaml:\"owner\""
+  ];
+
+  // Dseq (deployment sequence number) is a unique numeric identifier for the deployment.
+  // It is used to differentiate deployments created by the same owner.
+  uint64 dseq = 2 [
+    (gogoproto.customname) = "DSeq",
+    (gogoproto.jsontag)    = "dseq",
+    (gogoproto.moretags)   = "yaml:\"dseq\""
+  ];
+}
+
+// Deployment stores deploymentID, state and checksum details.
+message Deployment {
+  option (gogoproto.equal) = false;
+
+  // State is an enum which refers to state of deployment.
+   enum State {
+      option (gogoproto.goproto_enum_prefix) = false;
+
+      // Prefix should start with 0 in enum. So declaring dummy state.
+      invalid = 0 [(gogoproto.enumvalue_customname) = "DeploymentStateInvalid"];
+      // DeploymentActive denotes state for deployment active.
+      active = 1 [(gogoproto.enumvalue_customname)  = "DeploymentActive"];
+      // DeploymentClosed denotes state for deployment closed.
+      closed = 2 [(gogoproto.enumvalue_customname)  = "DeploymentClosed"];
+  }
+
+  // ID is the unique identifier of the deployment.
+  DeploymentID id = 1 [
+    (gogoproto.nullable)   = false,
+    (gogoproto.customname) = "ID",
+    (gogoproto.jsontag)    = "id",
+    (gogoproto.moretags)   = "yaml:\"id\""
+  ];
+
+  // State defines the sate of the deployment.
+  // A deployment can be either active or inactive.
+  State state = 2 [
+    (gogoproto.jsontag)  = "state",
+    (gogoproto.moretags) = "yaml:\"state\""
+  ];
+
+  // Hash is an hashed representation of the deployment.
+  bytes hash = 3 [
+    (gogoproto.jsontag)  = "hash",
+    (gogoproto.moretags) = "yaml:\"hash\""
+  ];
+
+  // CreatedAt indicates when the deployment was created as a block height value.
+  int64 created_at = 4;
+
+  // reclamation stores the deployment's reclamation requirements for persistence.
+  // Needed so that StartGroup can propagate reclamation to newly created orders.
+  DeploymentReclamation reclamation = 5 [
+    (gogoproto.nullable) = true,
+    (gogoproto.jsontag)  = "reclamation,omitempty",
+    (gogoproto.moretags) = "yaml:\"reclamation,omitempty\""
+  ];
+}
+
+// DeploymentReclamation defines the tenant's reclamation requirements.
+// Stored on the Deployment and propagated to Orders.
+message DeploymentReclamation {
+  // min_window is the minimum reclamation window the tenant requires.
+  google.protobuf.Duration min_window = 1 [
+    (gogoproto.nullable)    = false,
+    (gogoproto.stdduration) = true,
+    (gogoproto.jsontag)     = "min_window",
+    (gogoproto.moretags)    = "yaml:\"min_window\""
+  ];
+}

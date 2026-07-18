@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Abakos Sandbox Explorer</title>
+<style>
+  :root { --bg:#070709; --panel:#111117; --line:#24242e; --fg:#e9e9f2; --mut:#9a9ab0; --accent:#2f6bff; --ok:#39d98a; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif; }
+  .wrap { max-width:960px; margin:0 auto; padding:28px 20px 80px; }
+  h1 { font-size:24px; margin:0; }
+  .top { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+  .pill { font-size:12px; color:var(--ok); border:1px solid #1c3a2b; background:#0c1a13; padding:4px 10px; border-radius:999px; }
+  .sub { color:var(--mut); margin:2px 0 22px; font-size:13px; }
+  .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:22px; }
+  .stat { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px; }
+  .stat b { display:block; font-size:22px; }
+  .stat span { color:var(--mut); font-size:12px; text-transform:uppercase; letter-spacing:.06em; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:18px; }
+  .card h2 { font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--mut); margin:0 0 12px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); }
+  th { color:var(--mut); font-weight:600; font-size:11px; text-transform:uppercase; }
+  td.mono, .mono { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; }
+  .mut { color:var(--mut); }
+  @media(max-width:720px){ .grid{grid-template-columns:repeat(2,1fr);} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>Abakos Explorer</h1><div class="sub">Sandbox network. ABA has no value here.</div></div>
+    <div class="pill" id="live">connecting...</div>
+  </div>
+
+  <div class="grid">
+    <div class="stat"><span>Chain ID</span><b id="chainid" style="font-size:15px">-</b></div>
+    <div class="stat"><span>Height</span><b id="height">-</b></div>
+    <div class="stat"><span>Bonded validators</span><b id="valcount">-</b></div>
+    <div class="stat"><span>Total supply</span><b id="supply" style="font-size:17px">-</b></div>
+  </div>
+
+  <div class="card">
+    <h2>Latest blocks</h2>
+    <table><thead><tr><th>Height</th><th>Time</th><th>Txs</th><th>Proposer</th></tr></thead>
+    <tbody id="blocks"><tr><td colspan="4" class="mut">loading...</td></tr></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>Validators</h2>
+    <table><thead><tr><th>Moniker</th><th>Status</th><th>Voting power (ABA)</th><th>Commission</th></tr></thead>
+    <tbody id="vals"><tr><td colspan="4" class="mut">loading...</td></tr></tbody></table>
+  </div>
+
+  <div class="sub">RPC <span class="mono">rpc.abakos.ai</span> · REST <span class="mono">rest.abakos.ai</span> · <a href="https://abakos.ai/wallet/" style="color:#7aa2ff">Wallet</a></div>
+</div>
+
+<script>
+const RPC = "https://rpc.abakos.ai", REST = "https://rest.abakos.ai";
+const el = (id) => document.getElementById(id);
+const j = async (u) => (await fetch(u)).json();
+const short = (s, n = 10) => s ? (s.length > 2 * n ? s.slice(0, n) + "…" + s.slice(-6) : s) : "";
+const aba = (u) => (Number(u) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 0 });
+const ago = (t) => { const s = Math.max(0, (Date.now() - new Date(t).getTime()) / 1000); return s < 60 ? `${s | 0}s ago` : `${(s / 60) | 0}m ago`; };
+
+async function tick() {
+  try {
+    const st = (await j(`${RPC}/status`)).result;
+    el("live").textContent = st.sync_info.catching_up ? "syncing" : "live";
+    el("chainid").textContent = st.node_info.network;
+    const h = Number(st.sync_info.latest_block_height);
+    el("height").textContent = h.toLocaleString();
+
+    const bc = (await j(`${RPC}/blockchain?minHeight=${Math.max(1, h - 14)}&maxHeight=${h}`)).result;
+    const rows = (bc.block_metas || []).map((m) => {
+      const hd = m.header;
+      return `<tr><td class="mono">${Number(hd.height).toLocaleString()}</td><td class="mut">${ago(hd.time)}</td><td>${m.num_txs || "0"}</td><td class="mono mut">${short(hd.proposer_address, 8)}</td></tr>`;
+    }).join("");
+    el("blocks").innerHTML = rows || `<tr><td colspan="4" class="mut">no blocks</td></tr>`;
+
+    const sup = await j(`${REST}/cosmos/bank/v1beta1/supply/by_denom?denom=uaba`);
+    el("supply").textContent = aba(sup.amount.amount) + " ABA";
+
+    const vs = (await j(`${REST}/cosmos/staking/v1beta1/validators`)).validators || [];
+    const bonded = vs.filter((v) => v.status === "BOND_STATUS_BONDED");
+    el("valcount").textContent = bonded.length;
+    el("vals").innerHTML = vs.map((v) => `<tr><td>${v.description?.moniker || "-"}</td><td>${v.status.replace("BOND_STATUS_", "").toLowerCase()}</td><td>${aba(v.tokens)}</td><td>${(Number(v.commission?.commission_rates?.rate || 0) * 100).toFixed(0)}%</td></tr>`).join("") || `<tr><td colspan="4" class="mut">none</td></tr>`;
+  } catch (e) {
+    el("live").textContent = "unreachable";
+  }
+}
+tick();
+setInterval(tick, 5000);
+</script>
+</body>
+</html>

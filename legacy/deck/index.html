@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Abakos: Pre-Seed Deck</title>
+<style>
+  :root{--bg:#0a0b12;--bg2:#0e1020;--card:#13162a;--line:#222746;--txt:#e8ebf5;--muted:#9aa2c0;--accent:#7c5cff;--accent2:#22d3ee;--good:#34d399;--warn:#fb7185}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--txt);font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .deck{height:100vh;overflow-y:scroll;scroll-snap-type:y mandatory;scroll-behavior:smooth}
+  section{min-height:100vh;scroll-snap-align:start;display:flex;flex-direction:column;justify-content:center;padding:7vh 8vw;position:relative;border-bottom:1px solid rgba(255,255,255,.03)}
+  section::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(900px 520px at 82% -10%,rgba(124,92,255,.16),transparent),radial-gradient(700px 460px at -5% 8%,rgba(34,211,238,.09),transparent)}
+  .kicker{color:var(--accent2);font-weight:700;letter-spacing:1.6px;text-transform:uppercase;font-size:13px;margin-bottom:14px}
+  h1{font-size:clamp(40px,6.5vw,82px);font-weight:800;letter-spacing:-2px;line-height:1.02}
+  h1 .grad{background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  h2{font-size:clamp(28px,4.4vw,52px);font-weight:800;letter-spacing:-1px;margin-bottom:8px}
+  p.big{font-size:clamp(19px,2.4vw,26px);color:var(--muted);max-width:60ch;margin-top:16px}
+  p.note{color:var(--muted);margin-top:14px;max-width:62ch}
+  ul{margin:22px 0 0 0;list-style:none;max-width:64ch}
+  li{font-size:clamp(17px,2.1vw,22px);margin:14px 0;padding-left:30px;position:relative;color:#dfe3f2}
+  li::before{content:"▸";position:absolute;left:0;color:var(--accent2)}
+  li b{color:#fff}
+  .cols{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:30px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px}
+  .card h3{font-size:20px;margin-bottom:8px}
+  .card p{color:var(--muted);font-size:15.5px}
+  table{width:100%;border-collapse:collapse;margin-top:26px;font-size:clamp(14px,1.6vw,18px);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  th,td{padding:13px 16px;text-align:left;border-bottom:1px solid var(--line)}
+  th{background:var(--bg2);color:var(--muted)}
+  td.good{color:var(--good);font-weight:700}td.no{color:var(--warn)}
+  tr:last-child td{border-bottom:none}
+  .stat{display:flex;gap:40px;flex-wrap:wrap;margin-top:30px}
+  .stat .s{min-width:160px}
+  .stat .n{font-size:clamp(30px,4vw,46px);font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .stat .l{color:var(--muted);font-size:15px;margin-top:4px}
+  .brand{display:flex;align-items:center;gap:12px;font-weight:800;letter-spacing:.6px;font-size:22px;margin-bottom:30px}
+  .brand img{height:36px;width:auto;display:block}
+  .counter{position:fixed;bottom:18px;right:22px;color:var(--muted);font-size:13px;background:rgba(19,22,42,.8);border:1px solid var(--line);padding:6px 12px;border-radius:999px;backdrop-filter:blur(6px);z-index:5}
+  .hint{position:fixed;bottom:18px;left:22px;font-size:12px;color:#5c637f;z-index:5}
+  .disc{color:#6c7396;font-size:13px;margin-top:26px;max-width:64ch}
+  .ask{font-size:clamp(30px,4.6vw,56px);font-weight:800;margin-top:10px}
+  .ask .grad{background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  @media(max-width:760px){.cols{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <!-- 1 cover -->
+  <section>
+    <div class="brand">
+      <img src="assets/logo-horizontal.png" alt="Abakos" width="200" height="48" decoding="async" />
+    </div>
+    <h1>Compute that<br><span class="grad">pays for itself.</span></h1>
+    <p class="big">The AI-compute blockchain where every <b>paid</b> GPU job also secures the chain, so compute costs less than anywhere else.</p>
+    <p class="note">Pre-Seed · abakos.ai · info@abakos.ai · discord.gg/zBxNvdMjtM</p>
+  </section>
+
+  <!-- 2 problem -->
+  <section>
+    <div class="kicker">Problem</div>
+    <h2>AI runs on compute. Compute is expensive, centralized, and "useful mining" is a lie.</h2>
+    <ul>
+      <li>AI is bottlenecked by <b>GPU compute</b>; supply is gated by AWS/Azure/GCP at premium prices.</li>
+      <li>Proof-of-Work chains burn huge energy to produce <b>only security</b>.</li>
+      <li>The leading "useful work" chain (Pearl) verifies that a matmul was <b>correct</b>, not <b>useful</b>.</li>
+    </ul>
+    <div class="stat"><div class="s"><div class="n">~112 MW</div><div class="l">burned by one PoUW chain</div></div><div class="s"><div class="n">~320k</div><div class="l">GPUs producing zero real AI</div></div></div>
+  </section>
+
+  <!-- 3 solution -->
+  <section>
+    <div class="kicker">Solution</div>
+    <h2>Abakos enforces usefulness, economically.</h2>
+    <div class="cols">
+      <div class="card"><h3>Enforced usefulness</h3><p>Full block rewards only for paid, verified work. Empty mining earns 25%. Useful compute becomes the dominant strategy.</p></div>
+      <div class="card"><h3>Marketplace + escrow</h3><p>Buyers lock stablecoin; miners deliver output + ZK proof; settlement is atomic. The product Pearl never shipped.</p></div>
+      <div class="card"><h3>Abakos Chat</h3><p>A "ChatGPT for everyone," crypto invisible. Turns mainstream demand into real, paid compute.</p></div>
+    </div>
+  </section>
+
+  <!-- 4 why now -->
+  <section>
+    <div class="kicker">Why now</div>
+    <h2>Three curves are colliding.</h2>
+    <ul>
+      <li><b>AI demand</b> for inference/compute is exploding and supply-constrained.</li>
+      <li><b>DePIN</b> (decentralized physical infrastructure) is a proven, fast-growing crypto category.</li>
+      <li><b>PoUW is finally real</b> (peer-reviewed cuPOW), but shipped without enforced usefulness or a marketplace. The gap is open <em>now</em>.</li>
+    </ul>
+  </section>
+
+  <!-- 5 product -->
+  <section>
+    <div class="kicker">Product · how it works</div>
+    <h2>Real work in, real value out.</h2>
+    <ul>
+      <li>Buyer orders compute (chat, inference, embeddings, fine-tuning) and locks <b>stablecoin in escrow</b>.</li>
+      <li>A miner runs the GEMM job and proves it (PoUW/ZK, bound to a model hash).</li>
+      <li>Settlement is atomic: miner gets <b>stablecoin + full block reward</b> → buyer pays <b>below market</b>.</li>
+      <li><b>Abakos Chat</b> sends mainstream demand straight into this loop.</li>
+    </ul>
+    <p class="note">We accept existing stablecoins (USDC/USDT); we do not issue our own.</p>
+  </section>
+
+  <!-- 6 differentiation -->
+  <section>
+    <div class="kicker">Differentiation</div>
+    <h2>Feature comparison.</h2>
+    <table>
+      <thead><tr><th>Feature</th><th>Pearl</th><th>Gonka</th><th>io.net / Akash</th><th>Abakos</th></tr></thead>
+      <tbody>
+        <tr><td>Useful work enforced</td><td class="no">claimed</td><td>partial</td><td>n/a</td><td class="good">✓ economically</td></tr>
+        <tr><td>Compute marketplace</td><td class="no">✗</td><td>partial</td><td class="good">✓</td><td class="good">✓ + escrow</td></tr>
+        <tr><td>Consumer app (chat)</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td><td class="good">✓</td></tr>
+        <tr><td>PoW price subsidy</td><td>wasted</td><td>✓</td><td class="no">✗</td><td class="good">✓ toward real work</td></tr>
+        <tr><td>Stablecoin settlement</td><td class="no">✗</td><td>partial</td><td>partial</td><td class="good">✓ escrow</td></tr>
+        <tr><td>OpenAI API (IDE)</td><td class="no">gated</td><td>?</td><td class="no">✗</td><td class="good">✓</td></tr>
+        <tr><td>% useful (public)</td><td class="no">0%</td><td>?</td><td>n/a</td><td class="good">✓ live</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 7 moat -->
+  <section>
+    <div class="kicker">Competitive moat</div>
+    <h2>Nobody combines all three.</h2>
+    <div class="cols">
+      <div class="card"><h3>1 · Enforced usefulness</h3><p>Full rewards only for <b>paid escrow</b> work. Pearl measured <b>0% useful AI</b> (arXiv 2606.04819); we make that structurally hard to repeat.</p></div>
+      <div class="card"><h3>2 · 2-for-1 economics</h3><p>Same GPU hour earns <b>mining subsidy + paid output</b>. Undercuts io.net &amp; OpenRouter on effective price, not just cheaper rent.</p></div>
+      <div class="card"><h3>3 · Demand stack</h3><p><b>Marketplace + Abakos Chat + IDE API</b> channel mainstream &amp; developer demand into the chain. No PoW competitor has all three.</p></div>
+    </div>
+    <ul style="margin-top:28px">
+      <li><b>vs Pearl:</b> enforce usefulness, don't just verify matmul correctness.</li>
+      <li><b>vs Gonka:</b> PoW mining subsidy + stablecoin escrow + consumer app.</li>
+      <li><b>vs GPU marketplaces:</b> block rewards subsidize the same watt-hour.</li>
+      <li><b>vs OpenRouter/AWS:</b> open-weight path, mining-subsidized unit economics.</li>
+    </ul>
+    <p class="note">Proof point: public <b>% useful compute</b> in the explorer, our marketing weapon against Pearl.</p>
+  </section>
+
+  <!-- 8 traction -->
+  <section>
+    <div class="kicker">Traction (early, honest)</div>
+    <h2>Built, shipped, testnet next.</h2>
+    <ul>
+      <li>Live hub + litepaper/whitepaper at <b>abakos.ai</b> with segmented waitlist.</li>
+      <li>Private monorepo: node economics (reward-split, emission, fee/burn) <b>with passing tests + green CI</b>.</li>
+      <li>Testnet-first plan: <b>PoUW chain → marketplace → API → Chat</b> (docs/17-testnet-plan).</li>
+      <li>Next: public incentivized testnet + <b>% useful</b> dashboard → audit → mainnet.</li>
+    </ul>
+  </section>
+
+  <!-- 8 market -->
+  <section>
+    <div class="kicker">Market</div>
+    <h2>A multi-hundred-billion-dollar compute market.</h2>
+    <ul>
+      <li>Cloud GPU + AI inference is one of the fastest-growing infrastructure spends globally.</li>
+      <li>Decentralized compute (Akash, io.net, Render, Bittensor) already proves real demand and token value.</li>
+      <li>Our wedge: <b>cheapest effective price</b> (PoW-subsidized) + a <b>consumer demand engine</b> nobody else has.</li>
+    </ul>
+  </section>
+
+  <!-- 9 business model -->
+  <section>
+    <div class="kicker">Business model &amp; token</div>
+    <h2>Revenue in stablecoin, value accrual in ABA.</h2>
+    <ul>
+      <li><b>Marketplace fee</b> 2% (1% treasury / 1% burn) on every compute trade.</li>
+      <li><b>Abakos Chat margin</b> on inference, scales with users.</li>
+      <li><b>ABA</b> (2.1B max): mining rewards, payments, staking; deflationary via burn.</li>
+      <li>Subsidy (token) and revenue (stablecoin) kept strictly separate.</li>
+    </ul>
+  </section>
+
+  <!-- 10 financials -->
+  <section>
+    <div class="kicker">Financials (illustrative model)</div>
+    <h2>Break-even ~month 14 on a $1.5M pre-seed.</h2>
+    <table>
+      <thead><tr><th>Scenario</th><th>Active GPUs</th><th>Revenue / mo</th><th>Revenue / yr</th></tr></thead>
+      <tbody>
+        <tr><td>Start</td><td>500</td><td>~$6.4k</td><td>~$77k</td></tr>
+        <tr><td>Growth</td><td>2,000</td><td>~$35.9k</td><td>~$431k</td></tr>
+        <tr><td>Scale</td><td>10,000</td><td class="good">~$224k</td><td class="good">~$2.69M</td></tr>
+      </tbody>
+    </table>
+    <div class="stat"><div class="s"><div class="n">Month 14</div><div class="l">break-even (rev ≥ opex)</div></div><div class="s"><div class="n">&gt;24 mo</div><div class="l">runway on $1.5M</div></div></div>
+    <p class="disc">Illustrative; calibratable model in repo (model/model.py). Calibrate with real GPU prices / ARPU / opex before diligence.</p>
+  </section>
+
+  <!-- 11 gtm -->
+  <section>
+    <div class="kicker">Go-to-market</div>
+    <h2>Supply first, then point demand at it.</h2>
+    <ul>
+      <li><b>Supply:</b> neoclouds with idle GPUs + solo miners (1-click installer).</li>
+      <li><b>Demand:</b> latency-tolerant batch jobs (embeddings/labeling) → fastest revenue.</li>
+      <li><b>Mainstream:</b> Abakos Chat as the consumer demand magnet.</li>
+      <li><b>Wedge marketing:</b> public <b>% useful compute</b> leaderboard; Pearl measured 0%.</li>
+    </ul>
+  </section>
+
+  <!-- 12 ask -->
+  <section>
+    <div class="kicker">The ask</div>
+    <h2>Raising pre-seed to reach testnet, audit &amp; mainnet.</h2>
+    <div class="ask">$1.5M <span class="grad">pre-seed</span></div>
+    <ul>
+      <li><b>Team</b> (protocol + GPU/ZK + full-stack), the core build.</li>
+      <li><b>Security audit</b> of the new consensus modules.</li>
+      <li><b>Legal</b> (token structure, ToS, trademark) + infra + listing/liquidity.</li>
+      <li>Target: incentivized testnet → audit → mainnet + token (~12 months).</li>
+    </ul>
+    <p class="note">Let's talk: info@abakos.ai · abakos.ai · discord.gg/zBxNvdMjtM</p>
+  </section>
+
+</div>
+<div class="counter" id="counter">1 / 13</div>
+<div class="hint">← → / Space to navigate</div>
+<script>
+  var deck=document.getElementById('deck');
+  var slides=Array.prototype.slice.call(deck.querySelectorAll('section'));
+  var counter=document.getElementById('counter');
+  function current(){var i=Math.round(deck.scrollTop/window.innerHeight);return Math.max(0,Math.min(slides.length-1,i));}
+  function go(i){i=Math.max(0,Math.min(slides.length-1,i));slides[i].scrollIntoView();}
+  function update(){counter.textContent=(current()+1)+' / '+slides.length;}
+  deck.addEventListener('scroll',function(){window.requestAnimationFrame(update);});
+  document.addEventListener('keydown',function(e){
+    if(e.key==='ArrowRight'||e.key==='PageDown'||e.key===' '){e.preventDefault();go(current()+1);}
+    else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();go(current()-1);}
+    else if(e.key==='Home'){go(0);}else if(e.key==='End'){go(slides.length-1);}
+  });
+  update();
+</script>
+</body>
+</html>

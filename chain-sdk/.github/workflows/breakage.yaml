@@ -1,0 +1,27 @@
+name: proto
+
+on:
+  pull_request:
+    paths:
+      - "**.proto"
+jobs:
+  breakage:
+    runs-on: [self-hosted, akash]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch main branch
+        run: git fetch origin main:main
+      - name: Setup env
+        uses: HatsuneMiku3939/direnv-action@v1
+      - run: |
+          toolchain=$(./script/tools.sh gotoolchain | sed 's/go*//')
+          echo "GOVERSION=${toolchain}" >> $GITHUB_ENV
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GOVERSION }}"
+      - name: go mod vendor
+        run: make modvendor
+      - name: check-breakage
+        run: make proto-check-breaking

@@ -1,0 +1,121 @@
+---
+project_name: node
+version: 2
+dist: ./.cache/goreleaser/test-bins
+before:
+  hooks:
+    - apt update
+    - apt install -y pkg-config libudev-dev:amd64 libudev-dev:arm64
+env:
+  - GO111MODULE=on
+  - CGO_ENABLED=1
+builds:
+  - id: akash-darwin-amd64
+    binary: akash
+    main: ./cmd/akash
+    goarch:
+      - amd64
+    goos:
+      - darwin
+    env:
+      - CC=o64-clang
+      - CXX=o64-clang++
+      - CGO_CFLAGS=-mmacosx-version-min=10.12
+      - CGO_LDFLAGS=-L./.cache/lib -mmacosx-version-min=10.12
+    flags:
+      - "-mod={{ .Env.MOD }}"
+      - "-tags={{ .Env.BUILD_TAGS }} static_wasm"
+      - -trimpath
+    ldflags:
+      - "{{ .Env.BUILD_LDFLAGS }}"
+      - -s -w
+      - -linkmode=external
+  - id: akash-darwin-arm64
+    binary: akash
+    main: ./cmd/akash
+    goarch:
+      - arm64
+    goos:
+      - darwin
+    env:
+      - CC=oa64-clang
+      - CXX=oa64-clang++
+      - CGO_CFLAGS=-mmacosx-version-min=10.12
+      - CGO_LDFLAGS=-L./.cache/lib -mmacosx-version-min=10.12
+    flags:
+      - "-mod={{ .Env.MOD }}"
+      - "-tags={{ .Env.BUILD_TAGS }} static_wasm"
+      - -trimpath
+    ldflags:
+      - "{{ .Env.BUILD_LDFLAGS }}"
+      - -s -w
+      - -linkmode=external
+  - id: akash-linux-amd64
+    binary: akash
+    main: ./cmd/akash
+    env:
+      - CC=x86_64-linux-gnu-gcc
+      - CXX=x86_64-linux-gnu-g++
+    goarch:
+      - amd64
+    goos:
+      - linux
+    flags:
+      - "-mod={{ .Env.MOD }}"
+      - "-tags={{ .Env.BUILD_TAGS }}"
+      - -trimpath
+    ldflags:
+      - "{{ .Env.BUILD_LDFLAGS }}"
+      - -s -w
+      - -linkmode=external
+      # yamllint disable-line rule:line-length
+      - -extldflags "-L./.cache/lib -lwasmvm_muslc.x86_64 -Wl,-z,muldefs -lm -lrt -lc"
+  - id: akash-linux-arm64
+    binary: akash
+    main: ./cmd/akash
+    goarch:
+      - arm64
+    goos:
+      - linux
+    env:
+      - CC=aarch64-linux-gnu-gcc
+      - CXX=aarch64-linux-gnu-g++
+    flags:
+      - "-mod={{ .Env.MOD }}"
+      - "-tags={{ .Env.BUILD_TAGS }}"
+      - -trimpath
+    ldflags:
+      - "{{ .Env.BUILD_LDFLAGS }}"
+      - -s -w
+      - -linkmode=external
+      # yamllint disable-line rule:line-length
+      - -extldflags "-L./.cache/lib -lwasmvm_muslc.aarch64 -Wl,-z,muldefs -lm -lrt -lc"
+universal_binaries:
+  - id: akash-darwin-universal
+    ids:
+      - akash-darwin-amd64
+      - akash-darwin-arm64
+    replace: true
+    name_template: "akash"
+
+archives:
+  - id: wo/version
+    ids:
+      - akash-darwin-universal
+      - akash-linux-amd64
+      - akash-linux-arm64
+    name_template: "akash_{{ .Os }}_{{ .Arch }}"
+    wrap_in_directory: false
+    formats:
+      - zip
+    files:
+      - none*
+  - id: contracts
+    name_template: "contracts"
+    meta: true
+    wrap_in_directory: false
+    formats:
+      - zip
+    files:
+      - src: .cache/cosmwasm/artifacts/**.*
+        strip_parent: true

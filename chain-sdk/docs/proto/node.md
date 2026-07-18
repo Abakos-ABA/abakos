@@ -1,0 +1,7720 @@
+<!-- This file is auto-generated. Please do not modify it yourself. -->
+ # Protobuf Documentation
+ <a name="top"></a>
+
+ ## Table of Contents
+ 
+ - [akash/base/attributes/v1/attribute.proto](#akash/base/attributes/v1/attribute.proto)
+     - [Attribute](#akash.base.attributes.v1.Attribute)
+     - [PlacementRequirements](#akash.base.attributes.v1.PlacementRequirements)
+     - [SignedBy](#akash.base.attributes.v1.SignedBy)
+   
+ - [akash/audit/v1/audit.proto](#akash/audit/v1/audit.proto)
+     - [AttributesFilters](#akash.audit.v1.AttributesFilters)
+     - [AuditedAttributesStore](#akash.audit.v1.AuditedAttributesStore)
+     - [AuditedProvider](#akash.audit.v1.AuditedProvider)
+   
+ - [akash/audit/v1/event.proto](#akash/audit/v1/event.proto)
+     - [EventTrustedAuditorCreated](#akash.audit.v1.EventTrustedAuditorCreated)
+     - [EventTrustedAuditorDeleted](#akash.audit.v1.EventTrustedAuditorDeleted)
+   
+ - [akash/audit/v1/genesis.proto](#akash/audit/v1/genesis.proto)
+     - [GenesisState](#akash.audit.v1.GenesisState)
+   
+ - [akash/audit/v1/msg.proto](#akash/audit/v1/msg.proto)
+     - [MsgDeleteProviderAttributes](#akash.audit.v1.MsgDeleteProviderAttributes)
+     - [MsgDeleteProviderAttributesResponse](#akash.audit.v1.MsgDeleteProviderAttributesResponse)
+     - [MsgSignProviderAttributes](#akash.audit.v1.MsgSignProviderAttributes)
+     - [MsgSignProviderAttributesResponse](#akash.audit.v1.MsgSignProviderAttributesResponse)
+   
+ - [akash/audit/v1/query.proto](#akash/audit/v1/query.proto)
+     - [QueryAllProvidersAttributesRequest](#akash.audit.v1.QueryAllProvidersAttributesRequest)
+     - [QueryAuditorAttributesRequest](#akash.audit.v1.QueryAuditorAttributesRequest)
+     - [QueryProviderAttributesRequest](#akash.audit.v1.QueryProviderAttributesRequest)
+     - [QueryProviderAuditorRequest](#akash.audit.v1.QueryProviderAuditorRequest)
+     - [QueryProviderRequest](#akash.audit.v1.QueryProviderRequest)
+     - [QueryProvidersResponse](#akash.audit.v1.QueryProvidersResponse)
+   
+     - [Query](#akash.audit.v1.Query)
+   
+ - [akash/audit/v1/service.proto](#akash/audit/v1/service.proto)
+     - [Msg](#akash.audit.v1.Msg)
+   
+ - [akash/base/deposit/v1/deposit.proto](#akash/base/deposit/v1/deposit.proto)
+     - [Deposit](#akash.base.deposit.v1.Deposit)
+   
+     - [Source](#akash.base.deposit.v1.Source)
+   
+ - [akash/base/offchain/sign/v1/sign.proto](#akash/base/offchain/sign/v1/sign.proto)
+     - [MsgSignData](#akash.base.offchain.sign.v1.MsgSignData)
+   
+ - [akash/base/resources/v1beta4/resourcevalue.proto](#akash/base/resources/v1beta4/resourcevalue.proto)
+     - [ResourceValue](#akash.base.resources.v1beta4.ResourceValue)
+   
+ - [akash/base/resources/v1beta4/cpu.proto](#akash/base/resources/v1beta4/cpu.proto)
+     - [CPU](#akash.base.resources.v1beta4.CPU)
+   
+ - [akash/base/resources/v1beta4/endpoint.proto](#akash/base/resources/v1beta4/endpoint.proto)
+     - [Endpoint](#akash.base.resources.v1beta4.Endpoint)
+   
+     - [Endpoint.Kind](#akash.base.resources.v1beta4.Endpoint.Kind)
+   
+ - [akash/base/resources/v1beta4/gpu.proto](#akash/base/resources/v1beta4/gpu.proto)
+     - [GPU](#akash.base.resources.v1beta4.GPU)
+   
+ - [akash/base/resources/v1beta4/memory.proto](#akash/base/resources/v1beta4/memory.proto)
+     - [Memory](#akash.base.resources.v1beta4.Memory)
+   
+ - [akash/base/resources/v1beta4/storage.proto](#akash/base/resources/v1beta4/storage.proto)
+     - [Storage](#akash.base.resources.v1beta4.Storage)
+   
+ - [akash/base/resources/v1beta4/resources.proto](#akash/base/resources/v1beta4/resources.proto)
+     - [Resources](#akash.base.resources.v1beta4.Resources)
+   
+ - [akash/bme/v1/types.proto](#akash/bme/v1/types.proto)
+     - [BurnMintPair](#akash.bme.v1.BurnMintPair)
+     - [CoinPrice](#akash.bme.v1.CoinPrice)
+     - [CollateralRatio](#akash.bme.v1.CollateralRatio)
+     - [LedgerCanceledRecord](#akash.bme.v1.LedgerCanceledRecord)
+     - [LedgerID](#akash.bme.v1.LedgerID)
+     - [LedgerPendingRecord](#akash.bme.v1.LedgerPendingRecord)
+     - [LedgerRecord](#akash.bme.v1.LedgerRecord)
+     - [LedgerRecordID](#akash.bme.v1.LedgerRecordID)
+     - [State](#akash.bme.v1.State)
+     - [Status](#akash.bme.v1.Status)
+   
+     - [LedgerCanceledRecord.BMCancelReason](#akash.bme.v1.LedgerCanceledRecord.BMCancelReason)
+     - [LedgerRecordStatus](#akash.bme.v1.LedgerRecordStatus)
+     - [MintStatus](#akash.bme.v1.MintStatus)
+   
+ - [akash/bme/v1/events.proto](#akash/bme/v1/events.proto)
+     - [EventLedgerRecordCanceled](#akash.bme.v1.EventLedgerRecordCanceled)
+     - [EventLedgerRecordExecuted](#akash.bme.v1.EventLedgerRecordExecuted)
+     - [EventMintStatusChange](#akash.bme.v1.EventMintStatusChange)
+     - [EventVaultFunded](#akash.bme.v1.EventVaultFunded)
+   
+ - [akash/bme/v1/filters.proto](#akash/bme/v1/filters.proto)
+     - [LedgerRecordFilters](#akash.bme.v1.LedgerRecordFilters)
+   
+ - [akash/bme/v1/params.proto](#akash/bme/v1/params.proto)
+     - [Params](#akash.bme.v1.Params)
+   
+ - [akash/bme/v1/genesis.proto](#akash/bme/v1/genesis.proto)
+     - [GenesisLedgerPendingRecord](#akash.bme.v1.GenesisLedgerPendingRecord)
+     - [GenesisLedgerRecord](#akash.bme.v1.GenesisLedgerRecord)
+     - [GenesisLedgerState](#akash.bme.v1.GenesisLedgerState)
+     - [GenesisState](#akash.bme.v1.GenesisState)
+     - [GenesisVaultState](#akash.bme.v1.GenesisVaultState)
+   
+ - [akash/bme/v1/msgs.proto](#akash/bme/v1/msgs.proto)
+     - [MsgBurnACT](#akash.bme.v1.MsgBurnACT)
+     - [MsgBurnACTResponse](#akash.bme.v1.MsgBurnACTResponse)
+     - [MsgBurnMint](#akash.bme.v1.MsgBurnMint)
+     - [MsgBurnMintResponse](#akash.bme.v1.MsgBurnMintResponse)
+     - [MsgFundVault](#akash.bme.v1.MsgFundVault)
+     - [MsgFundVaultResponse](#akash.bme.v1.MsgFundVaultResponse)
+     - [MsgMintACT](#akash.bme.v1.MsgMintACT)
+     - [MsgMintACTResponse](#akash.bme.v1.MsgMintACTResponse)
+     - [MsgUpdateParams](#akash.bme.v1.MsgUpdateParams)
+     - [MsgUpdateParamsResponse](#akash.bme.v1.MsgUpdateParamsResponse)
+   
+ - [akash/bme/v1/query.proto](#akash/bme/v1/query.proto)
+     - [QueryLedgerRecordEntry](#akash.bme.v1.QueryLedgerRecordEntry)
+     - [QueryLedgerRecordsRequest](#akash.bme.v1.QueryLedgerRecordsRequest)
+     - [QueryLedgerRecordsResponse](#akash.bme.v1.QueryLedgerRecordsResponse)
+     - [QueryParamsRequest](#akash.bme.v1.QueryParamsRequest)
+     - [QueryParamsResponse](#akash.bme.v1.QueryParamsResponse)
+     - [QueryStatusRequest](#akash.bme.v1.QueryStatusRequest)
+     - [QueryStatusResponse](#akash.bme.v1.QueryStatusResponse)
+     - [QueryVaultStateRequest](#akash.bme.v1.QueryVaultStateRequest)
+     - [QueryVaultStateResponse](#akash.bme.v1.QueryVaultStateResponse)
+   
+     - [Query](#akash.bme.v1.Query)
+   
+ - [akash/bme/v1/service.proto](#akash/bme/v1/service.proto)
+     - [Msg](#akash.bme.v1.Msg)
+   
+ - [akash/cert/v1/cert.proto](#akash/cert/v1/cert.proto)
+     - [Certificate](#akash.cert.v1.Certificate)
+     - [ID](#akash.cert.v1.ID)
+   
+     - [State](#akash.cert.v1.State)
+   
+ - [akash/cert/v1/filters.proto](#akash/cert/v1/filters.proto)
+     - [CertificateFilter](#akash.cert.v1.CertificateFilter)
+   
+ - [akash/cert/v1/genesis.proto](#akash/cert/v1/genesis.proto)
+     - [GenesisCertificate](#akash.cert.v1.GenesisCertificate)
+     - [GenesisState](#akash.cert.v1.GenesisState)
+   
+ - [akash/cert/v1/msg.proto](#akash/cert/v1/msg.proto)
+     - [MsgCreateCertificate](#akash.cert.v1.MsgCreateCertificate)
+     - [MsgCreateCertificateResponse](#akash.cert.v1.MsgCreateCertificateResponse)
+     - [MsgRevokeCertificate](#akash.cert.v1.MsgRevokeCertificate)
+     - [MsgRevokeCertificateResponse](#akash.cert.v1.MsgRevokeCertificateResponse)
+   
+ - [akash/cert/v1/query.proto](#akash/cert/v1/query.proto)
+     - [CertificateResponse](#akash.cert.v1.CertificateResponse)
+     - [QueryCertificatesRequest](#akash.cert.v1.QueryCertificatesRequest)
+     - [QueryCertificatesResponse](#akash.cert.v1.QueryCertificatesResponse)
+   
+     - [Query](#akash.cert.v1.Query)
+   
+ - [akash/cert/v1/service.proto](#akash/cert/v1/service.proto)
+     - [Msg](#akash.cert.v1.Msg)
+   
+ - [akash/deployment/v1/deployment.proto](#akash/deployment/v1/deployment.proto)
+     - [Deployment](#akash.deployment.v1.Deployment)
+     - [DeploymentID](#akash.deployment.v1.DeploymentID)
+     - [DeploymentReclamation](#akash.deployment.v1.DeploymentReclamation)
+   
+     - [Deployment.State](#akash.deployment.v1.Deployment.State)
+   
+ - [akash/deployment/v1/group.proto](#akash/deployment/v1/group.proto)
+     - [GroupID](#akash.deployment.v1.GroupID)
+   
+ - [akash/deployment/v1/event.proto](#akash/deployment/v1/event.proto)
+     - [EventDeploymentClosed](#akash.deployment.v1.EventDeploymentClosed)
+     - [EventDeploymentCreated](#akash.deployment.v1.EventDeploymentCreated)
+     - [EventDeploymentUpdated](#akash.deployment.v1.EventDeploymentUpdated)
+     - [EventGroupClosed](#akash.deployment.v1.EventGroupClosed)
+     - [EventGroupPaused](#akash.deployment.v1.EventGroupPaused)
+     - [EventGroupStarted](#akash.deployment.v1.EventGroupStarted)
+   
+ - [akash/deployment/v1beta4/resourceunit.proto](#akash/deployment/v1beta4/resourceunit.proto)
+     - [ResourceUnit](#akash.deployment.v1beta4.ResourceUnit)
+   
+ - [akash/deployment/v1beta4/groupspec.proto](#akash/deployment/v1beta4/groupspec.proto)
+     - [GroupSpec](#akash.deployment.v1beta4.GroupSpec)
+   
+ - [akash/deployment/v1beta4/deploymentmsg.proto](#akash/deployment/v1beta4/deploymentmsg.proto)
+     - [MsgCloseDeployment](#akash.deployment.v1beta4.MsgCloseDeployment)
+     - [MsgCloseDeploymentResponse](#akash.deployment.v1beta4.MsgCloseDeploymentResponse)
+     - [MsgCreateDeployment](#akash.deployment.v1beta4.MsgCreateDeployment)
+     - [MsgCreateDeploymentResponse](#akash.deployment.v1beta4.MsgCreateDeploymentResponse)
+     - [MsgUpdateDeployment](#akash.deployment.v1beta4.MsgUpdateDeployment)
+     - [MsgUpdateDeploymentResponse](#akash.deployment.v1beta4.MsgUpdateDeploymentResponse)
+   
+ - [akash/deployment/v1beta4/filters.proto](#akash/deployment/v1beta4/filters.proto)
+     - [DeploymentFilters](#akash.deployment.v1beta4.DeploymentFilters)
+     - [GroupFilters](#akash.deployment.v1beta4.GroupFilters)
+   
+ - [akash/deployment/v1beta4/group.proto](#akash/deployment/v1beta4/group.proto)
+     - [Group](#akash.deployment.v1beta4.Group)
+   
+     - [Group.State](#akash.deployment.v1beta4.Group.State)
+   
+ - [akash/deployment/v1beta4/params.proto](#akash/deployment/v1beta4/params.proto)
+     - [Params](#akash.deployment.v1beta4.Params)
+   
+ - [akash/deployment/v1beta4/genesis.proto](#akash/deployment/v1beta4/genesis.proto)
+     - [GenesisDeployment](#akash.deployment.v1beta4.GenesisDeployment)
+     - [GenesisState](#akash.deployment.v1beta4.GenesisState)
+   
+ - [akash/deployment/v1beta4/groupmsg.proto](#akash/deployment/v1beta4/groupmsg.proto)
+     - [MsgCloseGroup](#akash.deployment.v1beta4.MsgCloseGroup)
+     - [MsgCloseGroupResponse](#akash.deployment.v1beta4.MsgCloseGroupResponse)
+     - [MsgPauseGroup](#akash.deployment.v1beta4.MsgPauseGroup)
+     - [MsgPauseGroupResponse](#akash.deployment.v1beta4.MsgPauseGroupResponse)
+     - [MsgStartGroup](#akash.deployment.v1beta4.MsgStartGroup)
+     - [MsgStartGroupResponse](#akash.deployment.v1beta4.MsgStartGroupResponse)
+   
+ - [akash/deployment/v1beta4/paramsmsg.proto](#akash/deployment/v1beta4/paramsmsg.proto)
+     - [MsgUpdateParams](#akash.deployment.v1beta4.MsgUpdateParams)
+     - [MsgUpdateParamsResponse](#akash.deployment.v1beta4.MsgUpdateParamsResponse)
+   
+ - [akash/escrow/id/v1/id.proto](#akash/escrow/id/v1/id.proto)
+     - [Account](#akash.escrow.id.v1.Account)
+     - [Payment](#akash.escrow.id.v1.Payment)
+   
+     - [Scope](#akash.escrow.id.v1.Scope)
+   
+ - [akash/escrow/types/v1/balance.proto](#akash/escrow/types/v1/balance.proto)
+     - [Balance](#akash.escrow.types.v1.Balance)
+   
+ - [akash/escrow/types/v1/deposit.proto](#akash/escrow/types/v1/deposit.proto)
+     - [Depositor](#akash.escrow.types.v1.Depositor)
+   
+ - [akash/escrow/types/v1/state.proto](#akash/escrow/types/v1/state.proto)
+     - [State](#akash.escrow.types.v1.State)
+   
+ - [akash/escrow/types/v1/account.proto](#akash/escrow/types/v1/account.proto)
+     - [Account](#akash.escrow.types.v1.Account)
+     - [AccountState](#akash.escrow.types.v1.AccountState)
+   
+ - [akash/deployment/v1beta4/query.proto](#akash/deployment/v1beta4/query.proto)
+     - [QueryDeploymentRequest](#akash.deployment.v1beta4.QueryDeploymentRequest)
+     - [QueryDeploymentResponse](#akash.deployment.v1beta4.QueryDeploymentResponse)
+     - [QueryDeploymentsRequest](#akash.deployment.v1beta4.QueryDeploymentsRequest)
+     - [QueryDeploymentsResponse](#akash.deployment.v1beta4.QueryDeploymentsResponse)
+     - [QueryGroupRequest](#akash.deployment.v1beta4.QueryGroupRequest)
+     - [QueryGroupResponse](#akash.deployment.v1beta4.QueryGroupResponse)
+     - [QueryParamsRequest](#akash.deployment.v1beta4.QueryParamsRequest)
+     - [QueryParamsResponse](#akash.deployment.v1beta4.QueryParamsResponse)
+   
+     - [Query](#akash.deployment.v1beta4.Query)
+   
+ - [akash/deployment/v1beta4/service.proto](#akash/deployment/v1beta4/service.proto)
+     - [Msg](#akash.deployment.v1beta4.Msg)
+   
+ - [akash/discovery/v1/client_info.proto](#akash/discovery/v1/client_info.proto)
+     - [ClientInfo](#akash.discovery.v1.ClientInfo)
+     - [ModuleVersion](#akash.discovery.v1.ModuleVersion)
+     - [VersionInfo](#akash.discovery.v1.VersionInfo)
+   
+ - [akash/discovery/v1/akash.proto](#akash/discovery/v1/akash.proto)
+     - [Akash](#akash.discovery.v1.Akash)
+   
+ - [akash/discovery/v1/service.proto](#akash/discovery/v1/service.proto)
+     - [GetInfoRequest](#akash.discovery.v1.GetInfoRequest)
+     - [GetInfoResponse](#akash.discovery.v1.GetInfoResponse)
+   
+     - [Discovery](#akash.discovery.v1.Discovery)
+   
+ - [akash/downtimedetector/v1beta1/downtime_duration.proto](#akash/downtimedetector/v1beta1/downtime_duration.proto)
+     - [Downtime](#akash.downtimedetector.v1beta1.Downtime)
+   
+ - [akash/downtimedetector/v1beta1/genesis.proto](#akash/downtimedetector/v1beta1/genesis.proto)
+     - [GenesisDowntimeEntry](#akash.downtimedetector.v1beta1.GenesisDowntimeEntry)
+     - [GenesisState](#akash.downtimedetector.v1beta1.GenesisState)
+   
+ - [akash/downtimedetector/v1beta1/query.proto](#akash/downtimedetector/v1beta1/query.proto)
+     - [RecoveredSinceDowntimeOfLengthRequest](#akash.downtimedetector.v1beta1.RecoveredSinceDowntimeOfLengthRequest)
+     - [RecoveredSinceDowntimeOfLengthResponse](#akash.downtimedetector.v1beta1.RecoveredSinceDowntimeOfLengthResponse)
+   
+     - [Query](#akash.downtimedetector.v1beta1.Query)
+   
+ - [akash/epochs/v1beta1/events.proto](#akash/epochs/v1beta1/events.proto)
+     - [EventEpochEnd](#akash.epochs.v1beta1.EventEpochEnd)
+     - [EventEpochStart](#akash.epochs.v1beta1.EventEpochStart)
+   
+ - [akash/epochs/v1beta1/genesis.proto](#akash/epochs/v1beta1/genesis.proto)
+     - [EpochInfo](#akash.epochs.v1beta1.EpochInfo)
+     - [GenesisState](#akash.epochs.v1beta1.GenesisState)
+   
+ - [akash/epochs/v1beta1/query.proto](#akash/epochs/v1beta1/query.proto)
+     - [QueryCurrentEpochRequest](#akash.epochs.v1beta1.QueryCurrentEpochRequest)
+     - [QueryCurrentEpochResponse](#akash.epochs.v1beta1.QueryCurrentEpochResponse)
+     - [QueryEpochInfosRequest](#akash.epochs.v1beta1.QueryEpochInfosRequest)
+     - [QueryEpochInfosResponse](#akash.epochs.v1beta1.QueryEpochInfosResponse)
+   
+     - [Query](#akash.epochs.v1beta1.Query)
+   
+ - [akash/escrow/types/v1/payment.proto](#akash/escrow/types/v1/payment.proto)
+     - [Payment](#akash.escrow.types.v1.Payment)
+     - [PaymentState](#akash.escrow.types.v1.PaymentState)
+   
+ - [akash/escrow/v1/authz.proto](#akash/escrow/v1/authz.proto)
+     - [DepositAuthorization](#akash.escrow.v1.DepositAuthorization)
+   
+     - [DepositAuthorization.Scope](#akash.escrow.v1.DepositAuthorization.Scope)
+   
+ - [akash/escrow/v1/genesis.proto](#akash/escrow/v1/genesis.proto)
+     - [GenesisState](#akash.escrow.v1.GenesisState)
+   
+ - [akash/escrow/v1/msg.proto](#akash/escrow/v1/msg.proto)
+     - [MsgAccountDeposit](#akash.escrow.v1.MsgAccountDeposit)
+     - [MsgAccountDepositResponse](#akash.escrow.v1.MsgAccountDepositResponse)
+   
+ - [akash/escrow/v1/query.proto](#akash/escrow/v1/query.proto)
+     - [QueryAccountsRequest](#akash.escrow.v1.QueryAccountsRequest)
+     - [QueryAccountsResponse](#akash.escrow.v1.QueryAccountsResponse)
+     - [QueryPaymentsRequest](#akash.escrow.v1.QueryPaymentsRequest)
+     - [QueryPaymentsResponse](#akash.escrow.v1.QueryPaymentsResponse)
+   
+     - [Query](#akash.escrow.v1.Query)
+   
+ - [akash/escrow/v1/service.proto](#akash/escrow/v1/service.proto)
+     - [Msg](#akash.escrow.v1.Msg)
+   
+ - [akash/market/v1/bid.proto](#akash/market/v1/bid.proto)
+     - [BidID](#akash.market.v1.BidID)
+   
+ - [akash/market/v1/order.proto](#akash/market/v1/order.proto)
+     - [OrderID](#akash.market.v1.OrderID)
+   
+ - [akash/market/v1/types.proto](#akash/market/v1/types.proto)
+     - [LeaseClosedReason](#akash.market.v1.LeaseClosedReason)
+   
+ - [akash/market/v1/reclamation.proto](#akash/market/v1/reclamation.proto)
+     - [Reclamation](#akash.market.v1.Reclamation)
+   
+ - [akash/market/v1/lease.proto](#akash/market/v1/lease.proto)
+     - [Lease](#akash.market.v1.Lease)
+     - [LeaseID](#akash.market.v1.LeaseID)
+   
+     - [Lease.State](#akash.market.v1.Lease.State)
+   
+ - [akash/market/v1/event.proto](#akash/market/v1/event.proto)
+     - [EventBidClosed](#akash.market.v1.EventBidClosed)
+     - [EventBidCreated](#akash.market.v1.EventBidCreated)
+     - [EventLeaseClosed](#akash.market.v1.EventLeaseClosed)
+     - [EventLeaseCreated](#akash.market.v1.EventLeaseCreated)
+     - [EventLeaseReclaimStarted](#akash.market.v1.EventLeaseReclaimStarted)
+     - [EventOrderClosed](#akash.market.v1.EventOrderClosed)
+     - [EventOrderCreated](#akash.market.v1.EventOrderCreated)
+   
+ - [akash/market/v1/filters.proto](#akash/market/v1/filters.proto)
+     - [LeaseFilters](#akash.market.v1.LeaseFilters)
+   
+ - [akash/market/v1beta5/resourcesoffer.proto](#akash/market/v1beta5/resourcesoffer.proto)
+     - [EndpointOfferPrice](#akash.market.v1beta5.EndpointOfferPrice)
+     - [OfferPrices](#akash.market.v1beta5.OfferPrices)
+     - [ResourceOffer](#akash.market.v1beta5.ResourceOffer)
+     - [StorageOfferPrice](#akash.market.v1beta5.StorageOfferPrice)
+   
+ - [akash/market/v1beta5/bid.proto](#akash/market/v1beta5/bid.proto)
+     - [Bid](#akash.market.v1beta5.Bid)
+   
+     - [Bid.State](#akash.market.v1beta5.Bid.State)
+   
+ - [akash/market/v1beta5/bidmsg.proto](#akash/market/v1beta5/bidmsg.proto)
+     - [MsgCloseBid](#akash.market.v1beta5.MsgCloseBid)
+     - [MsgCloseBidResponse](#akash.market.v1beta5.MsgCloseBidResponse)
+     - [MsgCreateBid](#akash.market.v1beta5.MsgCreateBid)
+     - [MsgCreateBidResponse](#akash.market.v1beta5.MsgCreateBidResponse)
+   
+ - [akash/market/v1beta5/filters.proto](#akash/market/v1beta5/filters.proto)
+     - [BidFilters](#akash.market.v1beta5.BidFilters)
+     - [OrderFilters](#akash.market.v1beta5.OrderFilters)
+   
+ - [akash/market/v1beta5/params.proto](#akash/market/v1beta5/params.proto)
+     - [Params](#akash.market.v1beta5.Params)
+   
+ - [akash/market/v1beta5/order.proto](#akash/market/v1beta5/order.proto)
+     - [Order](#akash.market.v1beta5.Order)
+   
+     - [Order.State](#akash.market.v1beta5.Order.State)
+   
+ - [akash/market/v1beta5/genesis.proto](#akash/market/v1beta5/genesis.proto)
+     - [GenesisState](#akash.market.v1beta5.GenesisState)
+   
+ - [akash/market/v1beta5/leasemsg.proto](#akash/market/v1beta5/leasemsg.proto)
+     - [MsgCloseLease](#akash.market.v1beta5.MsgCloseLease)
+     - [MsgCloseLeaseResponse](#akash.market.v1beta5.MsgCloseLeaseResponse)
+     - [MsgCreateLease](#akash.market.v1beta5.MsgCreateLease)
+     - [MsgCreateLeaseResponse](#akash.market.v1beta5.MsgCreateLeaseResponse)
+     - [MsgLeaseStartReclaim](#akash.market.v1beta5.MsgLeaseStartReclaim)
+     - [MsgLeaseStartReclaimResponse](#akash.market.v1beta5.MsgLeaseStartReclaimResponse)
+     - [MsgWithdrawLease](#akash.market.v1beta5.MsgWithdrawLease)
+     - [MsgWithdrawLeaseResponse](#akash.market.v1beta5.MsgWithdrawLeaseResponse)
+   
+ - [akash/market/v1beta5/paramsmsg.proto](#akash/market/v1beta5/paramsmsg.proto)
+     - [MsgUpdateParams](#akash.market.v1beta5.MsgUpdateParams)
+     - [MsgUpdateParamsResponse](#akash.market.v1beta5.MsgUpdateParamsResponse)
+   
+ - [akash/market/v1beta5/query.proto](#akash/market/v1beta5/query.proto)
+     - [QueryBidRequest](#akash.market.v1beta5.QueryBidRequest)
+     - [QueryBidResponse](#akash.market.v1beta5.QueryBidResponse)
+     - [QueryBidsRequest](#akash.market.v1beta5.QueryBidsRequest)
+     - [QueryBidsResponse](#akash.market.v1beta5.QueryBidsResponse)
+     - [QueryLeaseRequest](#akash.market.v1beta5.QueryLeaseRequest)
+     - [QueryLeaseResponse](#akash.market.v1beta5.QueryLeaseResponse)
+     - [QueryLeasesRequest](#akash.market.v1beta5.QueryLeasesRequest)
+     - [QueryLeasesResponse](#akash.market.v1beta5.QueryLeasesResponse)
+     - [QueryOrderRequest](#akash.market.v1beta5.QueryOrderRequest)
+     - [QueryOrderResponse](#akash.market.v1beta5.QueryOrderResponse)
+     - [QueryOrdersRequest](#akash.market.v1beta5.QueryOrdersRequest)
+     - [QueryOrdersResponse](#akash.market.v1beta5.QueryOrdersResponse)
+     - [QueryParamsRequest](#akash.market.v1beta5.QueryParamsRequest)
+     - [QueryParamsResponse](#akash.market.v1beta5.QueryParamsResponse)
+   
+     - [Query](#akash.market.v1beta5.Query)
+   
+ - [akash/market/v1beta5/service.proto](#akash/market/v1beta5/service.proto)
+     - [Msg](#akash.market.v1beta5.Msg)
+   
+ - [akash/oracle/v1/prices.proto](#akash/oracle/v1/prices.proto)
+     - [AggregatedPrice](#akash.oracle.v1.AggregatedPrice)
+     - [DataID](#akash.oracle.v1.DataID)
+     - [PriceData](#akash.oracle.v1.PriceData)
+     - [PriceDataID](#akash.oracle.v1.PriceDataID)
+     - [PriceDataRecordID](#akash.oracle.v1.PriceDataRecordID)
+     - [PriceDataState](#akash.oracle.v1.PriceDataState)
+     - [PriceHealth](#akash.oracle.v1.PriceHealth)
+     - [PricesFilter](#akash.oracle.v1.PricesFilter)
+     - [QueryPricesRequest](#akash.oracle.v1.QueryPricesRequest)
+     - [QueryPricesResponse](#akash.oracle.v1.QueryPricesResponse)
+   
+ - [akash/oracle/v1/events.proto](#akash/oracle/v1/events.proto)
+     - [EventAggregatedPrice](#akash.oracle.v1.EventAggregatedPrice)
+     - [EventPriceData](#akash.oracle.v1.EventPriceData)
+     - [EventPriceRecovered](#akash.oracle.v1.EventPriceRecovered)
+     - [EventPriceStaleWarning](#akash.oracle.v1.EventPriceStaleWarning)
+     - [EventPriceStaled](#akash.oracle.v1.EventPriceStaled)
+   
+ - [akash/oracle/v1/params.proto](#akash/oracle/v1/params.proto)
+     - [Params](#akash.oracle.v1.Params)
+   
+ - [akash/oracle/v1/genesis.proto](#akash/oracle/v1/genesis.proto)
+     - [GenesisState](#akash.oracle.v1.GenesisState)
+   
+ - [akash/oracle/v1/msgs.proto](#akash/oracle/v1/msgs.proto)
+     - [MsgAddPriceEntry](#akash.oracle.v1.MsgAddPriceEntry)
+     - [MsgAddPriceEntryResponse](#akash.oracle.v1.MsgAddPriceEntryResponse)
+     - [MsgUpdateParams](#akash.oracle.v1.MsgUpdateParams)
+     - [MsgUpdateParamsResponse](#akash.oracle.v1.MsgUpdateParamsResponse)
+   
+ - [akash/oracle/v1/query.proto](#akash/oracle/v1/query.proto)
+     - [QueryAggregatedPriceRequest](#akash.oracle.v1.QueryAggregatedPriceRequest)
+     - [QueryAggregatedPriceResponse](#akash.oracle.v1.QueryAggregatedPriceResponse)
+     - [QueryParamsRequest](#akash.oracle.v1.QueryParamsRequest)
+     - [QueryParamsResponse](#akash.oracle.v1.QueryParamsResponse)
+   
+     - [Query](#akash.oracle.v1.Query)
+   
+ - [akash/oracle/v1/service.proto](#akash/oracle/v1/service.proto)
+     - [Msg](#akash.oracle.v1.Msg)
+   
+ - [akash/oracle/v2/prices.proto](#akash/oracle/v2/prices.proto)
+     - [AggregatedPrice](#akash.oracle.v2.AggregatedPrice)
+     - [DataID](#akash.oracle.v2.DataID)
+     - [PriceData](#akash.oracle.v2.PriceData)
+     - [PriceDataID](#akash.oracle.v2.PriceDataID)
+     - [PriceDataRecordID](#akash.oracle.v2.PriceDataRecordID)
+     - [PriceDataState](#akash.oracle.v2.PriceDataState)
+     - [PriceHealth](#akash.oracle.v2.PriceHealth)
+     - [PriceLatestDataState](#akash.oracle.v2.PriceLatestDataState)
+   
+ - [akash/oracle/v2/events.proto](#akash/oracle/v2/events.proto)
+     - [EventAggregatedPrice](#akash.oracle.v2.EventAggregatedPrice)
+     - [EventPriceData](#akash.oracle.v2.EventPriceData)
+     - [EventPriceRecovered](#akash.oracle.v2.EventPriceRecovered)
+     - [EventPriceStaleWarning](#akash.oracle.v2.EventPriceStaleWarning)
+     - [EventPriceStaled](#akash.oracle.v2.EventPriceStaled)
+   
+ - [akash/oracle/v2/params.proto](#akash/oracle/v2/params.proto)
+     - [Params](#akash.oracle.v2.Params)
+   
+ - [akash/oracle/v2/genesis.proto](#akash/oracle/v2/genesis.proto)
+     - [GenesisLatestPricesIDs](#akash.oracle.v2.GenesisLatestPricesIDs)
+     - [GenesisSourceID](#akash.oracle.v2.GenesisSourceID)
+     - [GenesisState](#akash.oracle.v2.GenesisState)
+   
+ - [akash/oracle/v2/msgs.proto](#akash/oracle/v2/msgs.proto)
+     - [MsgAddPriceEntry](#akash.oracle.v2.MsgAddPriceEntry)
+     - [MsgAddPriceEntryResponse](#akash.oracle.v2.MsgAddPriceEntryResponse)
+     - [MsgUpdateParams](#akash.oracle.v2.MsgUpdateParams)
+     - [MsgUpdateParamsResponse](#akash.oracle.v2.MsgUpdateParamsResponse)
+   
+ - [akash/oracle/v2/query.proto](#akash/oracle/v2/query.proto)
+     - [PricesFilter](#akash.oracle.v2.PricesFilter)
+     - [QueryAggregatedPriceRequest](#akash.oracle.v2.QueryAggregatedPriceRequest)
+     - [QueryAggregatedPriceResponse](#akash.oracle.v2.QueryAggregatedPriceResponse)
+     - [QueryParamsRequest](#akash.oracle.v2.QueryParamsRequest)
+     - [QueryParamsResponse](#akash.oracle.v2.QueryParamsResponse)
+     - [QueryPricesRequest](#akash.oracle.v2.QueryPricesRequest)
+     - [QueryPricesResponse](#akash.oracle.v2.QueryPricesResponse)
+   
+     - [Query](#akash.oracle.v2.Query)
+   
+ - [akash/oracle/v2/service.proto](#akash/oracle/v2/service.proto)
+     - [Msg](#akash.oracle.v2.Msg)
+   
+ - [akash/provider/v1beta4/event.proto](#akash/provider/v1beta4/event.proto)
+     - [EventProviderCreated](#akash.provider.v1beta4.EventProviderCreated)
+     - [EventProviderDeleted](#akash.provider.v1beta4.EventProviderDeleted)
+     - [EventProviderUpdated](#akash.provider.v1beta4.EventProviderUpdated)
+   
+ - [akash/provider/v1beta4/provider.proto](#akash/provider/v1beta4/provider.proto)
+     - [Info](#akash.provider.v1beta4.Info)
+     - [Provider](#akash.provider.v1beta4.Provider)
+   
+ - [akash/provider/v1beta4/genesis.proto](#akash/provider/v1beta4/genesis.proto)
+     - [GenesisState](#akash.provider.v1beta4.GenesisState)
+   
+ - [akash/provider/v1beta4/msg.proto](#akash/provider/v1beta4/msg.proto)
+     - [MsgCreateProvider](#akash.provider.v1beta4.MsgCreateProvider)
+     - [MsgCreateProviderResponse](#akash.provider.v1beta4.MsgCreateProviderResponse)
+     - [MsgDeleteProvider](#akash.provider.v1beta4.MsgDeleteProvider)
+     - [MsgDeleteProviderResponse](#akash.provider.v1beta4.MsgDeleteProviderResponse)
+     - [MsgUpdateProvider](#akash.provider.v1beta4.MsgUpdateProvider)
+     - [MsgUpdateProviderResponse](#akash.provider.v1beta4.MsgUpdateProviderResponse)
+   
+ - [akash/provider/v1beta4/query.proto](#akash/provider/v1beta4/query.proto)
+     - [QueryProviderRequest](#akash.provider.v1beta4.QueryProviderRequest)
+     - [QueryProviderResponse](#akash.provider.v1beta4.QueryProviderResponse)
+     - [QueryProvidersRequest](#akash.provider.v1beta4.QueryProvidersRequest)
+     - [QueryProvidersResponse](#akash.provider.v1beta4.QueryProvidersResponse)
+   
+     - [Query](#akash.provider.v1beta4.Query)
+   
+ - [akash/provider/v1beta4/service.proto](#akash/provider/v1beta4/service.proto)
+     - [Msg](#akash.provider.v1beta4.Msg)
+   
+ - [akash/take/v1/params.proto](#akash/take/v1/params.proto)
+     - [DenomTakeRate](#akash.take.v1.DenomTakeRate)
+     - [Params](#akash.take.v1.Params)
+   
+ - [akash/take/v1/genesis.proto](#akash/take/v1/genesis.proto)
+     - [GenesisState](#akash.take.v1.GenesisState)
+   
+ - [akash/take/v1/paramsmsg.proto](#akash/take/v1/paramsmsg.proto)
+     - [MsgUpdateParams](#akash.take.v1.MsgUpdateParams)
+     - [MsgUpdateParamsResponse](#akash.take.v1.MsgUpdateParamsResponse)
+   
+ - [akash/take/v1/query.proto](#akash/take/v1/query.proto)
+     - [QueryParamsRequest](#akash.take.v1.QueryParamsRequest)
+     - [QueryParamsResponse](#akash.take.v1.QueryParamsResponse)
+   
+     - [Query](#akash.take.v1.Query)
+   
+ - [akash/take/v1/service.proto](#akash/take/v1/service.proto)
+     - [Msg](#akash.take.v1.Msg)
+   
+ - [akash/wasm/v1/event.proto](#akash/wasm/v1/event.proto)
+     - [EventMsgBlocked](#akash.wasm.v1.EventMsgBlocked)
+   
+ - [akash/wasm/v1/params.proto](#akash/wasm/v1/params.proto)
+     - [Params](#akash.wasm.v1.Params)
+   
+ - [akash/wasm/v1/genesis.proto](#akash/wasm/v1/genesis.proto)
+     - [GenesisState](#akash.wasm.v1.GenesisState)
+   
+ - [akash/wasm/v1/paramsmsg.proto](#akash/wasm/v1/paramsmsg.proto)
+     - [MsgUpdateParams](#akash.wasm.v1.MsgUpdateParams)
+     - [MsgUpdateParamsResponse](#akash.wasm.v1.MsgUpdateParamsResponse)
+   
+ - [akash/wasm/v1/query.proto](#akash/wasm/v1/query.proto)
+     - [QueryParamsRequest](#akash.wasm.v1.QueryParamsRequest)
+     - [QueryParamsResponse](#akash.wasm.v1.QueryParamsResponse)
+   
+     - [Query](#akash.wasm.v1.Query)
+   
+ - [akash/wasm/v1/service.proto](#akash/wasm/v1/service.proto)
+     - [Msg](#akash.wasm.v1.Msg)
+   
+ - [Scalar Value Types](#scalar-value-types)
+
+ 
+ 
+ <a name="akash/base/attributes/v1/attribute.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/base/attributes/v1/attribute.proto
+ 
+
+ 
+ <a name="akash.base.attributes.v1.Attribute"></a>
+
+ ### Attribute
+ Attribute represents an arbitrary attribute key-value pair.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `key` | [string](#string) |  | Key of the attribute (e.g., "region", "cpu_architecture", etc.). |
+ | `value` | [string](#string) |  | Value of the attribute (e.g., "us-west", "x86_64", etc.). |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.base.attributes.v1.PlacementRequirements"></a>
+
+ ### PlacementRequirements
+ PlacementRequirements represents the requirements for a provider placement on the network.
+It is used to specify the characteristics and constraints of a provider that can be used to satisfy a deployment request.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `signed_by` | [SignedBy](#akash.base.attributes.v1.SignedBy) |  | SignedBy holds the list of keys that tenants expect to have signatures from. |
+ | `attributes` | [Attribute](#akash.base.attributes.v1.Attribute) | repeated | Attribute holds the list of attributes tenant expects from the provider. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.base.attributes.v1.SignedBy"></a>
+
+ ### SignedBy
+ SignedBy represents validation accounts that tenant expects signatures for provider attributes.
+AllOf has precedence i.e. if there is at least one entry AnyOf is ignored regardless to how many
+entries there.
+
+TODO: this behaviour to be discussed
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `all_of` | [string](#string) | repeated | AllOf indicates all keys in this list must have signed attributes. |
+ | `any_of` | [string](#string) | repeated | AnyOf means that at least one of the keys from the list must have signed attributes. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/audit/v1/audit.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/audit/v1/audit.proto
+ 
+
+ 
+ <a name="akash.audit.v1.AttributesFilters"></a>
+
+ ### AttributesFilters
+ AttributesFilters defines attribute filters that can be used to filter deployments.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `auditors` | [string](#string) | repeated | Auditors contains a list of auditor account bech32 addresses. |
+ | `owners` | [string](#string) | repeated | Owners contains a list of owner account bech32 addresses. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.audit.v1.AuditedAttributesStore"></a>
+
+ ### AuditedAttributesStore
+ AuditedAttributesStore stores the audited attributes of the provider.
+Attributes that have been audited are those that have been verified by an auditor.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `attributes` | [akash.base.attributes.v1.Attribute](#akash.base.attributes.v1.Attribute) | repeated | Attributes holds a list of key-value pairs of provider attributes. Attributes are arbitrary values that a provider exposes. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.audit.v1.AuditedProvider"></a>
+
+ ### AuditedProvider
+ AuditedProvider stores owner, auditor and attributes details.
+An AuditedProvider is a provider that has undergone a verification or auditing process to ensure that it meets certain standards or requirements by an auditor.
+An auditor can be any valid account on-chain.
+NOTE: There are certain teams providing auditing services, which should be accounted for when deploying.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account bech32 address of the provider. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `auditor` | [string](#string) |  | Auditor is the account bech32 address of the auditor. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `attributes` | [akash.base.attributes.v1.Attribute](#akash.base.attributes.v1.Attribute) | repeated | Attributes holds a list of key-value pairs of provider attributes. Attributes are arbitrary values that a provider exposes. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/audit/v1/event.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/audit/v1/event.proto
+ 
+
+ 
+ <a name="akash.audit.v1.EventTrustedAuditorCreated"></a>
+
+ ### EventTrustedAuditorCreated
+ EventTrustedAuditorCreated defines an SDK message for when a trusted auditor is created.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account bech32 address of the provider. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `auditor` | [string](#string) |  | Auditor is the account address of the auditor. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.audit.v1.EventTrustedAuditorDeleted"></a>
+
+ ### EventTrustedAuditorDeleted
+ EventTrustedAuditorDeleted defines an event for when a trusted auditor is deleted.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account bech32 address of the provider. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `auditor` | [string](#string) |  | Auditor is the account address of the auditor. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/audit/v1/genesis.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/audit/v1/genesis.proto
+ 
+
+ 
+ <a name="akash.audit.v1.GenesisState"></a>
+
+ ### GenesisState
+ GenesisState defines the basic genesis state used by audit module.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `providers` | [AuditedProvider](#akash.audit.v1.AuditedProvider) | repeated | Providers contains a list of audited providers account addresses. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/audit/v1/msg.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/audit/v1/msg.proto
+ 
+
+ 
+ <a name="akash.audit.v1.MsgDeleteProviderAttributes"></a>
+
+ ### MsgDeleteProviderAttributes
+ MsgDeleteProviderAttributes defined the Msg/DeleteProviderAttributes
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account bech32 address of the provider. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `auditor` | [string](#string) |  | Auditor is the account address of the auditor. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `keys` | [string](#string) | repeated | Keys holds a list of keys of audited provider attributes to delete from the audit. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.audit.v1.MsgDeleteProviderAttributesResponse"></a>
+
+ ### MsgDeleteProviderAttributesResponse
+ MsgDeleteProviderAttributesResponse defines the Msg/ProviderAttributes response type.
+
+ 
+
+ 
+
+ 
+ <a name="akash.audit.v1.MsgSignProviderAttributes"></a>
+
+ ### MsgSignProviderAttributes
+ MsgSignProviderAttributes defines an SDK message for signing a provider attributes.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account bech32 address of the provider. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `auditor` | [string](#string) |  | Auditor is the account address of the auditor. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `attributes` | [akash.base.attributes.v1.Attribute](#akash.base.attributes.v1.Attribute) | repeated | Attributes holds a list of key-value pairs of provider attributes to be audited. Attributes are arbitrary values that a provider exposes. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.audit.v1.MsgSignProviderAttributesResponse"></a>
+
+ ### MsgSignProviderAttributesResponse
+ MsgSignProviderAttributesResponse defines the Msg/CreateProvider response type.
+
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/audit/v1/query.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/audit/v1/query.proto
+ 
+
+ 
+ <a name="akash.audit.v1.QueryAllProvidersAttributesRequest"></a>
+
+ ### QueryAllProvidersAttributesRequest
+ QueryAllProvidersAttributesRequest is request type for the Query/All Providers RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `pagination` | [cosmos.base.query.v1beta1.PageRequest](#cosmos.base.query.v1beta1.PageRequest) |  | Pagination is used to paginate the request. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.audit.v1.QueryAuditorAttributesRequest"></a>
+
+ ### QueryAuditorAttributesRequest
+ QueryAuditorAttributesRequest is request type for the Query/Providers RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `auditor` | [string](#string) |  | Auditor is the account address of the auditor. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `pagination` | [cosmos.base.query.v1beta1.PageRequest](#cosmos.base.query.v1beta1.PageRequest) |  | Pagination is used to paginate the request. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.audit.v1.QueryProviderAttributesRequest"></a>
+
+ ### QueryProviderAttributesRequest
+ QueryProviderAttributesRequest is request type for the Query/Provider RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account bech32 address of the provider. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `pagination` | [cosmos.base.query.v1beta1.PageRequest](#cosmos.base.query.v1beta1.PageRequest) |  | Pagination is used to paginate the request. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.audit.v1.QueryProviderAuditorRequest"></a>
+
+ ### QueryProviderAuditorRequest
+ QueryProviderAuditorRequest is request type for the Query/Providers RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `auditor` | [string](#string) |  | Auditor is the account address of the auditor. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `owner` | [string](#string) |  | Owner is the account bech32 address of the provider. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.audit.v1.QueryProviderRequest"></a>
+
+ ### QueryProviderRequest
+ QueryProviderRequest is request type for the Query/Provider RPC method
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `auditor` | [string](#string) |  | Auditor is the account address of the auditor. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `owner` | [string](#string) |  | Owner is the account bech32 address of the provider. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.audit.v1.QueryProvidersResponse"></a>
+
+ ### QueryProvidersResponse
+ QueryProvidersResponse is response type for the Query/Providers RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `providers` | [AuditedProvider](#akash.audit.v1.AuditedProvider) | repeated | Providers contains a list of audited providers account addresses. |
+ | `pagination` | [cosmos.base.query.v1beta1.PageResponse](#cosmos.base.query.v1beta1.PageResponse) |  | Pagination is used to paginate results. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.audit.v1.Query"></a>
+
+ ### Query
+ Query defines the gRPC querier service for the audit package.
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `AllProvidersAttributes` | [QueryAllProvidersAttributesRequest](#akash.audit.v1.QueryAllProvidersAttributesRequest) | [QueryProvidersResponse](#akash.audit.v1.QueryProvidersResponse) | AllProvidersAttributes queries all providers. buf:lint:ignore RPC_REQUEST_RESPONSE_UNIQUE buf:lint:ignore RPC_RESPONSE_STANDARD_NAME | GET|/akash/audit/v1/audit/attributes/list|
+ | `ProviderAttributes` | [QueryProviderAttributesRequest](#akash.audit.v1.QueryProviderAttributesRequest) | [QueryProvidersResponse](#akash.audit.v1.QueryProvidersResponse) | ProviderAttributes queries all provider signed attributes. buf:lint:ignore RPC_REQUEST_RESPONSE_UNIQUE buf:lint:ignore RPC_RESPONSE_STANDARD_NAME | GET|/akash/audit/v1/audit/attributes/{owner}/list|
+ | `ProviderAuditorAttributes` | [QueryProviderAuditorRequest](#akash.audit.v1.QueryProviderAuditorRequest) | [QueryProvidersResponse](#akash.audit.v1.QueryProvidersResponse) | ProviderAuditorAttributes queries provider signed attributes by specific auditor. buf:lint:ignore RPC_REQUEST_RESPONSE_UNIQUE buf:lint:ignore RPC_RESPONSE_STANDARD_NAME | GET|/akash/audit/v1/audit/attributes/{auditor}/{owner}|
+ | `AuditorAttributes` | [QueryAuditorAttributesRequest](#akash.audit.v1.QueryAuditorAttributesRequest) | [QueryProvidersResponse](#akash.audit.v1.QueryProvidersResponse) | AuditorAttributes queries all providers signed by this auditor. buf:lint:ignore RPC_REQUEST_RESPONSE_UNIQUE buf:lint:ignore RPC_RESPONSE_STANDARD_NAME | GET|/akash/provider/v1/auditor/{auditor}/list|
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/audit/v1/service.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/audit/v1/service.proto
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.audit.v1.Msg"></a>
+
+ ### Msg
+ Msg defines the audit Msg service.
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `SignProviderAttributes` | [MsgSignProviderAttributes](#akash.audit.v1.MsgSignProviderAttributes) | [MsgSignProviderAttributesResponse](#akash.audit.v1.MsgSignProviderAttributesResponse) | SignProviderAttributes defines a method that signs provider attributes. | |
+ | `DeleteProviderAttributes` | [MsgDeleteProviderAttributes](#akash.audit.v1.MsgDeleteProviderAttributes) | [MsgDeleteProviderAttributesResponse](#akash.audit.v1.MsgDeleteProviderAttributesResponse) | DeleteProviderAttributes defines a method that deletes provider attributes. | |
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/base/deposit/v1/deposit.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/base/deposit/v1/deposit.proto
+ 
+
+ 
+ <a name="akash.base.deposit.v1.Deposit"></a>
+
+ ### Deposit
+ Deposit is a data type used by MsgCreateDeployment, MsgDepositDeployment and MsgCreateBid to indicate source of the deposit.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `amount` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) |  | amount specifies the amount of coins to include in the deployment's first deposit. |
+ | `sources` | [Source](#akash.base.deposit.v1.Source) | repeated | Sources is the set of deposit sources, each entry must be unique. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+ 
+ <a name="akash.base.deposit.v1.Source"></a>
+
+ ### Source
+ Source is an enum which lists source of funds for deployment deposit.
+
+ | Name | Number | Description |
+ | ---- | ------ | ----------- |
+ | invalid | 0 | Prefix should start with 0 in enum. So declaring dummy state. |
+ | balance | 1 | SourceBalance denotes account balance as source of funds |
+ | grant | 2 | SourceGrant denotes authz grants as source of funds |
+ 
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/base/offchain/sign/v1/sign.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/base/offchain/sign/v1/sign.proto
+ 
+
+ 
+ <a name="akash.base.offchain.sign.v1.MsgSignData"></a>
+
+ ### MsgSignData
+ MsgSignData defines an arbitrary, general-purpose, off-chain message
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `signer` | [string](#string) |  | Signer is the sdk.AccAddress of the message signer |
+ | `data` | [bytes](#bytes) |  | Data represents the raw bytes of the content that is signed (text, json, etc) |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/base/resources/v1beta4/resourcevalue.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/base/resources/v1beta4/resourcevalue.proto
+ 
+
+ 
+ <a name="akash.base.resources.v1beta4.ResourceValue"></a>
+
+ ### ResourceValue
+ Unit stores cpu, memory and storage metrics.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `val` | [bytes](#bytes) |  |  |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/base/resources/v1beta4/cpu.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/base/resources/v1beta4/cpu.proto
+ 
+
+ 
+ <a name="akash.base.resources.v1beta4.CPU"></a>
+
+ ### CPU
+ CPU stores resource units and cpu config attributes.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `units` | [ResourceValue](#akash.base.resources.v1beta4.ResourceValue) |  | Units of the CPU, which represents the number of CPUs available. This field is required and must be a non-negative integer. |
+ | `attributes` | [akash.base.attributes.v1.Attribute](#akash.base.attributes.v1.Attribute) | repeated | Attributes holds a list of key-value attributes that describe the GPU, such as its model, memory and interface. This field is required and must be a list of `Attribute` messages. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/base/resources/v1beta4/endpoint.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/base/resources/v1beta4/endpoint.proto
+ 
+
+ 
+ <a name="akash.base.resources.v1beta4.Endpoint"></a>
+
+ ### Endpoint
+ Endpoint describes a publicly accessible IP service.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `kind` | [Endpoint.Kind](#akash.base.resources.v1beta4.Endpoint.Kind) |  | Kind describes how the endpoint is implemented when the lease is deployed. |
+ | `sequence_number` | [uint32](#uint32) |  | SequenceNumber represents a sequence number for the Endpoint. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+ 
+ <a name="akash.base.resources.v1beta4.Endpoint.Kind"></a>
+
+ ### Endpoint.Kind
+ Kind describes how the endpoint is implemented when the lease is deployed.
+
+ | Name | Number | Description |
+ | ---- | ------ | ----------- |
+ | SHARED_HTTP | 0 | Describes an endpoint that becomes a Kubernetes Ingress. |
+ | RANDOM_PORT | 1 | Describes an endpoint that becomes a Kubernetes NodePort. |
+ | LEASED_IP | 2 | Describes an endpoint that becomes a leased IP. |
+ 
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/base/resources/v1beta4/gpu.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/base/resources/v1beta4/gpu.proto
+ 
+
+ 
+ <a name="akash.base.resources.v1beta4.GPU"></a>
+
+ ### GPU
+ GPU stores resource units and gpu configuration attributes.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `units` | [ResourceValue](#akash.base.resources.v1beta4.ResourceValue) |  | The resource value of the GPU, which represents the number of GPUs available. This field is required and must be a non-negative integer. |
+ | `attributes` | [akash.base.attributes.v1.Attribute](#akash.base.attributes.v1.Attribute) | repeated |  |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/base/resources/v1beta4/memory.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/base/resources/v1beta4/memory.proto
+ 
+
+ 
+ <a name="akash.base.resources.v1beta4.Memory"></a>
+
+ ### Memory
+ Memory stores resource quantity and memory attributes.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `quantity` | [ResourceValue](#akash.base.resources.v1beta4.ResourceValue) |  | Quantity of memory available, which represents the amount of memory in bytes. This field is required and must be a non-negative integer. |
+ | `attributes` | [akash.base.attributes.v1.Attribute](#akash.base.attributes.v1.Attribute) | repeated | Attributes that describe the memory, such as its type and speed. This field is required and must be a list of Attribute key-values. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/base/resources/v1beta4/storage.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/base/resources/v1beta4/storage.proto
+ 
+
+ 
+ <a name="akash.base.resources.v1beta4.Storage"></a>
+
+ ### Storage
+ Storage stores resource quantity and storage attributes.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `name` | [string](#string) |  | Name holds an arbitrary name for the storage resource. |
+ | `quantity` | [ResourceValue](#akash.base.resources.v1beta4.ResourceValue) |  | Quantity of storage available, which represents the amount of memory in bytes. This field is required and must be a non-negative integer. |
+ | `attributes` | [akash.base.attributes.v1.Attribute](#akash.base.attributes.v1.Attribute) | repeated | Attributes that describe the storage. This field is required and must be a list of Attribute key-values. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/base/resources/v1beta4/resources.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/base/resources/v1beta4/resources.proto
+ 
+
+ 
+ <a name="akash.base.resources.v1beta4.Resources"></a>
+
+ ### Resources
+ Resources describes all available resources types for deployment/node etc
+if field is nil resource is not present in the given data-structure
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [uint32](#uint32) |  | Id is a unique identifier for the resources. |
+ | `cpu` | [CPU](#akash.base.resources.v1beta4.CPU) |  | CPU resources available, including the architecture, number of cores and other details. This field is optional and can be empty if no CPU resources are available. |
+ | `memory` | [Memory](#akash.base.resources.v1beta4.Memory) |  | Memory resources available, including the quantity and attributes. This field is optional and can be empty if no memory resources are available. |
+ | `storage` | [Storage](#akash.base.resources.v1beta4.Storage) | repeated | Storage resources available, including the quantity and attributes. This field is optional and can be empty if no storage resources are available. |
+ | `gpu` | [GPU](#akash.base.resources.v1beta4.GPU) |  | GPU resources available, including the type, architecture and other details. This field is optional and can be empty if no GPU resources are available. |
+ | `endpoints` | [Endpoint](#akash.base.resources.v1beta4.Endpoint) | repeated | Endpoint resources available |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/bme/v1/types.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/bme/v1/types.proto
+ 
+
+ 
+ <a name="akash.bme.v1.BurnMintPair"></a>
+
+ ### BurnMintPair
+ BurnMintPair represents a pair of burn and mint operations with their respective prices
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `burned` | [CoinPrice](#akash.bme.v1.CoinPrice) |  | burned is the coin burned |
+ | `minted` | [CoinPrice](#akash.bme.v1.CoinPrice) |  | minted is coin minted |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.CoinPrice"></a>
+
+ ### CoinPrice
+ CoinPrice represents a coin amount with its associated oracle price at a specific point in time
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `coin` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) |  | coin is the token amount |
+ | `price` | [string](#string) |  | price (at oracle) of the coin at burn/mint event |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.CollateralRatio"></a>
+
+ ### CollateralRatio
+ CollateralRatio represents the current collateral ratio
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `ratio` | [string](#string) |  | ratio is CR = (VaultAKT * Price) / OutstandingACT |
+ | `status` | [MintStatus](#akash.bme.v1.MintStatus) |  | status indicates the current circuit breaker status |
+ | `reference_price` | [string](#string) |  | reference_price is the price used to calculate CR |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.LedgerCanceledRecord"></a>
+
+ ### LedgerCanceledRecord
+ LedgerCanceledRecord
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | owner source of the coins to be burned |
+ | `cancel_reason` | [LedgerCanceledRecord.BMCancelReason](#akash.bme.v1.LedgerCanceledRecord.BMCancelReason) |  | cancel_reason |
+ | `to` | [string](#string) |  | to destination of the minted coins. if minted coin is ACT, "to" must be same as signer |
+ | `coins_to_burn` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) |  | coins_to_burn |
+ | `denom_to_mint` | [string](#string) |  | denom_to_mint |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.LedgerID"></a>
+
+ ### LedgerID
+ LedgerID uniquely identifies a ledger entry by block height and sequence number
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `height` | [int64](#int64) |  | height is the block height when the ledger entry was created |
+ | `sequence` | [int64](#int64) |  | sequence is the sequence number within the block (for ordering) |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.LedgerPendingRecord"></a>
+
+ ### LedgerPendingRecord
+ LedgerPendingRecord
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | owner source of the coins to be burned |
+ | `to` | [string](#string) |  | to destination of the minted coins. if minted coin is ACT, "to" must be same as signer |
+ | `coins_to_burn` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) |  | coins_to_burn |
+ | `denom_to_mint` | [string](#string) |  | denom_to_mint |
+ | `attempts` | [uint32](#uint32) |  | attempts is the number of times this record has been processed and failed with a retriable error |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.LedgerRecord"></a>
+
+ ### LedgerRecord
+ LedgerRecord stores information of burn/mint event of token A burn to mint token B
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `burned_from` | [string](#string) |  | burned_from source address of the tokens burned |
+ | `minted_to` | [string](#string) |  | minted_to destination address of the tokens minted |
+ | `burner` | [string](#string) |  | module is module account performing burn |
+ | `minter` | [string](#string) |  | module is module account performing mint |
+ | `burned` | [CoinPrice](#akash.bme.v1.CoinPrice) |  | burned is the coin burned at price |
+ | `minted` | [CoinPrice](#akash.bme.v1.CoinPrice) |  | minted is coin minted at price |
+ | `spread` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) |  |  |
+ | `remint_credit_issued` | [CoinPrice](#akash.bme.v1.CoinPrice) |  |  |
+ | `remint_credit_accrued` | [CoinPrice](#akash.bme.v1.CoinPrice) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.LedgerRecordID"></a>
+
+ ### LedgerRecordID
+ LedgerRecordID
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `denom` | [string](#string) |  | denom is the asset denomination |
+ | `to_denom` | [string](#string) |  | to_denom is what denom swap to |
+ | `source` | [string](#string) |  |  |
+ | `height` | [int64](#int64) |  |  |
+ | `sequence` | [int64](#int64) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.State"></a>
+
+ ### State
+ State tracks net burn metrics since BME start
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `balances` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) | repeated | burned is the cumulative burn for tracked tokens |
+ | `total_burned` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) | repeated | burned is the cumulative burn for tracked tokens |
+ | `total_minted` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) | repeated | minted is the cumulative mint back for tracked tokens |
+ | `remint_credits` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) | repeated | remint_credits tracks available credits for reminting tokens (e.g., from previous burns that can be reminted without additional collateral) |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.Status"></a>
+
+ ### Status
+ Status stores status of mint operations
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `status` | [MintStatus](#akash.bme.v1.MintStatus) |  |  |
+ | `previous_status` | [MintStatus](#akash.bme.v1.MintStatus) |  |  |
+ | `epoch_height_diff` | [int64](#int64) |  |  |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+ 
+ <a name="akash.bme.v1.LedgerCanceledRecord.BMCancelReason"></a>
+
+ ### LedgerCanceledRecord.BMCancelReason
+ BMCancelReason is an enum indicating reasons of failure for burn/mint request
+
+ | Name | Number | Description |
+ | ---- | ------ | ----------- |
+ | unknown | 0 | Prefix should start with 0 in enum. So declaring dummy state. |
+ | epsilon | 1 | BMCancelReasonEpsilon the result of conversion is below the smallest meaningful difference (10^-6) |
+ | zero_price | 2 | BMCancelReasonZeroPrice oracle price is zero |
+ | insufficient_funds | 3 | BMCancelReasonInsufficientFunds insufficient vault/supply funds |
+ | invalid_denom | 4 | BMCancelReasonInvalidDenom denomination is not registered |
+ | invalid_amount | 5 | BMCancelReasonInvalidAmount zero or invalid burn amount |
+ | minimum_mint | 6 | BMCancelReasonMinimumMint mint output below minimum threshold |
+ | mint_failed | 7 | BMCancelReasonMintFailed bank MintCoins operation failed |
+ | burn_failed | 8 | BMCancelReasonBurnFailed bank BurnCoins operation failed |
+ | max_attempts | 9 | BMCancelReasonMaxAttempts exceeded maximum pending processing attempts |
+ 
+
+ 
+ <a name="akash.bme.v1.LedgerRecordStatus"></a>
+
+ ### LedgerRecordStatus
+ LedgerRecordStatus indicates the current state of a burn/mint ledger record
+
+ | Name | Number | Description |
+ | ---- | ------ | ----------- |
+ | ledger_record_status_invalid | 0 | LEDGER_RECORD_STATUS_INVALID is the default/uninitialized value This status should never appear in a valid ledger record |
+ | ledger_record_status_pending | 1 | LEDGER_RECORD_STATUS_PENDING indicates a burn/mint operation has been initiated but not yet executed (e.g., waiting for oracle price or circuit breaker clearance) |
+ | ledger_record_status_executed | 2 | LEDGER_RECORD_STATUS_EXECUTED indicates the burn/mint operation has been successfully completed and tokens have been burned and minted |
+ | ledger_record_status_canceled | 3 | LEDGER_RECORD_STATUS_CANCELED indicates the burn/mint operation has encountered error and funds have been returned to the owner successfully completed and tokens have been burned and minted |
+ 
+
+ 
+ <a name="akash.bme.v1.MintStatus"></a>
+
+ ### MintStatus
+ MintStatus indicates the current state of mint
+
+ | Name | Number | Description |
+ | ---- | ------ | ----------- |
+ | mint_status_unspecified | 0 | MINT_STATUS_UNSPECIFIED is the default value |
+ | mint_status_healthy | 1 | MINT_STATUS_HEALTHY indicates normal operation (CR > warn threshold) |
+ | mint_status_warning | 2 | MINT_STATUS_WARNING indicates CR is below warning threshold |
+ | mint_status_halt_cr | 3 | MINT_STATUS_HALT_CR indicates CR is below halt threshold, mints paused |
+ | mint_status_halt_oracle | 4 | MINT_STATUS_HALT_ORACLE indicates circuit breaker tripped due to unhealthy oracle price |
+ 
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/bme/v1/events.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/bme/v1/events.proto
+ 
+
+ 
+ <a name="akash.bme.v1.EventLedgerRecordCanceled"></a>
+
+ ### EventLedgerRecordCanceled
+ EventLedgerRecordCanceled emitted information of unsuccessful burn/mint event
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [LedgerRecordID](#akash.bme.v1.LedgerRecordID) |  | burned_from source address of the tokens burned |
+ | `cancel_reason` | [LedgerCanceledRecord.BMCancelReason](#akash.bme.v1.LedgerCanceledRecord.BMCancelReason) |  | fail_reason |
+ | `owner` | [string](#string) |  | owner source of the coins to be burned |
+ | `to` | [string](#string) |  | to destination of the minted coins. if minted coin is ACT, "to" must be same as signer |
+ | `coins_to_burn` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) |  | coins_to_burn |
+ | `denom_to_mint` | [string](#string) |  | denom_to_mint |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.EventLedgerRecordExecuted"></a>
+
+ ### EventLedgerRecordExecuted
+ EventLedgerRecordExecuted emitted information of burn/mint event of token A burn to mint token B
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [LedgerRecordID](#akash.bme.v1.LedgerRecordID) |  | burned_from source address of the tokens burned |
+ | `burned_from` | [string](#string) |  | burned_from source address of the tokens burned |
+ | `minted_to` | [string](#string) |  | minted_to destination address of the tokens minted |
+ | `burner` | [string](#string) |  | module is module account performing burn |
+ | `minter` | [string](#string) |  | module is module account performing mint |
+ | `burned` | [CoinPrice](#akash.bme.v1.CoinPrice) |  | burned is the coin burned at price |
+ | `minted` | [CoinPrice](#akash.bme.v1.CoinPrice) |  | minted is coin minted at price |
+ | `spread` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) |  |  |
+ | `remint_credit_issued` | [CoinPrice](#akash.bme.v1.CoinPrice) |  |  |
+ | `remint_credit_accrued` | [CoinPrice](#akash.bme.v1.CoinPrice) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.EventMintStatusChange"></a>
+
+ ### EventMintStatusChange
+ EventCircuitBreakerStatusChange is emitted when circuit breaker status changes
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `previous_status` | [MintStatus](#akash.bme.v1.MintStatus) |  | previous_status is the previous status |
+ | `new_status` | [MintStatus](#akash.bme.v1.MintStatus) |  | new_status is the new status |
+ | `collateral_ratio` | [string](#string) |  | collateral_ratio is the CR that triggered the change |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.EventVaultFunded"></a>
+
+ ### EventVaultFunded
+ EventVaultFunded is emitted when the vault is seeded with AKT
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `amount` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) |  | amount is the AKT amount added to vault |
+ | `source` | [string](#string) |  | source is where the funds came from |
+ | `new_vault_balance` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) |  | new_vault_balance is the new vault balance |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/bme/v1/filters.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/bme/v1/filters.proto
+ 
+
+ 
+ <a name="akash.bme.v1.LedgerRecordFilters"></a>
+
+ ### LedgerRecordFilters
+ LedgerRecordFilters defines filters used to filter ledger records
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `source` | [string](#string) |  | source is the account address of the user who initiated the burn/mint |
+ | `denom` | [string](#string) |  | denom filters by the burn denomination |
+ | `to_denom` | [string](#string) |  | to_denom filters by the mint denomination |
+ | `status` | [string](#string) |  | status filters by record status (pending, executed or failed). Uses the string representation of LedgerRecordStatus enum values. If empty, returns both pending and executed records. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/bme/v1/params.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/bme/v1/params.proto
+ 
+
+ 
+ <a name="akash.bme.v1.Params"></a>
+
+ ### Params
+ Params defines the parameters for the BME module
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `circuit_breaker_warn_threshold` | [uint32](#uint32) |  | circuit_breaker_warn_threshold is the CR below which warning is triggered Stored as basis points * 100 (e.g., 9500 = 0.95) |
+ | `circuit_breaker_halt_threshold` | [uint32](#uint32) |  | circuit_breaker_halt_threshold is the CR below which mints are halted Stored as basis points * 100 (e.g., 9000 = 0.90) |
+ | `min_epoch_blocks` | [int64](#int64) |  | min_epoch_blocks is the minimum amount of blocks required for ACT mints |
+ | `epoch_blocks_backoff_percent` | [uint32](#uint32) |  | epoch_blocks_backoff increase of runway_blocks in % during warn threshold for drop in 1 basis point of circuit_breaker_warn_threshold Stored as basis points * 100 (e.g., 9500 = 0.95) e.g: runway_blocks = 100 min_runway_blocks_backoff = 1000 circuit_breaker_warn_threshold drops from 0.95 to 0.94 then runway_blocks = (100*0.1 + 100) = 110
+
+ circuit_breaker_warn_threshold drops from 0.94 to 0.92 then runway_blocks = (110*(0.1*2) + 110) = 132 |
+ | `mint_spread_bps` | [uint32](#uint32) |  | mint_spread_bps is the spread in basis points applied during ACT mint (default: 25 bps = 0.25%) |
+ | `settle_spread_bps` | [uint32](#uint32) |  | settle_spread_bps is the spread in basis points applied during settlement (default: 0 for no provider tax) |
+ | `max_endblocker_records` | [uint32](#uint32) |  | max_endblocker_records is the deterministic upper bound on pending ledger records processed in a single EndBlocker invocation. |
+ | `min_mint` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) | repeated | min_mint minimum amount of ACT required to be minted in the new transaction |
+ | `max_pending_attempts` | [uint32](#uint32) |  | max_pending_attempts is the maximum number of EndBlocker processing attempts for a pending record before it is canceled. Applies to retriable errors only. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/bme/v1/genesis.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/bme/v1/genesis.proto
+ 
+
+ 
+ <a name="akash.bme.v1.GenesisLedgerPendingRecord"></a>
+
+ ### GenesisLedgerPendingRecord
+ GenesisLedgerPendingRecord
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [LedgerRecordID](#akash.bme.v1.LedgerRecordID) |  |  |
+ | `record` | [LedgerPendingRecord](#akash.bme.v1.LedgerPendingRecord) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.GenesisLedgerRecord"></a>
+
+ ### GenesisLedgerRecord
+ GenesisLedgerRecord
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [LedgerRecordID](#akash.bme.v1.LedgerRecordID) |  |  |
+ | `record` | [LedgerRecord](#akash.bme.v1.LedgerRecord) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.GenesisLedgerState"></a>
+
+ ### GenesisLedgerState
+ GenesisLedgerState
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `records` | [GenesisLedgerRecord](#akash.bme.v1.GenesisLedgerRecord) | repeated |  |
+ | `pending_records` | [GenesisLedgerPendingRecord](#akash.bme.v1.GenesisLedgerPendingRecord) | repeated |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.GenesisState"></a>
+
+ ### GenesisState
+ GenesisState defines the BME module's genesis state
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `params` | [Params](#akash.bme.v1.Params) |  | params defines the module parameters |
+ | `state` | [GenesisVaultState](#akash.bme.v1.GenesisVaultState) |  | state is the initial vault state |
+ | `ledger` | [GenesisLedgerState](#akash.bme.v1.GenesisLedgerState) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.GenesisVaultState"></a>
+
+ ### GenesisVaultState
+ GenesisVaultState
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `total_burned` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) | repeated | burned is the cumulative burn for tracked tokens |
+ | `total_minted` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) | repeated | minted is the cumulative mint back for tracked tokens |
+ | `remint_credits` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) | repeated | remint_credits tracks available credits for reminting tokens (e.g., from previous burns that can be reminted without additional collateral) |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/bme/v1/msgs.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/bme/v1/msgs.proto
+ 
+
+ 
+ <a name="akash.bme.v1.MsgBurnACT"></a>
+
+ ### MsgBurnACT
+ MsgMintACT defines the message for burning one token to mint another
+Allows burning AKT to mint ACT, or burning unused ACT back to AKT
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | owner source of the coins to be burned |
+ | `to` | [string](#string) |  | to destination of the minted coins. if minted coin is ACT, "to" must be same as signer |
+ | `coins_to_burn` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) |  | coins_to_burn |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.MsgBurnACTResponse"></a>
+
+ ### MsgBurnACTResponse
+ MsgBurnMintResponse is the response type for MsgBurnMint
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [LedgerRecordID](#akash.bme.v1.LedgerRecordID) |  |  |
+ | `status` | [LedgerRecordStatus](#akash.bme.v1.LedgerRecordStatus) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.MsgBurnMint"></a>
+
+ ### MsgBurnMint
+ MsgBurnMint defines the message for burning one token to mint another
+Allows burning AKT to mint ACT, or burning unused ACT back to AKT
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | owner source of the coins to be burned |
+ | `to` | [string](#string) |  | to destination of the minted coins. if minted coin is ACT, "to" must be same as signer |
+ | `coins_to_burn` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) |  | coins_to_burn |
+ | `denom_to_mint` | [string](#string) |  | denom_to_mint |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.MsgBurnMintResponse"></a>
+
+ ### MsgBurnMintResponse
+ MsgBurnMintResponse is the response type for MsgBurnMint
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [LedgerRecordID](#akash.bme.v1.LedgerRecordID) |  |  |
+ | `status` | [LedgerRecordStatus](#akash.bme.v1.LedgerRecordStatus) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.MsgFundVault"></a>
+
+ ### MsgFundVault
+ MsgFundVault defines the message for funding the BME vault with AKT
+This is used to provide an initial volatility buffer
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `authority` | [string](#string) |  | authority is the address that controls the module (governance) |
+ | `amount` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) |  | amount is the AKT amount to seed the vault with |
+ | `source` | [string](#string) |  | source is the source of funds (e.g., community pool) |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.MsgFundVaultResponse"></a>
+
+ ### MsgFundVaultResponse
+ MsgFundVaultResponse is the response type for MsgFundVault
+
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.MsgMintACT"></a>
+
+ ### MsgMintACT
+ MsgMintACT defines the message for burning one token to mint another
+Allows burning AKT to mint ACT, or burning unused ACT back to AKT
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | owner source of the coins to be burned |
+ | `to` | [string](#string) |  | to destination of the minted coins. if minted coin is ACT, "to" must be same as signer |
+ | `coins_to_burn` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) |  | coins_to_burn |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.MsgMintACTResponse"></a>
+
+ ### MsgMintACTResponse
+ MsgBurnMintResponse is the response type for MsgBurnMint
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [LedgerRecordID](#akash.bme.v1.LedgerRecordID) |  |  |
+ | `status` | [LedgerRecordStatus](#akash.bme.v1.LedgerRecordStatus) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.MsgUpdateParams"></a>
+
+ ### MsgUpdateParams
+ MsgUpdateParams defines the message for updating module parameters
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `authority` | [string](#string) |  | authority is the address that controls the module (governance) |
+ | `params` | [Params](#akash.bme.v1.Params) |  | params defines the updated parameters |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.MsgUpdateParamsResponse"></a>
+
+ ### MsgUpdateParamsResponse
+ MsgUpdateParamsResponse is the response type for MsgUpdateParams
+
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/bme/v1/query.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/bme/v1/query.proto
+ 
+
+ 
+ <a name="akash.bme.v1.QueryLedgerRecordEntry"></a>
+
+ ### QueryLedgerRecordEntry
+ QueryLedgerRecordEntry wraps a ledger record with its ID and status
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [LedgerRecordID](#akash.bme.v1.LedgerRecordID) |  | id is the unique identifier of the ledger record |
+ | `status` | [LedgerRecordStatus](#akash.bme.v1.LedgerRecordStatus) |  | status indicates whether this record is pending or executed |
+ | `pending_record` | [LedgerPendingRecord](#akash.bme.v1.LedgerPendingRecord) |  | pending_record is set when the record status is pending |
+ | `executed_record` | [LedgerRecord](#akash.bme.v1.LedgerRecord) |  | executed_record is set when the record status is executed |
+ | `canceled_record` | [LedgerCanceledRecord](#akash.bme.v1.LedgerCanceledRecord) |  | canceled_record is set when the record status is failed |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.QueryLedgerRecordsRequest"></a>
+
+ ### QueryLedgerRecordsRequest
+ QueryLedgerRecordsRequest is the request type for the Query/LedgerRecords RPC method
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `filters` | [LedgerRecordFilters](#akash.bme.v1.LedgerRecordFilters) |  | filters holds the ledger record fields to filter the request |
+ | `pagination` | [cosmos.base.query.v1beta1.PageRequest](#cosmos.base.query.v1beta1.PageRequest) |  | pagination defines the pagination for the request |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.QueryLedgerRecordsResponse"></a>
+
+ ### QueryLedgerRecordsResponse
+ QueryLedgerRecordsResponse is the response type for the Query/LedgerRecords RPC method
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `records` | [QueryLedgerRecordEntry](#akash.bme.v1.QueryLedgerRecordEntry) | repeated | records is a list of ledger records matching the filters |
+ | `pagination` | [cosmos.base.query.v1beta1.PageResponse](#cosmos.base.query.v1beta1.PageResponse) |  | pagination contains the information about response pagination |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.QueryParamsRequest"></a>
+
+ ### QueryParamsRequest
+ QueryParamsRequest is the request type for the Query/Params RPC method
+
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.QueryParamsResponse"></a>
+
+ ### QueryParamsResponse
+ QueryParamsResponse is the response type for the Query/Params RPC method
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `params` | [Params](#akash.bme.v1.Params) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.QueryStatusRequest"></a>
+
+ ### QueryStatusRequest
+ QueryStatusRequest is the request type for the circuit breaker status
+
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.QueryStatusResponse"></a>
+
+ ### QueryStatusResponse
+ QueryMintStatusResponse is the response type for the circuit breaker status
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `status` | [MintStatus](#akash.bme.v1.MintStatus) |  | status is the current circuit breaker status |
+ | `collateral_ratio` | [string](#string) |  | collateral_ratio is the current CR |
+ | `warn_threshold` | [string](#string) |  | warn_threshold is the warning threshold |
+ | `halt_threshold` | [string](#string) |  | halt_threshold is the halt threshold |
+ | `mints_allowed` | [bool](#bool) |  | mints_allowed indicates if new ACT mints are allowed |
+ | `refunds_allowed` | [bool](#bool) |  | refunds_allowed indicates if ACT refunds are allowed |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.QueryVaultStateRequest"></a>
+
+ ### QueryVaultStateRequest
+ QueryVaultStateRequest is the request type for the Query/VaultState RPC method
+
+ 
+
+ 
+
+ 
+ <a name="akash.bme.v1.QueryVaultStateResponse"></a>
+
+ ### QueryVaultStateResponse
+ QueryVaultStateResponse is the response type for the Query/VaultState RPC method
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `vault_state` | [State](#akash.bme.v1.State) |  |  |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.bme.v1.Query"></a>
+
+ ### Query
+ Query defines the gRPC querier service for the BME module
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `Params` | [QueryParamsRequest](#akash.bme.v1.QueryParamsRequest) | [QueryParamsResponse](#akash.bme.v1.QueryParamsResponse) | Params returns the module parameters | GET|/akash/bme/v1/params|
+ | `VaultState` | [QueryVaultStateRequest](#akash.bme.v1.QueryVaultStateRequest) | [QueryVaultStateResponse](#akash.bme.v1.QueryVaultStateResponse) | VaultState returns the current vault state | GET|/akash/bme/v1/vault|
+ | `Status` | [QueryStatusRequest](#akash.bme.v1.QueryStatusRequest) | [QueryStatusResponse](#akash.bme.v1.QueryStatusResponse) | Status returns the current circuit breaker status | GET|/akash/bme/v1/status|
+ | `LedgerRecords` | [QueryLedgerRecordsRequest](#akash.bme.v1.QueryLedgerRecordsRequest) | [QueryLedgerRecordsResponse](#akash.bme.v1.QueryLedgerRecordsResponse) | LedgerRecords queries ledger records with optional filters for status, source, denom, to_denom | GET|/akash/bme/v1/ledger|
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/bme/v1/service.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/bme/v1/service.proto
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.bme.v1.Msg"></a>
+
+ ### Msg
+ Msg defines the BME (Burn/Mint Engine) transaction service.
+The BME module manages the burn and mint operations for ACT tokens,
+maintaining collateral ratios and enforcing circuit breaker rules.
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `UpdateParams` | [MsgUpdateParams](#akash.bme.v1.MsgUpdateParams) | [MsgUpdateParamsResponse](#akash.bme.v1.MsgUpdateParamsResponse) | UpdateParams updates the module parameters. This operation can only be performed through governance proposals. | |
+ | `BurnMint` | [MsgBurnMint](#akash.bme.v1.MsgBurnMint) | [MsgBurnMintResponse](#akash.bme.v1.MsgBurnMintResponse) | BurnMint allows users to burn one token and mint another at current oracle prices. Typically used to burn unused ACT tokens back to AKT. The operation may be delayed or rejected based on circuit breaker status. | |
+ | `MintACT` | [MsgMintACT](#akash.bme.v1.MsgMintACT) | [MsgMintACTResponse](#akash.bme.v1.MsgMintACTResponse) | MintACT mints ACT tokens by burning the specified source token. The mint amount is calculated based on current oracle prices and the collateral ratio. May be halted if circuit breaker is triggered. | |
+ | `BurnACT` | [MsgBurnACT](#akash.bme.v1.MsgBurnACT) | [MsgBurnACTResponse](#akash.bme.v1.MsgBurnACTResponse) | BurnACT burns ACT tokens and mints the specified destination token. The burn operation uses remint credits when available, otherwise requires adequate collateral backing based on oracle prices. | |
+ | `FundVault` | [MsgFundVault](#akash.bme.v1.MsgFundVault) | [MsgFundVaultResponse](#akash.bme.v1.MsgFundVaultResponse) | FundVault seeds the BME vault with AKT from a designated source (e.g., community pool). This provides the initial volatility buffer required for burn/mint operations. Can only be executed through governance proposals. | |
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/cert/v1/cert.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/cert/v1/cert.proto
+ 
+
+ 
+ <a name="akash.cert.v1.Certificate"></a>
+
+ ### Certificate
+ Certificate stores state, certificate and it's public key.
+The certificate is required for several transactions including deployment of a workload to verify the identity of the tenant and secure the deployment.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `state` | [State](#akash.cert.v1.State) |  | State is the state of the certificate. CertificateValid denotes state for deployment active. CertificateRevoked denotes state for deployment closed. |
+ | `cert` | [bytes](#bytes) |  | Cert holds the bytes of the certificate. |
+ | `pubkey` | [bytes](#bytes) |  | PubKey holds the public key of the certificate. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.cert.v1.ID"></a>
+
+ ### ID
+ ID stores owner and sequence number.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account address of the user who owns the certificate. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `serial` | [string](#string) |  | Serial is a sequence number for the certificate. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+ 
+ <a name="akash.cert.v1.State"></a>
+
+ ### State
+ State is an enum which refers to state of the certificate.
+
+ | Name | Number | Description |
+ | ---- | ------ | ----------- |
+ | invalid | 0 | Prefix should start with 0 in enum. So declaring dummy state. |
+ | valid | 1 | CertificateValid denotes state for deployment active. |
+ | revoked | 2 | CertificateRevoked denotes state for deployment closed. |
+ 
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/cert/v1/filters.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/cert/v1/filters.proto
+ 
+
+ 
+ <a name="akash.cert.v1.CertificateFilter"></a>
+
+ ### CertificateFilter
+ CertificateFilter defines filters used to filter certificates.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account address of the user who owns the certificate. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `serial` | [string](#string) |  | Serial is a sequence number for the certificate. |
+ | `state` | [string](#string) |  | State is the state of the certificate. CertificateValid denotes state for deployment active. CertificateRevoked denotes state for deployment closed. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/cert/v1/genesis.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/cert/v1/genesis.proto
+ 
+
+ 
+ <a name="akash.cert.v1.GenesisCertificate"></a>
+
+ ### GenesisCertificate
+ GenesisCertificate defines certificate entry at genesis.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account address of the user who owns the certificate. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `certificate` | [Certificate](#akash.cert.v1.Certificate) |  | Certificate holds the certificate. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.cert.v1.GenesisState"></a>
+
+ ### GenesisState
+ GenesisState defines the basic genesis state used by cert module.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `certificates` | [GenesisCertificate](#akash.cert.v1.GenesisCertificate) | repeated | Certificates is a list of genesis certificates. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/cert/v1/msg.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/cert/v1/msg.proto
+ 
+
+ 
+ <a name="akash.cert.v1.MsgCreateCertificate"></a>
+
+ ### MsgCreateCertificate
+ MsgCreateCertificate defines an SDK message for creating certificate.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account address of the user who owns the certificate. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `cert` | [bytes](#bytes) |  | Cert holds the bytes representing the certificate. |
+ | `pubkey` | [bytes](#bytes) |  | PubKey holds the public key. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.cert.v1.MsgCreateCertificateResponse"></a>
+
+ ### MsgCreateCertificateResponse
+ MsgCreateCertificateResponse defines the Msg/CreateCertificate response type.
+
+ 
+
+ 
+
+ 
+ <a name="akash.cert.v1.MsgRevokeCertificate"></a>
+
+ ### MsgRevokeCertificate
+ MsgRevokeCertificate defines an SDK message for revoking certificate.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [ID](#akash.cert.v1.ID) |  | Id corresponds to the certificate ID which includes owner and sequence number. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.cert.v1.MsgRevokeCertificateResponse"></a>
+
+ ### MsgRevokeCertificateResponse
+ MsgRevokeCertificateResponse defines the Msg/RevokeCertificate response type.
+
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/cert/v1/query.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/cert/v1/query.proto
+ 
+
+ 
+ <a name="akash.cert.v1.CertificateResponse"></a>
+
+ ### CertificateResponse
+ CertificateResponse contains a single X509 certificate and its serial number.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `certificate` | [Certificate](#akash.cert.v1.Certificate) |  | Certificate holds the certificate. |
+ | `serial` | [string](#string) |  | Serial is a sequence number for the certificate. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.cert.v1.QueryCertificatesRequest"></a>
+
+ ### QueryCertificatesRequest
+ QueryDeploymentsRequest is request type for the Query/Deployments RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `filter` | [CertificateFilter](#akash.cert.v1.CertificateFilter) |  | Filter allows for filtering of results. |
+ | `pagination` | [cosmos.base.query.v1beta1.PageRequest](#cosmos.base.query.v1beta1.PageRequest) |  | Pagination is used to paginate the request. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.cert.v1.QueryCertificatesResponse"></a>
+
+ ### QueryCertificatesResponse
+ QueryCertificatesResponse is response type for the Query/Certificates RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `certificates` | [CertificateResponse](#akash.cert.v1.CertificateResponse) | repeated | Certificates is a list of certificate. |
+ | `pagination` | [cosmos.base.query.v1beta1.PageResponse](#cosmos.base.query.v1beta1.PageResponse) |  | Pagination contains the information about response pagination. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.cert.v1.Query"></a>
+
+ ### Query
+ Query defines the gRPC querier service for certificates.
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `Certificates` | [QueryCertificatesRequest](#akash.cert.v1.QueryCertificatesRequest) | [QueryCertificatesResponse](#akash.cert.v1.QueryCertificatesResponse) | Certificates queries certificates on-chain. | GET|/akash/cert/v1/certificates/list|
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/cert/v1/service.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/cert/v1/service.proto
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.cert.v1.Msg"></a>
+
+ ### Msg
+ Msg defines the provider Msg service.
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `CreateCertificate` | [MsgCreateCertificate](#akash.cert.v1.MsgCreateCertificate) | [MsgCreateCertificateResponse](#akash.cert.v1.MsgCreateCertificateResponse) | CreateCertificate defines a method to create new certificate given proper inputs. | |
+ | `RevokeCertificate` | [MsgRevokeCertificate](#akash.cert.v1.MsgRevokeCertificate) | [MsgRevokeCertificateResponse](#akash.cert.v1.MsgRevokeCertificateResponse) | RevokeCertificate defines a method to revoke the certificate. | |
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/deployment/v1/deployment.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/deployment/v1/deployment.proto
+ 
+
+ 
+ <a name="akash.deployment.v1.Deployment"></a>
+
+ ### Deployment
+ Deployment stores deploymentID, state and checksum details.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [DeploymentID](#akash.deployment.v1.DeploymentID) |  | ID is the unique identifier of the deployment. |
+ | `state` | [Deployment.State](#akash.deployment.v1.Deployment.State) |  | State defines the sate of the deployment. A deployment can be either active or inactive. |
+ | `hash` | [bytes](#bytes) |  | Hash is an hashed representation of the deployment. |
+ | `created_at` | [int64](#int64) |  | CreatedAt indicates when the deployment was created as a block height value. |
+ | `reclamation` | [DeploymentReclamation](#akash.deployment.v1.DeploymentReclamation) |  | reclamation stores the deployment's reclamation requirements for persistence. Needed so that StartGroup can propagate reclamation to newly created orders. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1.DeploymentID"></a>
+
+ ### DeploymentID
+ DeploymentID represents a unique identifier for a specific deployment on the network.
+It is composed of two fields: an owner address and a sequence number (dseq).
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account bech32 address of the user who owns the deployment. It is a string representing a valid bech32 account address.
+
+Example: "akash1..." |
+ | `dseq` | [uint64](#uint64) |  | Dseq (deployment sequence number) is a unique numeric identifier for the deployment. It is used to differentiate deployments created by the same owner. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1.DeploymentReclamation"></a>
+
+ ### DeploymentReclamation
+ DeploymentReclamation defines the tenant's reclamation requirements.
+Stored on the Deployment and propagated to Orders.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `min_window` | [google.protobuf.Duration](#google.protobuf.Duration) |  | min_window is the minimum reclamation window the tenant requires. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+ 
+ <a name="akash.deployment.v1.Deployment.State"></a>
+
+ ### Deployment.State
+ State is an enum which refers to state of deployment.
+
+ | Name | Number | Description |
+ | ---- | ------ | ----------- |
+ | invalid | 0 | Prefix should start with 0 in enum. So declaring dummy state. |
+ | active | 1 | DeploymentActive denotes state for deployment active. |
+ | closed | 2 | DeploymentClosed denotes state for deployment closed. |
+ 
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/deployment/v1/group.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/deployment/v1/group.proto
+ 
+
+ 
+ <a name="akash.deployment.v1.GroupID"></a>
+
+ ### GroupID
+ GroupID uniquely identifies a group within a deployment on the network.
+A group represents a specific collection of resources or configurations
+within a deployment.
+It stores owner, deployment sequence number (dseq) and group sequence number (gseq).
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account address of the user who owns the group. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `dseq` | [uint64](#uint64) |  | Dseq (deployment sequence number) is a unique numeric identifier for the deployment. It is used to differentiate deployments created by the same owner. |
+ | `gseq` | [uint32](#uint32) |  | Gseq (group sequence number) is a unique numeric identifier for the group. It is used to differentiate groups created by the same owner in a deployment. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/deployment/v1/event.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/deployment/v1/event.proto
+ 
+
+ 
+ <a name="akash.deployment.v1.EventDeploymentClosed"></a>
+
+ ### EventDeploymentClosed
+ EventDeploymentClosed is triggered when deployment is closed on chain.
+It contains all the information required to identify a deployment.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [DeploymentID](#akash.deployment.v1.DeploymentID) |  | ID is the unique identifier of the deployment. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1.EventDeploymentCreated"></a>
+
+ ### EventDeploymentCreated
+ EventDeploymentCreated event is triggered when deployment is created on chain.
+It contains all the information required to identify a deployment.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [DeploymentID](#akash.deployment.v1.DeploymentID) |  | ID is the unique identifier of the deployment. |
+ | `hash` | [bytes](#bytes) |  | Hash is an hashed representation of the deployment. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1.EventDeploymentUpdated"></a>
+
+ ### EventDeploymentUpdated
+ EventDeploymentUpdated is triggered when deployment is updated on chain.
+It contains all the information required to identify a deployment.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [DeploymentID](#akash.deployment.v1.DeploymentID) |  | ID is the unique identifier of the deployment. |
+ | `hash` | [bytes](#bytes) |  | Hash is an hashed representation of the deployment. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1.EventGroupClosed"></a>
+
+ ### EventGroupClosed
+ EventGroupClosed is triggered when deployment group is closed.
+It contains all the information required to identify a group.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [GroupID](#akash.deployment.v1.GroupID) |  | ID is the unique identifier of the group. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1.EventGroupPaused"></a>
+
+ ### EventGroupPaused
+ EventGroupPaused is triggered when deployment group is paused.
+It contains all the information required to identify a group.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [GroupID](#akash.deployment.v1.GroupID) |  | ID is the unique identifier of the group. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1.EventGroupStarted"></a>
+
+ ### EventGroupStarted
+ EventGroupStarted is triggered when deployment group is started.
+It contains all the information required to identify a group.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [GroupID](#akash.deployment.v1.GroupID) |  | ID is the unique identifier of the group. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/deployment/v1beta4/resourceunit.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/deployment/v1beta4/resourceunit.proto
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.ResourceUnit"></a>
+
+ ### ResourceUnit
+ ResourceUnit extends Resources and adds Count along with the Price.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `resource` | [akash.base.resources.v1beta4.Resources](#akash.base.resources.v1beta4.Resources) |  | Resource holds the amount of resources. |
+ | `count` | [uint32](#uint32) |  | Count corresponds to the amount of replicas to run of the resources. |
+ | `price` | [cosmos.base.v1beta1.DecCoin](#cosmos.base.v1beta1.DecCoin) |  | Price holds the pricing for the resource units. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/deployment/v1beta4/groupspec.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/deployment/v1beta4/groupspec.proto
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.GroupSpec"></a>
+
+ ### GroupSpec
+ GroupSpec defines a specification for a group in a deployment on the network.
+This includes attributes like the group name, placement requirements, and resource units.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `name` | [string](#string) |  | Name is the name of the group. |
+ | `requirements` | [akash.base.attributes.v1.PlacementRequirements](#akash.base.attributes.v1.PlacementRequirements) |  | Requirements specifies the placement requirements for the group. This determines where the resources in the group can be deployed. |
+ | `resources` | [ResourceUnit](#akash.deployment.v1beta4.ResourceUnit) | repeated | Resources is a list containing the resource units allocated to the group. Each ResourceUnit defines the specific resources (e.g., CPU, memory) assigned. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/deployment/v1beta4/deploymentmsg.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/deployment/v1beta4/deploymentmsg.proto
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.MsgCloseDeployment"></a>
+
+ ### MsgCloseDeployment
+ MsgCloseDeployment defines an SDK message for closing deployment
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [akash.deployment.v1.DeploymentID](#akash.deployment.v1.DeploymentID) |  | ID is the unique identifier of the deployment. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.MsgCloseDeploymentResponse"></a>
+
+ ### MsgCloseDeploymentResponse
+ MsgCloseDeploymentResponse defines the Msg/CloseDeployment response type.
+
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.MsgCreateDeployment"></a>
+
+ ### MsgCreateDeployment
+ MsgCreateDeployment defines an SDK message for creating deployment.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [akash.deployment.v1.DeploymentID](#akash.deployment.v1.DeploymentID) |  | ID is the unique identifier of the deployment. |
+ | `groups` | [GroupSpec](#akash.deployment.v1beta4.GroupSpec) | repeated | GroupSpec is a list of group specifications for the deployment. This field is required and must be a list of GroupSpec. |
+ | `hash` | [bytes](#bytes) |  | Hash of the deployment. |
+ | `deposit` | [akash.base.deposit.v1.Deposit](#akash.base.deposit.v1.Deposit) |  | Deposit specifies the amount of coins to include in the deployment's first deposit. |
+ | `reclamation` | [akash.deployment.v1.DeploymentReclamation](#akash.deployment.v1.DeploymentReclamation) |  | reclamation specifies the deployment-level reclamation requirements. Nil means the tenant does not require reclamation. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.MsgCreateDeploymentResponse"></a>
+
+ ### MsgCreateDeploymentResponse
+ MsgCreateDeploymentResponse defines the Msg/CreateDeployment response type.
+
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.MsgUpdateDeployment"></a>
+
+ ### MsgUpdateDeployment
+ MsgUpdateDeployment defines an SDK message for updating deployment.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [akash.deployment.v1.DeploymentID](#akash.deployment.v1.DeploymentID) |  | ID is the unique identifier of the deployment. |
+ | `hash` | [bytes](#bytes) |  | Hash of the deployment. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.MsgUpdateDeploymentResponse"></a>
+
+ ### MsgUpdateDeploymentResponse
+ MsgUpdateDeploymentResponse defines the Msg/UpdateDeployment response type.
+
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/deployment/v1beta4/filters.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/deployment/v1beta4/filters.proto
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.DeploymentFilters"></a>
+
+ ### DeploymentFilters
+ DeploymentFilters defines filters used to filter deployments.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account bech32 address of the user who owns the deployment. It is a string representing a valid bech32 account address.
+
+Example: "akash1..." |
+ | `dseq` | [uint64](#uint64) |  | Dseq (deployment sequence number) is a unique numeric identifier for the deployment. It is used to differentiate deployments created by the same owner. |
+ | `state` | [string](#string) |  | State defines the sate of the deployment. A deployment can be either active or inactive. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.GroupFilters"></a>
+
+ ### GroupFilters
+ GroupFilters defines filters used to filter groups
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account address of the user who owns the group. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `dseq` | [uint64](#uint64) |  | Dseq (deployment sequence number) is a unique numeric identifier for the deployment. It is used to differentiate deployments created by the same owner. |
+ | `gseq` | [uint64](#uint64) |  | Gseq (group sequence number) is a unique numeric identifier for the group. It is used to differentiate groups created by the same owner in a deployment. |
+ | `state` | [string](#string) |  | State defines the sate of the deployment. A deployment can be either active or inactive. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/deployment/v1beta4/group.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/deployment/v1beta4/group.proto
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.Group"></a>
+
+ ### Group
+ Group stores group id, state and specifications of a group.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [akash.deployment.v1.GroupID](#akash.deployment.v1.GroupID) |  | Id is the unique identifier for the group. |
+ | `state` | [Group.State](#akash.deployment.v1beta4.Group.State) |  | State represents the state of the group. |
+ | `group_spec` | [GroupSpec](#akash.deployment.v1beta4.GroupSpec) |  | GroupSpec holds the specification of a the Group. |
+ | `created_at` | [int64](#int64) |  | CreatedAt is the block height at which the deployment was created. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+ 
+ <a name="akash.deployment.v1beta4.Group.State"></a>
+
+ ### Group.State
+ State is an enum which refers to state of group.
+
+ | Name | Number | Description |
+ | ---- | ------ | ----------- |
+ | invalid | 0 | Prefix should start with 0 in enum. So declaring dummy state. |
+ | open | 1 | GroupOpen denotes state for group open. |
+ | paused | 2 | GroupOrdered denotes state for group ordered. |
+ | insufficient_funds | 3 | GroupInsufficientFunds denotes state for group insufficient_funds. |
+ | closed | 4 | GroupClosed denotes state for group closed. |
+ 
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/deployment/v1beta4/params.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/deployment/v1beta4/params.proto
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.Params"></a>
+
+ ### Params
+ Params defines the parameters for the x/deployment module.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `min_deposits` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) | repeated | MinDeposits holds a list of the minimum amount of deposits for each a coin. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/deployment/v1beta4/genesis.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/deployment/v1beta4/genesis.proto
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.GenesisDeployment"></a>
+
+ ### GenesisDeployment
+ GenesisDeployment defines the basic genesis state used by deployment module.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `deployment` | [akash.deployment.v1.Deployment](#akash.deployment.v1.Deployment) |  | Deployments represents a deployment on the network. |
+ | `groups` | [Group](#akash.deployment.v1beta4.Group) | repeated | Groups is a list of groups within a Deployment. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.GenesisState"></a>
+
+ ### GenesisState
+ GenesisState stores slice of genesis deployment instance.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `deployments` | [GenesisDeployment](#akash.deployment.v1beta4.GenesisDeployment) | repeated | Deployments is a list of deployments on the network. |
+ | `params` | [Params](#akash.deployment.v1beta4.Params) |  | Params defines the parameters for the x/deployment module. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/deployment/v1beta4/groupmsg.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/deployment/v1beta4/groupmsg.proto
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.MsgCloseGroup"></a>
+
+ ### MsgCloseGroup
+ MsgCloseGroup defines SDK message to close a single Group within a Deployment.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [akash.deployment.v1.GroupID](#akash.deployment.v1.GroupID) |  | Id is the unique identifier of the Group. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.MsgCloseGroupResponse"></a>
+
+ ### MsgCloseGroupResponse
+ MsgCloseGroupResponse defines the Msg/CloseGroup response type.
+
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.MsgPauseGroup"></a>
+
+ ### MsgPauseGroup
+ MsgPauseGroup defines SDK message to pause a single Group within a Deployment.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [akash.deployment.v1.GroupID](#akash.deployment.v1.GroupID) |  | Id is the unique identifier of the Group. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.MsgPauseGroupResponse"></a>
+
+ ### MsgPauseGroupResponse
+ MsgPauseGroupResponse defines the Msg/PauseGroup response type.
+
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.MsgStartGroup"></a>
+
+ ### MsgStartGroup
+ MsgStartGroup defines SDK message to start a single Group within a Deployment.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [akash.deployment.v1.GroupID](#akash.deployment.v1.GroupID) |  | Id is the unique identifier of the Group. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.MsgStartGroupResponse"></a>
+
+ ### MsgStartGroupResponse
+ MsgStartGroupResponse defines the Msg/StartGroup response type.
+
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/deployment/v1beta4/paramsmsg.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/deployment/v1beta4/paramsmsg.proto
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.MsgUpdateParams"></a>
+
+ ### MsgUpdateParams
+ MsgUpdateParams is the Msg/UpdateParams request type.
+
+Since: akash v1.0.0
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `authority` | [string](#string) |  | Authority is the address of the governance account. |
+ | `params` | [Params](#akash.deployment.v1beta4.Params) |  | Params defines the x/deployment parameters to update.
+
+NOTE: All parameters must be supplied. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.MsgUpdateParamsResponse"></a>
+
+ ### MsgUpdateParamsResponse
+ MsgUpdateParamsResponse defines the response structure for executing a
+MsgUpdateParams message.
+
+Since: akash v1.0.0
+
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/escrow/id/v1/id.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/escrow/id/v1/id.proto
+ 
+
+ 
+ <a name="akash.escrow.id.v1.Account"></a>
+
+ ### Account
+ Account is the account identifier.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `scope` | [Scope](#akash.escrow.id.v1.Scope) |  |  |
+ | `xid` | [string](#string) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.escrow.id.v1.Payment"></a>
+
+ ### Payment
+ Payment is the payment identifier.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `aid` | [Account](#akash.escrow.id.v1.Account) |  |  |
+ | `xid` | [string](#string) |  |  |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+ 
+ <a name="akash.escrow.id.v1.Scope"></a>
+
+ ### Scope
+ Scope is an enum which refers to the account scope
+
+ | Name | Number | Description |
+ | ---- | ------ | ----------- |
+ | invalid | 0 | Prefix should start with 0 in enum. So declaring dummy state. |
+ | deployment | 1 | DeploymentActive denotes state for deployment active. |
+ | bid | 2 | DeploymentClosed denotes state for deployment closed. |
+ 
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/escrow/types/v1/balance.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/escrow/types/v1/balance.proto
+ 
+
+ 
+ <a name="akash.escrow.types.v1.Balance"></a>
+
+ ### Balance
+ Balance holds the unspent coin received from all deposits with same denom
+DecCoin is not being used here as it does not support negative values,
+and balance may go negative if account is overdrawn.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `denom` | [string](#string) |  |  |
+ | `amount` | [string](#string) |  |  |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/escrow/types/v1/deposit.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/escrow/types/v1/deposit.proto
+ 
+
+ 
+ <a name="akash.escrow.types.v1.Depositor"></a>
+
+ ### Depositor
+ Depositor stores state of a deposit.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the bech32 address of the depositor. It is a string representing a valid account address.
+
+Example: "akash1..." If depositor is same as the owner, then any incoming coins are added to the Balance. If depositor isn't same as the owner, then any incoming coins are added to the Funds. |
+ | `height` | [int64](#int64) |  | Height blockchain height at which deposit was created |
+ | `source` | [akash.base.deposit.v1.Source](#akash.base.deposit.v1.Source) |  | Source indicated origination of the funds |
+ | `balance` | [cosmos.base.v1beta1.DecCoin](#cosmos.base.v1beta1.DecCoin) |  | Balance amount of funds available to spend in this deposit. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/escrow/types/v1/state.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/escrow/types/v1/state.proto
+ 
+
+  <!-- end messages -->
+
+ 
+ <a name="akash.escrow.types.v1.State"></a>
+
+ ### State
+ State stores state for an escrow account.
+
+ | Name | Number | Description |
+ | ---- | ------ | ----------- |
+ | invalid | 0 | AccountStateInvalid is an invalid state. |
+ | open | 1 | StateOpen is the state when an object is open. |
+ | closed | 2 | StateClosed is the state when an object is closed. |
+ | overdrawn | 3 | StateOverdrawn is the state when an object are overdrawn. |
+ 
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/escrow/types/v1/account.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/escrow/types/v1/account.proto
+ 
+
+ 
+ <a name="akash.escrow.types.v1.Account"></a>
+
+ ### Account
+ Account
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [akash.escrow.id.v1.Account](#akash.escrow.id.v1.Account) |  |  |
+ | `state` | [AccountState](#akash.escrow.types.v1.AccountState) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.escrow.types.v1.AccountState"></a>
+
+ ### AccountState
+ Account stores state for an escrow account.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account bech32 address of the user who owns the deployment. It is a string representing a valid bech32 account address.
+
+Example: "akash1..." |
+ | `state` | [State](#akash.escrow.types.v1.State) |  | State represents the current state of an Account. |
+ | `transferred` | [cosmos.base.v1beta1.DecCoin](#cosmos.base.v1beta1.DecCoin) | repeated | Transferred total coins spent by this account. |
+ | `settled_at` | [int64](#int64) |  | SettledAt represents the block height at which this account was last settled. |
+ | `funds` | [Balance](#akash.escrow.types.v1.Balance) | repeated | Funds holds the unspent coins received from all deposits |
+ | `deposits` | [Depositor](#akash.escrow.types.v1.Depositor) | repeated |  |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/deployment/v1beta4/query.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/deployment/v1beta4/query.proto
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.QueryDeploymentRequest"></a>
+
+ ### QueryDeploymentRequest
+ QueryDeploymentRequest is request type for the Query/Deployment RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [akash.deployment.v1.DeploymentID](#akash.deployment.v1.DeploymentID) |  | Id is the unique identifier of the deployment. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.QueryDeploymentResponse"></a>
+
+ ### QueryDeploymentResponse
+ QueryDeploymentResponse is response type for the Query/Deployment RPC method
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `deployment` | [akash.deployment.v1.Deployment](#akash.deployment.v1.Deployment) |  | Deployment represents a deployment on the network. |
+ | `groups` | [Group](#akash.deployment.v1beta4.Group) | repeated | Groups is a list of deployment groups. |
+ | `escrow_account` | [akash.escrow.types.v1.Account](#akash.escrow.types.v1.Account) |  | EscrowAccount represents an escrow mechanism where funds are held. This ensures that obligations of both tenants and providers involved in the transaction are met without direct access to each other's accounts. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.QueryDeploymentsRequest"></a>
+
+ ### QueryDeploymentsRequest
+ QueryDeploymentsRequest is request type for the Query/Deployments RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `filters` | [DeploymentFilters](#akash.deployment.v1beta4.DeploymentFilters) |  | Filters holds the deployment fields to filter the request. |
+ | `pagination` | [cosmos.base.query.v1beta1.PageRequest](#cosmos.base.query.v1beta1.PageRequest) |  | Pagination is used to paginate the request. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.QueryDeploymentsResponse"></a>
+
+ ### QueryDeploymentsResponse
+ QueryDeploymentsResponse is response type for the Query/Deployments RPC method
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `deployments` | [QueryDeploymentResponse](#akash.deployment.v1beta4.QueryDeploymentResponse) | repeated | Deployments is a list of Deployments. |
+ | `pagination` | [cosmos.base.query.v1beta1.PageResponse](#cosmos.base.query.v1beta1.PageResponse) |  | Pagination contains the information about response pagination. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.QueryGroupRequest"></a>
+
+ ### QueryGroupRequest
+ QueryGroupRequest is request type for the Query/Group RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [akash.deployment.v1.GroupID](#akash.deployment.v1.GroupID) |  | Id is the unique identifier of the Group. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.QueryGroupResponse"></a>
+
+ ### QueryGroupResponse
+ QueryGroupResponse is response type for the Query/Group RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `group` | [Group](#akash.deployment.v1beta4.Group) |  | Group holds a deployment Group. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.QueryParamsRequest"></a>
+
+ ### QueryParamsRequest
+ QueryParamsRequest is the request type for the Query/Params RPC method.
+
+ 
+
+ 
+
+ 
+ <a name="akash.deployment.v1beta4.QueryParamsResponse"></a>
+
+ ### QueryParamsResponse
+ QueryParamsResponse is the response type for the Query/Params RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `params` | [Params](#akash.deployment.v1beta4.Params) |  | params defines the parameters of the module. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.deployment.v1beta4.Query"></a>
+
+ ### Query
+ Query defines the gRPC querier service for the Deployments package.
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `Deployments` | [QueryDeploymentsRequest](#akash.deployment.v1beta4.QueryDeploymentsRequest) | [QueryDeploymentsResponse](#akash.deployment.v1beta4.QueryDeploymentsResponse) | Deployments queries deployments. | GET|/akash/deployment/v1beta4/deployments/list|
+ | `Deployment` | [QueryDeploymentRequest](#akash.deployment.v1beta4.QueryDeploymentRequest) | [QueryDeploymentResponse](#akash.deployment.v1beta4.QueryDeploymentResponse) | Deployment queries deployment details. | GET|/akash/deployment/v1beta4/deployments/info|
+ | `Group` | [QueryGroupRequest](#akash.deployment.v1beta4.QueryGroupRequest) | [QueryGroupResponse](#akash.deployment.v1beta4.QueryGroupResponse) | Group queries group details. | GET|/akash/deployment/v1beta4/groups/info|
+ | `Params` | [QueryParamsRequest](#akash.deployment.v1beta4.QueryParamsRequest) | [QueryParamsResponse](#akash.deployment.v1beta4.QueryParamsResponse) | Params returns the total set of deployment parameters. | GET|/akash/deployment/v1beta4/params|
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/deployment/v1beta4/service.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/deployment/v1beta4/service.proto
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.deployment.v1beta4.Msg"></a>
+
+ ### Msg
+ Msg defines the x/deployment Msg service.
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `CreateDeployment` | [MsgCreateDeployment](#akash.deployment.v1beta4.MsgCreateDeployment) | [MsgCreateDeploymentResponse](#akash.deployment.v1beta4.MsgCreateDeploymentResponse) | CreateDeployment defines a method to create new deployment given proper inputs. | |
+ | `UpdateDeployment` | [MsgUpdateDeployment](#akash.deployment.v1beta4.MsgUpdateDeployment) | [MsgUpdateDeploymentResponse](#akash.deployment.v1beta4.MsgUpdateDeploymentResponse) | UpdateDeployment defines a method to update a deployment given proper inputs. | |
+ | `CloseDeployment` | [MsgCloseDeployment](#akash.deployment.v1beta4.MsgCloseDeployment) | [MsgCloseDeploymentResponse](#akash.deployment.v1beta4.MsgCloseDeploymentResponse) | CloseDeployment defines a method to close a deployment given proper inputs. | |
+ | `CloseGroup` | [MsgCloseGroup](#akash.deployment.v1beta4.MsgCloseGroup) | [MsgCloseGroupResponse](#akash.deployment.v1beta4.MsgCloseGroupResponse) | CloseGroup defines a method to close a group of a deployment given proper inputs. | |
+ | `PauseGroup` | [MsgPauseGroup](#akash.deployment.v1beta4.MsgPauseGroup) | [MsgPauseGroupResponse](#akash.deployment.v1beta4.MsgPauseGroupResponse) | PauseGroup defines a method to pause a group of a deployment given proper inputs. | |
+ | `StartGroup` | [MsgStartGroup](#akash.deployment.v1beta4.MsgStartGroup) | [MsgStartGroupResponse](#akash.deployment.v1beta4.MsgStartGroupResponse) | StartGroup defines a method to start a group of a deployment given proper inputs. | |
+ | `UpdateParams` | [MsgUpdateParams](#akash.deployment.v1beta4.MsgUpdateParams) | [MsgUpdateParamsResponse](#akash.deployment.v1beta4.MsgUpdateParamsResponse) | UpdateParams defines a governance operation for updating the x/deployment module parameters. The authority is hard-coded to the x/gov module account.
+
+Since: akash v1.0.0 | |
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/discovery/v1/client_info.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/discovery/v1/client_info.proto
+ 
+
+ 
+ <a name="akash.discovery.v1.ClientInfo"></a>
+
+ ### ClientInfo
+ ClientInfo is the akash specific client info.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `api_version` | [string](#string) |  | ApiVersion is the version of the API running on the client. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.discovery.v1.ModuleVersion"></a>
+
+ ### ModuleVersion
+ ModuleVersion describes a single module and its API version.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `module` | [string](#string) |  | Module is the name of the module (e.g., "deployment", "market", "oracle"). |
+ | `version` | [string](#string) |  | Version is the API version of the module (e.g., "v1beta4", "v1beta5", "v2"). |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.discovery.v1.VersionInfo"></a>
+
+ ### VersionInfo
+ VersionInfo describes a complete API version and its metadata.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `api_version` | [string](#string) |  | ApiVersion is the composite API version identifier (e.g., "v1beta4"). |
+ | `modules` | [ModuleVersion](#akash.discovery.v1.ModuleVersion) | repeated | Modules lists the per-module versions included in this API version. |
+ | `features` | [string](#string) | repeated | Features lists optional feature flags supported by this API version. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/discovery/v1/akash.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/discovery/v1/akash.proto
+ 
+
+ 
+ <a name="akash.discovery.v1.Akash"></a>
+
+ ### Akash
+ Akash akash specific RPC parameters.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `client_info` | [ClientInfo](#akash.discovery.v1.ClientInfo) |  | ClientInfo holds information about the client. Kept for backward compatibility. New clients should use supported_versions. |
+ | `supported_versions` | [VersionInfo](#akash.discovery.v1.VersionInfo) | repeated | SupportedVersions lists all API versions the node supports. Clients should pick the best match from this list. |
+ | `chain_id` | [string](#string) |  | ChainID is the identifier of the blockchain network. |
+ | `node_version` | [string](#string) |  | NodeVersion is the software version of the node. |
+ | `min_client_version` | [string](#string) |  | MinClientVersion is the minimum client version the node accepts. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/discovery/v1/service.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/discovery/v1/service.proto
+ 
+
+ 
+ <a name="akash.discovery.v1.GetInfoRequest"></a>
+
+ ### GetInfoRequest
+ GetInfoRequest is the request type for the Discovery/GetInfo RPC method.
+
+ 
+
+ 
+
+ 
+ <a name="akash.discovery.v1.GetInfoResponse"></a>
+
+ ### GetInfoResponse
+ GetInfoResponse is the response type for the Discovery/GetInfo RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `info` | [Akash](#akash.discovery.v1.Akash) |  | Info contains the node's version and capability information. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.discovery.v1.Discovery"></a>
+
+ ### Discovery
+ Discovery provides version and capability information about the node.
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `GetInfo` | [GetInfoRequest](#akash.discovery.v1.GetInfoRequest) | [GetInfoResponse](#akash.discovery.v1.GetInfoResponse) | GetInfo returns the node's supported API versions and metadata. | GET|/akash/discovery/v1/info|
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/downtimedetector/v1beta1/downtime_duration.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/downtimedetector/v1beta1/downtime_duration.proto
+ 
+
+  <!-- end messages -->
+
+ 
+ <a name="akash.downtimedetector.v1beta1.Downtime"></a>
+
+ ### Downtime
+ Downtime defines the predefined downtime durations that can be tracked
+by the downtime detector module to monitor chain availability
+
+ | Name | Number | Description |
+ | ---- | ------ | ----------- |
+ | DURATION_30S | 0 | DURATION_30S represents a 30 second downtime period |
+ | DURATION_1M | 1 | DURATION_1M represents a 1 minute downtime period |
+ | DURATION_2M | 2 | DURATION_2M represents a 2 minute downtime period |
+ | DURATION_3M | 3 | DURATION_3M represents a 3 minute downtime period |
+ | DURATION_4M | 4 | DURATION_4M represents a 4 minute downtime period |
+ | DURATION_5M | 5 | DURATION_5M represents a 5 minute downtime period |
+ | DURATION_10M | 6 | DURATION_10M represents a 10 minute downtime period |
+ | DURATION_20M | 7 | DURATION_20M represents a 20 minute downtime period |
+ | DURATION_30M | 8 | DURATION_30M represents a 30 minute downtime period |
+ | DURATION_40M | 9 | DURATION_40M represents a 40 minute downtime period |
+ | DURATION_50M | 10 | DURATION_50M represents a 50 minute downtime period |
+ | DURATION_1H | 11 | DURATION_1H represents a 1 hour downtime period |
+ | DURATION_1_5H | 12 | DURATION_1_5H represents a 1.5 hour downtime period |
+ | DURATION_2H | 13 | DURATION_2H represents a 2 hour downtime period |
+ | DURATION_2_5H | 14 | DURATION_2_5H represents a 2.5 hour downtime period |
+ | DURATION_3H | 15 | DURATION_3H represents a 3 hour downtime period |
+ | DURATION_4H | 16 | DURATION_4H represents a 4 hour downtime period |
+ | DURATION_5H | 17 | DURATION_5H represents a 5 hour downtime period |
+ | DURATION_6H | 18 | DURATION_6H represents a 6 hour downtime period |
+ | DURATION_9H | 19 | DURATION_9H represents a 9 hour downtime period |
+ | DURATION_12H | 20 | DURATION_12H represents a 12 hour downtime period |
+ | DURATION_18H | 21 | DURATION_18H represents a 18 hour downtime period |
+ | DURATION_24H | 22 | DURATION_24H represents a 24 hour downtime period |
+ | DURATION_36H | 23 | DURATION_36H represents a 36 hour downtime period |
+ | DURATION_48H | 24 | DURATION_48H represents a 48 hour downtime period |
+ 
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/downtimedetector/v1beta1/genesis.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/downtimedetector/v1beta1/genesis.proto
+ 
+
+ 
+ <a name="akash.downtimedetector.v1beta1.GenesisDowntimeEntry"></a>
+
+ ### GenesisDowntimeEntry
+ GenesisDowntimeEntry tracks the last occurrence of a specific downtime duration
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `duration` | [Downtime](#akash.downtimedetector.v1beta1.Downtime) |  | duration is the downtime period being tracked |
+ | `last_downtime` | [google.protobuf.Timestamp](#google.protobuf.Timestamp) |  | last_downtime is the timestamp when this downtime duration was last observed |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.downtimedetector.v1beta1.GenesisState"></a>
+
+ ### GenesisState
+ GenesisState defines the downtime detector module's genesis state
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `downtimes` | [GenesisDowntimeEntry](#akash.downtimedetector.v1beta1.GenesisDowntimeEntry) | repeated | downtimes is the list of tracked downtime entries |
+ | `last_block_time` | [google.protobuf.Timestamp](#google.protobuf.Timestamp) |  | last_block_time is the timestamp of the last processed block |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/downtimedetector/v1beta1/query.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/downtimedetector/v1beta1/query.proto
+ 
+
+ 
+ <a name="akash.downtimedetector.v1beta1.RecoveredSinceDowntimeOfLengthRequest"></a>
+
+ ### RecoveredSinceDowntimeOfLengthRequest
+ RecoveredSinceDowntimeOfLengthRequest is the request type for querying if the chain
+has been operational for at least the specified recovery duration since experiencing
+downtime of the specified length
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `downtime` | [Downtime](#akash.downtimedetector.v1beta1.Downtime) |  | downtime is the downtime duration to check against |
+ | `recovery` | [google.protobuf.Duration](#google.protobuf.Duration) |  | recovery is the minimum recovery duration required since the downtime |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.downtimedetector.v1beta1.RecoveredSinceDowntimeOfLengthResponse"></a>
+
+ ### RecoveredSinceDowntimeOfLengthResponse
+ RecoveredSinceDowntimeOfLengthResponse is the response type for the recovery query
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `succesfully_recovered` | [bool](#bool) |  | succesfully_recovered indicates if the chain has been up for at least the recovery duration since the last downtime of the specified length |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.downtimedetector.v1beta1.Query"></a>
+
+ ### Query
+ Query defines the gRPC querier service for the downtime detector module
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `RecoveredSinceDowntimeOfLength` | [RecoveredSinceDowntimeOfLengthRequest](#akash.downtimedetector.v1beta1.RecoveredSinceDowntimeOfLengthRequest) | [RecoveredSinceDowntimeOfLengthResponse](#akash.downtimedetector.v1beta1.RecoveredSinceDowntimeOfLengthResponse) | RecoveredSinceDowntimeOfLength queries if the chain has recovered for a specified duration since experiencing downtime of a given length | GET|/akash/downtime-detector/v1beta1/RecoveredSinceDowntimeOfLength|
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/epochs/v1beta1/events.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/epochs/v1beta1/events.proto
+ 
+
+ 
+ <a name="akash.epochs.v1beta1.EventEpochEnd"></a>
+
+ ### EventEpochEnd
+ EventEpochEnd is an event emitted when an epoch end.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `epoch_number` | [int64](#int64) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.epochs.v1beta1.EventEpochStart"></a>
+
+ ### EventEpochStart
+ EventEpochStart is an event emitted when an epoch start.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `epoch_number` | [int64](#int64) |  |  |
+ | `epoch_start_time` | [int64](#int64) |  |  |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/epochs/v1beta1/genesis.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/epochs/v1beta1/genesis.proto
+ 
+
+ 
+ <a name="akash.epochs.v1beta1.EpochInfo"></a>
+
+ ### EpochInfo
+ EpochInfo is a struct that describes the data going into
+a timer defined by the x/epochs module.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [string](#string) |  | id is a unique reference to this particular timer. |
+ | `start_time` | [google.protobuf.Timestamp](#google.protobuf.Timestamp) |  | start_time is the time at which the timer first ever ticks. If start_time is in the future, the epoch will not begin until the start time. |
+ | `duration` | [google.protobuf.Duration](#google.protobuf.Duration) |  | duration is the time in between epoch ticks. In order for intended behavior to be met, duration should be greater than the chains expected block time. Duration must be non-zero. |
+ | `current_epoch` | [int64](#int64) |  | current_epoch is the current epoch number, or in other words, how many times has the timer 'ticked'. The first tick (current_epoch=1) is defined as the first block whose blocktime is greater than the EpochInfo start_time. |
+ | `current_epoch_start_time` | [google.protobuf.Timestamp](#google.protobuf.Timestamp) |  | current_epoch_start_time describes the start time of the current timer interval. The interval is (current_epoch_start_time, current_epoch_start_time + duration] When the timer ticks, this is set to current_epoch_start_time = last_epoch_start_time + duration only one timer tick for a given identifier can occur per block.
+
+NOTE! The current_epoch_start_time may diverge significantly from the wall-clock time the epoch began at. Wall-clock time of epoch start may be >> current_epoch_start_time. Suppose current_epoch_start_time = 10, duration = 5. Suppose the chain goes offline at t=14, and comes back online at t=30, and produces blocks at every successive time. (t=31, 32, etc.) * The t=30 block will start the epoch for (10, 15] * The t=31 block will start the epoch for (15, 20] * The t=32 block will start the epoch for (20, 25] * The t=33 block will start the epoch for (25, 30] * The t=34 block will start the epoch for (30, 35] * The **t=36** block will start the epoch for (35, 40] |
+ | `epoch_counting_started` | [bool](#bool) |  | epoch_counting_started is a boolean, that indicates whether this epoch timer has began yet. |
+ | `current_epoch_start_height` | [int64](#int64) |  | current_epoch_start_height is the block height at which the current epoch started. (The block height at which the timer last ticked) |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.epochs.v1beta1.GenesisState"></a>
+
+ ### GenesisState
+ GenesisState defines the epochs module's genesis state.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `epochs` | [EpochInfo](#akash.epochs.v1beta1.EpochInfo) | repeated |  |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/epochs/v1beta1/query.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/epochs/v1beta1/query.proto
+ 
+
+ 
+ <a name="akash.epochs.v1beta1.QueryCurrentEpochRequest"></a>
+
+ ### QueryCurrentEpochRequest
+ QueryCurrentEpochRequest defines the gRPC request structure for
+querying an epoch by its identifier.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `identifier` | [string](#string) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.epochs.v1beta1.QueryCurrentEpochResponse"></a>
+
+ ### QueryCurrentEpochResponse
+ QueryCurrentEpochResponse defines the gRPC response structure for
+querying an epoch by its identifier.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `current_epoch` | [int64](#int64) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.epochs.v1beta1.QueryEpochInfosRequest"></a>
+
+ ### QueryEpochInfosRequest
+ QueryEpochInfosRequest defines the gRPC request structure for
+querying all epoch info.
+
+ 
+
+ 
+
+ 
+ <a name="akash.epochs.v1beta1.QueryEpochInfosResponse"></a>
+
+ ### QueryEpochInfosResponse
+ QueryEpochInfosRequest defines the gRPC response structure for
+querying all epoch info.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `epochs` | [EpochInfo](#akash.epochs.v1beta1.EpochInfo) | repeated |  |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.epochs.v1beta1.Query"></a>
+
+ ### Query
+ Query defines the gRPC querier service.
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `EpochInfos` | [QueryEpochInfosRequest](#akash.epochs.v1beta1.QueryEpochInfosRequest) | [QueryEpochInfosResponse](#akash.epochs.v1beta1.QueryEpochInfosResponse) | EpochInfos provide running epochInfos | GET|/cosmos/epochs/v1beta1/epochs|
+ | `CurrentEpoch` | [QueryCurrentEpochRequest](#akash.epochs.v1beta1.QueryCurrentEpochRequest) | [QueryCurrentEpochResponse](#akash.epochs.v1beta1.QueryCurrentEpochResponse) | CurrentEpoch provide current epoch of specified identifier | GET|/cosmos/epochs/v1beta1/current_epoch|
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/escrow/types/v1/payment.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/escrow/types/v1/payment.proto
+ 
+
+ 
+ <a name="akash.escrow.types.v1.Payment"></a>
+
+ ### Payment
+ Payment
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [akash.escrow.id.v1.Payment](#akash.escrow.id.v1.Payment) |  |  |
+ | `state` | [PaymentState](#akash.escrow.types.v1.PaymentState) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.escrow.types.v1.PaymentState"></a>
+
+ ### PaymentState
+ Payment stores state for a payment.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account bech32 address of the user who owns the deployment. It is a string representing a valid bech32 account address.
+
+Example: "akash1..." |
+ | `state` | [State](#akash.escrow.types.v1.State) |  | State represents the state of the Payment. |
+ | `rate` | [cosmos.base.v1beta1.DecCoin](#cosmos.base.v1beta1.DecCoin) |  | Rate holds the rate of the Payment. |
+ | `balance` | [cosmos.base.v1beta1.DecCoin](#cosmos.base.v1beta1.DecCoin) |  | Balance is the current available coins. |
+ | `unsettled` | [cosmos.base.v1beta1.DecCoin](#cosmos.base.v1beta1.DecCoin) |  | Unsettled is the amount needed to settle payment if account is overdrawn |
+ | `withdrawn` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) |  | Withdrawn corresponds to the amount of coins withdrawn by the Payment. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/escrow/v1/authz.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/escrow/v1/authz.proto
+ 
+
+ 
+ <a name="akash.escrow.v1.DepositAuthorization"></a>
+
+ ### DepositAuthorization
+ DepositAuthorization allows the grantee to deposit up to spend_limit coins from
+the granter's account for Akash deployments and bids. This authorization is used
+within the Cosmos SDK authz module to grant scoped permissions for deposit operations.
+The authorization can be restricted to specific scopes (deployment or bid) to limit
+what types of deposits the grantee is authorized to make on behalf of the granter.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `spend_limit` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) |  | SpendLimit is the maximum amount the grantee is authorized to spend from the granter's account. This limit applies cumulatively across all deposit operations within the authorized scopes. Once this limit is reached, the authorization becomes invalid and no further deposits can be made. Deprecated: use spend_limits instead |
+ | `scopes` | [DepositAuthorization.Scope](#akash.escrow.v1.DepositAuthorization.Scope) | repeated | Scopes defines the specific types of deposit operations this authorization permits. This provides fine-grained control over what operations the grantee can perform using the granter's funds. |
+ | `spend_limits` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) | repeated | SpendLimits specifies the maximum amount per denomination the grantee is authorized to spend. Each entry represents the limit for a specific denomination, enforced independently. Once an individual denomination's limit is exhausted, no further deposits can be made in that denomination. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+ 
+ <a name="akash.escrow.v1.DepositAuthorization.Scope"></a>
+
+ ### DepositAuthorization.Scope
+ Scope defines the types of deposit operations that can be authorized.
+This enum is used to restrict the authorization to specific deposit contexts,
+allowing fine-grained permission control within the authz system.
+
+ | Name | Number | Description |
+ | ---- | ------ | ----------- |
+ | invalid | 0 | Prefix should start with 0 in enum. So declaring dummy state. |
+ | deployment | 1 | DepositScopeDeployment allows deposits for deployment-related operations. |
+ | bid | 2 | DepositScopeBid allows deposits for bid-related operations. |
+ 
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/escrow/v1/genesis.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/escrow/v1/genesis.proto
+ 
+
+ 
+ <a name="akash.escrow.v1.GenesisState"></a>
+
+ ### GenesisState
+ GenesisState defines the basic genesis state used by the escrow module.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `accounts` | [akash.escrow.types.v1.Account](#akash.escrow.types.v1.Account) | repeated | Accounts is a list of accounts on the genesis state. |
+ | `payments` | [akash.escrow.types.v1.Payment](#akash.escrow.types.v1.Payment) | repeated | Payments is a list of fractional payments on the genesis state.. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/escrow/v1/msg.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/escrow/v1/msg.proto
+ 
+
+ 
+ <a name="akash.escrow.v1.MsgAccountDeposit"></a>
+
+ ### MsgAccountDeposit
+ MsgAccountDeposit represents a message to deposit funds into an existing escrow account
+on the blockchain. This is part of the interaction mechanism for managing
+deployment-related resources.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `signer` | [string](#string) |  | Signer is the account bech32 address of the user who wants to deposit into an escrow account. Does not necessarily needs to be an owner of the deployment. It is a string representing a valid bech32 account address.
+
+Example: "akash1..." |
+ | `id` | [akash.escrow.id.v1.Account](#akash.escrow.id.v1.Account) |  | ID is the unique identifier of the account. |
+ | `deposit` | [akash.base.deposit.v1.Deposit](#akash.base.deposit.v1.Deposit) |  | Deposit contains information about the deposit amount and the source of the deposit to the escrow account. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.escrow.v1.MsgAccountDepositResponse"></a>
+
+ ### MsgAccountDepositResponse
+ MsgAccountDepositResponse defines response type for the MsgDeposit.
+
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/escrow/v1/query.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/escrow/v1/query.proto
+ 
+
+ 
+ <a name="akash.escrow.v1.QueryAccountsRequest"></a>
+
+ ### QueryAccountsRequest
+ QueryAccountRequest is request type for the Query/Account RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `state` | [string](#string) |  | State represents the current state of an Account. |
+ | `xid` | [string](#string) |  | Scope holds the scope of the account. |
+ | `pagination` | [cosmos.base.query.v1beta1.PageRequest](#cosmos.base.query.v1beta1.PageRequest) |  | Pagination is used to paginate the request. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.escrow.v1.QueryAccountsResponse"></a>
+
+ ### QueryAccountsResponse
+ QueryProvidersResponse is response type for the Query/Providers RPC method
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `accounts` | [akash.escrow.types.v1.Account](#akash.escrow.types.v1.Account) | repeated | Accounts is a list of Account. |
+ | `pagination` | [cosmos.base.query.v1beta1.PageResponse](#cosmos.base.query.v1beta1.PageResponse) |  | Pagination contains the information about response pagination. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.escrow.v1.QueryPaymentsRequest"></a>
+
+ ### QueryPaymentsRequest
+ QueryPaymentRequest is request type for the Query/Payment RPC method
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `state` | [string](#string) |  | State represents the current state of a Payment. |
+ | `xid` | [string](#string) |  |  |
+ | `pagination` | [cosmos.base.query.v1beta1.PageRequest](#cosmos.base.query.v1beta1.PageRequest) |  | Pagination is used to paginate the request. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.escrow.v1.QueryPaymentsResponse"></a>
+
+ ### QueryPaymentsResponse
+ QueryProvidersResponse is response type for the Query/Providers RPC method
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `payments` | [akash.escrow.types.v1.Payment](#akash.escrow.types.v1.Payment) | repeated | Payments is a list of payments. |
+ | `pagination` | [cosmos.base.query.v1beta1.PageResponse](#cosmos.base.query.v1beta1.PageResponse) |  | Pagination contains the information about response pagination. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.escrow.v1.Query"></a>
+
+ ### Query
+ Query defines the gRPC querier service for the escrow package.
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `Accounts` | [QueryAccountsRequest](#akash.escrow.v1.QueryAccountsRequest) | [QueryAccountsResponse](#akash.escrow.v1.QueryAccountsResponse) | buf:lint:ignore RPC_REQUEST_RESPONSE_UNIQUE buf:lint:ignore RPC_RESPONSE_STANDARD_NAME Accounts queries all accounts. | GET|/akash/escrow/v1/types/accounts|
+ | `Payments` | [QueryPaymentsRequest](#akash.escrow.v1.QueryPaymentsRequest) | [QueryPaymentsResponse](#akash.escrow.v1.QueryPaymentsResponse) | buf:lint:ignore RPC_REQUEST_RESPONSE_UNIQUE buf:lint:ignore RPC_RESPONSE_STANDARD_NAME Payments queries all payments. | GET|/akash/escrow/v1/types/payments|
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/escrow/v1/service.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/escrow/v1/service.proto
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.escrow.v1.Msg"></a>
+
+ ### Msg
+ Msg defines the x/deployment Msg service.
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `AccountDeposit` | [MsgAccountDeposit](#akash.escrow.v1.MsgAccountDeposit) | [MsgAccountDepositResponse](#akash.escrow.v1.MsgAccountDepositResponse) | AccountDeposit deposits more funds into the escrow account. | |
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/market/v1/bid.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/market/v1/bid.proto
+ 
+
+ 
+ <a name="akash.market.v1.BidID"></a>
+
+ ### BidID
+ BidID stores owner and all other seq numbers.
+A successful bid becomes a Lease(ID).
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account bech32 address of the user who owns the deployment. It is a string representing a valid bech32 account address.
+
+Example: "akash1..." |
+ | `dseq` | [uint64](#uint64) |  | Dseq (deployment sequence number) is a unique numeric identifier for the deployment. It is used to differentiate deployments created by the same owner. |
+ | `gseq` | [uint32](#uint32) |  | Gseq (group sequence number) is a unique numeric identifier for the group. It is used to differentiate groups created by the same owner in a deployment. |
+ | `oseq` | [uint32](#uint32) |  | Oseq (order sequence) distinguishes multiple orders associated with a single deployment. Oseq is incremented when a lease associated with an existing deployment is closed, and a new order is generated. |
+ | `provider` | [string](#string) |  | Provider is the account bech32 address of the provider making the bid. It is a string representing a valid account bech32 address.
+
+Example: "akash1..." |
+ | `bseq` | [uint32](#uint32) |  | BSeq (bid sequence) distinguishes multiple bids associated with a single deployment from same provider. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/market/v1/order.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/market/v1/order.proto
+ 
+
+ 
+ <a name="akash.market.v1.OrderID"></a>
+
+ ### OrderID
+ OrderId stores owner and all other seq numbers.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account bech32 address of the user who owns the deployment. It is a string representing a valid bech32 account address.
+
+Example: "akash1..." |
+ | `dseq` | [uint64](#uint64) |  | Dseq (deployment sequence number) is a unique numeric identifier for the deployment. It is used to differentiate deployments created by the same owner. |
+ | `gseq` | [uint32](#uint32) |  | Gseq (group sequence number) is a unique numeric identifier for the group. It is used to differentiate groups created by the same owner in a deployment. |
+ | `oseq` | [uint32](#uint32) |  | Oseq (order sequence) distinguishes multiple orders associated with a single deployment. Oseq is incremented when a lease associated with an existing deployment is closed, and a new order is generated. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/market/v1/types.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/market/v1/types.proto
+ 
+
+  <!-- end messages -->
+
+ 
+ <a name="akash.market.v1.LeaseClosedReason"></a>
+
+ ### LeaseClosedReason
+ LeaseClosedReason indicates reason bid was closed
+
+ | Name | Number | Description |
+ | ---- | ------ | ----------- |
+ | lease_closed_invalid | 0 | LeaseClosedReasonInvalid represents the default zero value for LeaseClosedReason. This value indicates an uninitialized or invalid lease closure reason and should not be used |
+ | lease_closed_owner | 1 | values between 1..9999 indicate owner‑initiated close |
+ | lease_closed_reason_unstable | 10000 | values between 10000..19999 are indicating provider initiated close lease_closed_reason_unstable lease workloads have been unstable |
+ | lease_closed_reason_decommission | 10001 | lease_closed_reason_decommission provider is being decommissioned |
+ | lease_closed_reason_unspecified | 10002 | lease_closed_reason_unspecified provider did not specify reason |
+ | lease_closed_reason_manifest_timeout | 10003 | lease_closed_reason_manifest_timeout provider closed leases due to manifest not received |
+ | lease_closed_reason_insufficient_funds | 20000 | values between 20000..29999 indicate network‑initiated close |
+ 
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/market/v1/reclamation.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/market/v1/reclamation.proto
+ 
+
+ 
+ <a name="akash.market.v1.Reclamation"></a>
+
+ ### Reclamation
+ Reclamation defines the runtime reclamation state stored on a Lease.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `window` | [google.protobuf.Duration](#google.protobuf.Duration) |  | window is the negotiated reclamation window duration (from the winning bid). |
+ | `started_at` | [int64](#int64) |  | started_at is the block height at which reclamation was initiated. Zero means reclamation has not been started yet. |
+ | `deadline` | [int64](#int64) |  | deadline is the unix timestamp at which the reclamation window expires. Zero means reclamation has not been started yet. |
+ | `reason` | [LeaseClosedReason](#akash.market.v1.LeaseClosedReason) |  | reason is the provider's stated reason for reclamation. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/market/v1/lease.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/market/v1/lease.proto
+ 
+
+ 
+ <a name="akash.market.v1.Lease"></a>
+
+ ### Lease
+ Lease stores LeaseID, state of lease and price.
+The Lease defines the terms under which the provider allocates resources to fulfill
+the tenant's deployment requirements.
+Leases are paid from the tenant to the provider through a deposit and withdraw mechanism and are priced in blocks.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [LeaseID](#akash.market.v1.LeaseID) |  | Id is the unique identifier of the Lease. |
+ | `state` | [Lease.State](#akash.market.v1.Lease.State) |  | State represents the state of the Lease. |
+ | `price` | [cosmos.base.v1beta1.DecCoin](#cosmos.base.v1beta1.DecCoin) |  | Price holds the settled price for the Lease. |
+ | `created_at` | [int64](#int64) |  | CreatedAt is the block height at which the Lease was created. |
+ | `closed_on` | [int64](#int64) |  | ClosedOn is the block height at which the Lease was closed. |
+ | `reason` | [LeaseClosedReason](#akash.market.v1.LeaseClosedReason) |  |  |
+ | `reclamation` | [Reclamation](#akash.market.v1.Reclamation) |  | Reclamation holds reclamation configuration and state, if applicable. Nil if reclamation is not configured for this lease. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1.LeaseID"></a>
+
+ ### LeaseID
+ LeaseID stores bid details of lease.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account bech32 address of the user who owns the deployment. It is a string representing a valid bech32 account address.
+
+Example: "akash1..." |
+ | `dseq` | [uint64](#uint64) |  | Dseq (deployment sequence number) is a unique numeric identifier for the deployment. It is used to differentiate deployments created by the same owner. |
+ | `gseq` | [uint32](#uint32) |  | Gseq (group sequence number) is a unique numeric identifier for the group. It is used to differentiate groups created by the same owner in a deployment. |
+ | `oseq` | [uint32](#uint32) |  | Oseq (order sequence) distinguishes multiple orders associated with a single deployment. Oseq is incremented when a lease associated with an existing deployment is closed, and a new order is generated. |
+ | `provider` | [string](#string) |  | Provider is the account bech32 address of the provider making the bid. It is a string representing a valid account bech32 address.
+
+Example: "akash1..." |
+ | `bseq` | [uint32](#uint32) |  | BSeq (bid sequence) distinguishes multiple bids associated with a single deployment from same provider. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+ 
+ <a name="akash.market.v1.Lease.State"></a>
+
+ ### Lease.State
+ State is an enum which refers to state of lease.
+
+ | Name | Number | Description |
+ | ---- | ------ | ----------- |
+ | invalid | 0 | Prefix should start with 0 in enum. So declaring dummy state. |
+ | active | 1 | LeaseActive denotes state for lease active. |
+ | insufficient_funds | 2 | LeaseInsufficientFunds denotes state for lease insufficient_funds. |
+ | closed | 3 | LeaseClosed denotes state for lease closed. |
+ | reclaiming | 4 | LeaseReclaiming denotes a lease in reclamation (grace period before closure). |
+ 
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/market/v1/event.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/market/v1/event.proto
+ 
+
+ 
+ <a name="akash.market.v1.EventBidClosed"></a>
+
+ ### EventBidClosed
+ EventBidClosed is triggered when a bid is closed.
+It contains all the information required to identify a bid.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [BidID](#akash.market.v1.BidID) |  | Id is the unique identifier of the Bid. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1.EventBidCreated"></a>
+
+ ### EventBidCreated
+ EventBidCreated is triggered when a bid is created.
+It contains all the information required to identify a bid.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [BidID](#akash.market.v1.BidID) |  | Id is the unique identifier of the Bid. |
+ | `price` | [cosmos.base.v1beta1.DecCoin](#cosmos.base.v1beta1.DecCoin) |  | Price stated on the Bid. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1.EventLeaseClosed"></a>
+
+ ### EventLeaseClosed
+ EventLeaseClosed is triggered when a lease is closed.
+It contains all the information required to identify a lease.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [LeaseID](#akash.market.v1.LeaseID) |  | Id is the unique identifier of the Lease. |
+ | `reason` | [LeaseClosedReason](#akash.market.v1.LeaseClosedReason) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1.EventLeaseCreated"></a>
+
+ ### EventLeaseCreated
+ EventLeaseCreated is triggered when a lease is created.
+It contains all the information required to identify a lease.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [LeaseID](#akash.market.v1.LeaseID) |  | Id is the unique identifier of the Lease. |
+ | `price` | [cosmos.base.v1beta1.DecCoin](#cosmos.base.v1beta1.DecCoin) |  | Price settled for the lease. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1.EventLeaseReclaimStarted"></a>
+
+ ### EventLeaseReclaimStarted
+ EventLeaseReclaimStarted is triggered when a provider initiates reclamation on a lease.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [LeaseID](#akash.market.v1.LeaseID) |  | Id is the unique identifier of the Lease. |
+ | `reason` | [LeaseClosedReason](#akash.market.v1.LeaseClosedReason) |  | reason is the provider's stated reason for reclamation. |
+ | `deadline` | [int64](#int64) |  | deadline is the unix timestamp when the reclamation window expires. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1.EventOrderClosed"></a>
+
+ ### EventOrderClosed
+ EventOrderClosed is triggered when an order is closed.
+It contains all the information required to identify an order.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [OrderID](#akash.market.v1.OrderID) |  | Id is the unique identifier of the Order. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1.EventOrderCreated"></a>
+
+ ### EventOrderCreated
+ EventOrderCreated is triggered when an order is created.
+It contains all the information required to identify an order.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [OrderID](#akash.market.v1.OrderID) |  | Id is the unique identifier of the Order. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/market/v1/filters.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/market/v1/filters.proto
+ 
+
+ 
+ <a name="akash.market.v1.LeaseFilters"></a>
+
+ ### LeaseFilters
+ LeaseFilters defines flags for lease list filtering.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account bech32 address of the user who owns the deployment. It is a string representing a valid bech32 account address.
+
+Example: "akash1..." |
+ | `dseq` | [uint64](#uint64) |  | Dseq (deployment sequence number) is a unique numeric identifier for the deployment. It is used to differentiate deployments created by the same owner. |
+ | `gseq` | [uint32](#uint32) |  | Gseq (group sequence number) is a unique numeric identifier for the group. It is used to differentiate groups created by the same owner in a deployment. |
+ | `oseq` | [uint32](#uint32) |  | Oseq (order sequence) distinguishes multiple orders associated with a single deployment. Oseq is incremented when a lease associated with an existing deployment is closed, and a new order is generated. |
+ | `provider` | [string](#string) |  | Provider is the account bech32 address of the provider making the bid. It is a string representing a valid account bech32 address.
+
+Example: "akash1..." |
+ | `state` | [string](#string) |  | State represents the state of the lease. |
+ | `bseq` | [uint32](#uint32) |  | BSeq (bid sequence) distinguishes multiple bids associated with a single deployment from same provider. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/market/v1beta5/resourcesoffer.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/market/v1beta5/resourcesoffer.proto
+ 
+
+ 
+ <a name="akash.market.v1beta5.EndpointOfferPrice"></a>
+
+ ### EndpointOfferPrice
+ EndpointOfferPrice represents the price a provider is offering for a specific
+kind of network endpoint. Providers may price each endpoint kind differently
+(e.g., a leased IP may cost more than a shared HTTP ingress). This type is
+used as a repeated field within OfferPrices to express per-kind endpoint
+pricing in a bid.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `kind` | [akash.base.resources.v1beta4.Endpoint.Kind](#akash.base.resources.v1beta4.Endpoint.Kind) |  | Kind specifies the type of network endpoint being priced. Possible values: - SHARED_HTTP (0): A Kubernetes Ingress endpoint. - RANDOM_PORT (1): A Kubernetes NodePort endpoint. - LEASED_IP (2): A dedicated leased IP endpoint. |
+ | `price` | [cosmos.base.v1beta1.DecCoin](#cosmos.base.v1beta1.DecCoin) |  | Price is the offered price per unit of this endpoint kind, expressed as a DecCoin (decimal coin) to allow fractional pricing. When nil, no explicit price is set for this endpoint kind. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.OfferPrices"></a>
+
+ ### OfferPrices
+ OfferPrices contains the complete pricing breakdown that a provider includes
+in a bid for a deployment resource group. Each field represents the price for
+a specific compute resource type. All price fields use DecCoin (decimal coin)
+to support fractional pricing denominated in any supported token.
+
+This message is embedded as a nullable field on ResourceOffer, which in turn
+is carried by Bid and MsgCreateBid messages. A nil OfferPrices on a
+ResourceOffer indicates that no per-resource pricing was specified.
+
+Field 1 is reserved for backward compatibility with a previously removed field.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `cpu` | [cosmos.base.v1beta1.DecCoin](#cosmos.base.v1beta1.DecCoin) |  | Cpu is the offered price for CPU resources. When nil, no explicit CPU price is set. |
+ | `memory` | [cosmos.base.v1beta1.DecCoin](#cosmos.base.v1beta1.DecCoin) |  | Memory is the offered price for memory resources. When nil, no explicit memory price is set. |
+ | `storage` | [StorageOfferPrice](#akash.market.v1beta5.StorageOfferPrice) | repeated | Storage is a list of per-class storage prices. Each entry corresponds to a named storage class (e.g., "default", "ssd") and its associated price. Multiple entries allow providers to price different storage tiers independently. |
+ | `gpu` | [cosmos.base.v1beta1.DecCoin](#cosmos.base.v1beta1.DecCoin) |  | Gpu is the offered price for GPU resources. When nil, no explicit GPU price is set. |
+ | `endpoints` | [EndpointOfferPrice](#akash.market.v1beta5.EndpointOfferPrice) | repeated | Endpoints is a list of per-kind endpoint prices. Each entry corresponds to a network endpoint kind (SHARED_HTTP, RANDOM_PORT, or LEASED_IP) and its associated price. Multiple entries allow providers to price different endpoint types independently. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.ResourceOffer"></a>
+
+ ### ResourceOffer
+ ResourceOffer describes resources that provider is offering
+for deployment.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `resources` | [akash.base.resources.v1beta4.Resources](#akash.base.resources.v1beta4.Resources) |  | Resources holds information about bid resources. |
+ | `count` | [uint32](#uint32) |  | Count is the number of resources. |
+ | `prices` | [OfferPrices](#akash.market.v1beta5.OfferPrices) |  | Prices contains per-resource pricing details (CPU, memory, storage, GPU, endpoints) for this offer. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.StorageOfferPrice"></a>
+
+ ### StorageOfferPrice
+ StorageOfferPrice represents the price a provider is offering for a specific
+class of persistent storage. Providers may offer multiple storage classes
+(e.g., SSD, HDD, NVMe), each identified by name and priced independently.
+This type is used as a repeated field within OfferPrices to express
+per-class storage pricing in a bid.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `name` | [string](#string) |  | Name holds an arbitrary name for the storage class (e.g., "default", "ssd", "hdd"). This must match a storage class name from the corresponding resource specification. |
+ | `price` | [cosmos.base.v1beta1.DecCoin](#cosmos.base.v1beta1.DecCoin) |  | Price is the offered price per unit of this storage class, expressed as a DecCoin (decimal coin) to allow fractional pricing. When nil, no explicit price is set for this storage class. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/market/v1beta5/bid.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/market/v1beta5/bid.proto
+ 
+
+ 
+ <a name="akash.market.v1beta5.Bid"></a>
+
+ ### Bid
+ Bid stores BidID, state of bid and price.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [akash.market.v1.BidID](#akash.market.v1.BidID) |  | BidID stores owner and all other seq numbers. A successful bid becomes a Lease(ID). |
+ | `state` | [Bid.State](#akash.market.v1beta5.Bid.State) |  | State represents the state of the Bid. |
+ | `price` | [cosmos.base.v1beta1.DecCoin](#cosmos.base.v1beta1.DecCoin) |  | Price holds the pricing stated on the Bid. |
+ | `created_at` | [int64](#int64) |  | CreatedAt is the block height at which the Bid was created. |
+ | `resources_offer` | [ResourceOffer](#akash.market.v1beta5.ResourceOffer) | repeated | ResourceOffer is a list of offers. |
+ | `reclamation_window` | [google.protobuf.Duration](#google.protobuf.Duration) |  | reclamation_window is the reclamation window offered by this provider. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+ 
+ <a name="akash.market.v1beta5.Bid.State"></a>
+
+ ### Bid.State
+ BidState is an enum which refers to state of bid.
+
+ | Name | Number | Description |
+ | ---- | ------ | ----------- |
+ | invalid | 0 | Prefix should start with 0 in enum. So declaring dummy state. |
+ | open | 1 | BidOpen denotes state for bid open. |
+ | active | 2 | BidMatched denotes state for bid open. |
+ | lost | 3 | BidLost denotes state for bid lost. |
+ | closed | 4 | BidClosed denotes state for bid closed. |
+ 
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/market/v1beta5/bidmsg.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/market/v1beta5/bidmsg.proto
+ 
+
+ 
+ <a name="akash.market.v1beta5.MsgCloseBid"></a>
+
+ ### MsgCloseBid
+ MsgCloseBid defines an SDK message for closing bid.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [akash.market.v1.BidID](#akash.market.v1.BidID) |  | Id is the unique identifier of the Bid. |
+ | `reason` | [akash.market.v1.LeaseClosedReason](#akash.market.v1.LeaseClosedReason) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.MsgCloseBidResponse"></a>
+
+ ### MsgCloseBidResponse
+ MsgCloseBidResponse defines the Msg/CloseBid response type.
+
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.MsgCreateBid"></a>
+
+ ### MsgCreateBid
+ MsgCreateBid defines an SDK message for creating Bid.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [akash.market.v1.BidID](#akash.market.v1.BidID) |  |  |
+ | `price` | [cosmos.base.v1beta1.DecCoin](#cosmos.base.v1beta1.DecCoin) |  | Price holds the pricing stated on the Bid. |
+ | `deposit` | [akash.base.deposit.v1.Deposit](#akash.base.deposit.v1.Deposit) |  | Deposit holds the amount of coins to deposit. |
+ | `resources_offer` | [ResourceOffer](#akash.market.v1beta5.ResourceOffer) | repeated | ResourceOffer is a list of resource offers. |
+ | `reclamation_window` | [google.protobuf.Duration](#google.protobuf.Duration) |  | reclamation_window is the reclamation window duration the provider offers. If the order requires reclamation, this must be >= the order's min_window. Nil means the provider does not offer reclamation on this bid. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.MsgCreateBidResponse"></a>
+
+ ### MsgCreateBidResponse
+ MsgCreateBidResponse defines the Msg/CreateBid response type.
+
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/market/v1beta5/filters.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/market/v1beta5/filters.proto
+ 
+
+ 
+ <a name="akash.market.v1beta5.BidFilters"></a>
+
+ ### BidFilters
+ BidFilters defines flags for bid list filter.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account bech32 address of the user who owns the deployment. It is a string representing a valid bech32 account address.
+
+Example: "akash1..." |
+ | `dseq` | [uint64](#uint64) |  | Dseq (deployment sequence number) is a unique numeric identifier for the deployment. It is used to differentiate deployments created by the same owner. |
+ | `gseq` | [uint32](#uint32) |  | Gseq (group sequence number) is a unique numeric identifier for the group. It is used to differentiate groups created by the same owner in a deployment. |
+ | `oseq` | [uint32](#uint32) |  | Oseq (order sequence) distinguishes multiple orders associated with a single deployment. Oseq is incremented when a lease associated with an existing deployment is closed, and a new order is generated. |
+ | `provider` | [string](#string) |  | Provider is the account bech32 address of the provider making the bid. It is a string representing a valid account bech32 address.
+
+Example: "akash1..." |
+ | `state` | [string](#string) |  | State represents the state of the lease. |
+ | `bseq` | [uint32](#uint32) |  | BSeq (bid sequence) distinguishes multiple bids associated with a single deployment from same provider. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.OrderFilters"></a>
+
+ ### OrderFilters
+ OrderFilters defines flags for order list filter
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the account bech32 address of the user who owns the deployment. It is a string representing a valid bech32 account address.
+
+Example: "akash1..." |
+ | `dseq` | [uint64](#uint64) |  | Dseq (deployment sequence number) is a unique numeric identifier for the deployment. It is used to differentiate deployments created by the same owner. |
+ | `gseq` | [uint32](#uint32) |  | Gseq (group sequence number) is a unique numeric identifier for the group. It is used to differentiate groups created by the same owner in a deployment. |
+ | `oseq` | [uint32](#uint32) |  | Oseq (order sequence) distinguishes multiple orders associated with a single deployment. Oseq is incremented when a lease associated with an existing deployment is closed, and a new order is generated. |
+ | `state` | [string](#string) |  | State represents the state of the lease. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/market/v1beta5/params.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/market/v1beta5/params.proto
+ 
+
+ 
+ <a name="akash.market.v1beta5.Params"></a>
+
+ ### Params
+ Params is the params for the x/market module.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `bid_min_deposit` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) |  | BidMinDeposit is a parameter for the minimum deposit on a Bid. Deprecated: use BidMinDeposits |
+ | `order_max_bids` | [uint32](#uint32) |  | OrderMaxBids is a parameter for the maximum number of bids in an order. |
+ | `bid_min_deposits` | [cosmos.base.v1beta1.Coin](#cosmos.base.v1beta1.Coin) | repeated | BidMinDeposits is a parameter for the minimum deposits per denom on a Bid. |
+ | `min_reclamation_window` | [google.protobuf.Duration](#google.protobuf.Duration) |  | min_reclamation_window is the minimum reclamation window duration allowed. |
+ | `max_reclamation_window` | [google.protobuf.Duration](#google.protobuf.Duration) |  | max_reclamation_window is the maximum reclamation window duration allowed. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/market/v1beta5/order.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/market/v1beta5/order.proto
+ 
+
+ 
+ <a name="akash.market.v1beta5.Order"></a>
+
+ ### Order
+ Order stores orderID, state of order and other details.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [akash.market.v1.OrderID](#akash.market.v1.OrderID) |  | Id is the unique identifier of the order. |
+ | `state` | [Order.State](#akash.market.v1beta5.Order.State) |  |  |
+ | `spec` | [akash.deployment.v1beta4.GroupSpec](#akash.deployment.v1beta4.GroupSpec) |  |  |
+ | `created_at` | [int64](#int64) |  |  |
+ | `reclamation` | [akash.deployment.v1.DeploymentReclamation](#akash.deployment.v1.DeploymentReclamation) |  | reclamation is the deployment-level reclamation requirement, propagated to the order. Nil means the deployment does not require reclamation. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+ 
+ <a name="akash.market.v1beta5.Order.State"></a>
+
+ ### Order.State
+ State is an enum which refers to state of order.
+
+ | Name | Number | Description |
+ | ---- | ------ | ----------- |
+ | invalid | 0 | Prefix should start with 0 in enum. So declaring dummy state. |
+ | open | 1 | OrderOpen denotes state for order open. |
+ | active | 2 | OrderMatched denotes state for order matched. |
+ | closed | 3 | OrderClosed denotes state for order lost. |
+ 
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/market/v1beta5/genesis.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/market/v1beta5/genesis.proto
+ 
+
+ 
+ <a name="akash.market.v1beta5.GenesisState"></a>
+
+ ### GenesisState
+ GenesisState defines the basic genesis state used by market module.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `params` | [Params](#akash.market.v1beta5.Params) |  | Params holds parameters of the genesis of market. |
+ | `orders` | [Order](#akash.market.v1beta5.Order) | repeated | Orders is a list of orders in the genesis state. |
+ | `leases` | [akash.market.v1.Lease](#akash.market.v1.Lease) | repeated | Leases is a list of leases in the genesis state. |
+ | `bids` | [Bid](#akash.market.v1beta5.Bid) | repeated | Bids is a list of bids in the genesis state. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/market/v1beta5/leasemsg.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/market/v1beta5/leasemsg.proto
+ 
+
+ 
+ <a name="akash.market.v1beta5.MsgCloseLease"></a>
+
+ ### MsgCloseLease
+ MsgCloseLease defines an SDK message for closing order.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [akash.market.v1.LeaseID](#akash.market.v1.LeaseID) |  | LeaseID is the unique identifier of the Lease. |
+ | `reason` | [akash.market.v1.LeaseClosedReason](#akash.market.v1.LeaseClosedReason) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.MsgCloseLeaseResponse"></a>
+
+ ### MsgCloseLeaseResponse
+ MsgCloseLeaseResponse defines the Msg/CloseLease response type.
+
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.MsgCreateLease"></a>
+
+ ### MsgCreateLease
+ MsgCreateLease is sent to create a lease.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `bid_id` | [akash.market.v1.BidID](#akash.market.v1.BidID) |  | BidId is the unique identifier of the Bid. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.MsgCreateLeaseResponse"></a>
+
+ ### MsgCreateLeaseResponse
+ MsgCreateLeaseResponse is the response from creating a lease.
+
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.MsgLeaseStartReclaim"></a>
+
+ ### MsgLeaseStartReclaim
+ MsgLeaseStartReclaim is sent by the provider to initiate reclamation on an active lease.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [akash.market.v1.LeaseID](#akash.market.v1.LeaseID) |  | Id is the unique identifier of the Lease. |
+ | `reason` | [akash.market.v1.LeaseClosedReason](#akash.market.v1.LeaseClosedReason) |  | reason is the provider's stated reason for initiating reclamation. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.MsgLeaseStartReclaimResponse"></a>
+
+ ### MsgLeaseStartReclaimResponse
+ MsgLeaseStartReclaimResponse is the response from starting lease reclamation.
+
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.MsgWithdrawLease"></a>
+
+ ### MsgWithdrawLease
+ MsgWithdrawLease defines an SDK message for withdrawing lease funds.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [akash.market.v1.LeaseID](#akash.market.v1.LeaseID) |  | BidId is the unique identifier of the Bid. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.MsgWithdrawLeaseResponse"></a>
+
+ ### MsgWithdrawLeaseResponse
+ MsgWithdrawLeaseResponse defines the Msg/WithdrawLease response type.
+
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/market/v1beta5/paramsmsg.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/market/v1beta5/paramsmsg.proto
+ 
+
+ 
+ <a name="akash.market.v1beta5.MsgUpdateParams"></a>
+
+ ### MsgUpdateParams
+ MsgUpdateParams is the Msg/UpdateParams request type.
+
+Since: akash v1.0.0
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `authority` | [string](#string) |  | authority is the address of the governance account. |
+ | `params` | [Params](#akash.market.v1beta5.Params) |  | params defines the x/deployment parameters to update.
+
+NOTE: All parameters must be supplied. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.MsgUpdateParamsResponse"></a>
+
+ ### MsgUpdateParamsResponse
+ MsgUpdateParamsResponse defines the response structure for executing a
+MsgUpdateParams message.
+
+Since: akash v1.0.0
+
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/market/v1beta5/query.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/market/v1beta5/query.proto
+ 
+
+ 
+ <a name="akash.market.v1beta5.QueryBidRequest"></a>
+
+ ### QueryBidRequest
+ QueryBidRequest is request type for the Query/Bid RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [akash.market.v1.BidID](#akash.market.v1.BidID) |  | Id is the unique identifier for the Bid. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.QueryBidResponse"></a>
+
+ ### QueryBidResponse
+ QueryBidResponse is response type for the Query/Bid RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `bid` | [Bid](#akash.market.v1beta5.Bid) |  | Bid represents a deployment bid. |
+ | `escrow_account` | [akash.escrow.types.v1.Account](#akash.escrow.types.v1.Account) |  | EscrowAccount represents the escrow account created for the Bid. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.QueryBidsRequest"></a>
+
+ ### QueryBidsRequest
+ QueryBidsRequest is request type for the Query/Bids RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `filters` | [BidFilters](#akash.market.v1beta5.BidFilters) |  | Filters holds the fields to filter bids. |
+ | `pagination` | [cosmos.base.query.v1beta1.PageRequest](#cosmos.base.query.v1beta1.PageRequest) |  | Pagination is used to paginate the request. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.QueryBidsResponse"></a>
+
+ ### QueryBidsResponse
+ QueryBidsResponse is response type for the Query/Bids RPC method
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `bids` | [QueryBidResponse](#akash.market.v1beta5.QueryBidResponse) | repeated | Bids is a list of deployment bids. |
+ | `pagination` | [cosmos.base.query.v1beta1.PageResponse](#cosmos.base.query.v1beta1.PageResponse) |  | Pagination contains the information about response pagination. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.QueryLeaseRequest"></a>
+
+ ### QueryLeaseRequest
+ QueryLeaseRequest is request type for the Query/Lease RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [akash.market.v1.LeaseID](#akash.market.v1.LeaseID) |  | Id is the unique identifier of the Lease. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.QueryLeaseResponse"></a>
+
+ ### QueryLeaseResponse
+ QueryLeaseResponse is response type for the Query/Lease RPC method
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `lease` | [akash.market.v1.Lease](#akash.market.v1.Lease) |  | Lease holds the lease for a deployment. |
+ | `escrow_payment` | [akash.escrow.types.v1.Payment](#akash.escrow.types.v1.Payment) |  | EscrowPayment holds information about the Lease's fractional payment. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.QueryLeasesRequest"></a>
+
+ ### QueryLeasesRequest
+ QueryLeasesRequest is request type for the Query/Leases RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `filters` | [akash.market.v1.LeaseFilters](#akash.market.v1.LeaseFilters) |  | Filters holds the fields to filter leases. |
+ | `pagination` | [cosmos.base.query.v1beta1.PageRequest](#cosmos.base.query.v1beta1.PageRequest) |  | Pagination is used to paginate the request. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.QueryLeasesResponse"></a>
+
+ ### QueryLeasesResponse
+ QueryLeasesResponse is response type for the Query/Leases RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `leases` | [QueryLeaseResponse](#akash.market.v1beta5.QueryLeaseResponse) | repeated | Leases is a list of Lease. |
+ | `pagination` | [cosmos.base.query.v1beta1.PageResponse](#cosmos.base.query.v1beta1.PageResponse) |  | Pagination contains the information about response pagination. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.QueryOrderRequest"></a>
+
+ ### QueryOrderRequest
+ QueryOrderRequest is request type for the Query/Order RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [akash.market.v1.OrderID](#akash.market.v1.OrderID) |  | Id is the unique identifier of the Order. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.QueryOrderResponse"></a>
+
+ ### QueryOrderResponse
+ QueryOrderResponse is response type for the Query/Order RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `order` | [Order](#akash.market.v1beta5.Order) |  | Order represents a market order. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.QueryOrdersRequest"></a>
+
+ ### QueryOrdersRequest
+ QueryOrdersRequest is request type for the Query/Orders RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `filters` | [OrderFilters](#akash.market.v1beta5.OrderFilters) |  | Filters holds the fields to filter orders. |
+ | `pagination` | [cosmos.base.query.v1beta1.PageRequest](#cosmos.base.query.v1beta1.PageRequest) |  | Pagination is used to paginate the request. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.QueryOrdersResponse"></a>
+
+ ### QueryOrdersResponse
+ QueryOrdersResponse is response type for the Query/Orders RPC method
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `orders` | [Order](#akash.market.v1beta5.Order) | repeated | Orders is a list of market orders. |
+ | `pagination` | [cosmos.base.query.v1beta1.PageResponse](#cosmos.base.query.v1beta1.PageResponse) |  | Pagination contains the information about response pagination. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.QueryParamsRequest"></a>
+
+ ### QueryParamsRequest
+ QueryParamsRequest is the request type for the Query/Params RPC method.
+
+ 
+
+ 
+
+ 
+ <a name="akash.market.v1beta5.QueryParamsResponse"></a>
+
+ ### QueryParamsResponse
+ QueryParamsResponse is the response type for the Query/Params RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `params` | [Params](#akash.market.v1beta5.Params) |  | params defines the parameters of the module. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.market.v1beta5.Query"></a>
+
+ ### Query
+ Query defines the gRPC querier service for the market package.
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `Orders` | [QueryOrdersRequest](#akash.market.v1beta5.QueryOrdersRequest) | [QueryOrdersResponse](#akash.market.v1beta5.QueryOrdersResponse) | Orders queries orders with filters. | GET|/akash/market/v1beta5/orders/list|
+ | `Order` | [QueryOrderRequest](#akash.market.v1beta5.QueryOrderRequest) | [QueryOrderResponse](#akash.market.v1beta5.QueryOrderResponse) | Order queries order details. | GET|/akash/market/v1beta5/orders/info|
+ | `Bids` | [QueryBidsRequest](#akash.market.v1beta5.QueryBidsRequest) | [QueryBidsResponse](#akash.market.v1beta5.QueryBidsResponse) | Bids queries bids with filters. | GET|/akash/market/v1beta5/bids/list|
+ | `Bid` | [QueryBidRequest](#akash.market.v1beta5.QueryBidRequest) | [QueryBidResponse](#akash.market.v1beta5.QueryBidResponse) | Bid queries bid details. | GET|/akash/market/v1beta5/bids/info|
+ | `Leases` | [QueryLeasesRequest](#akash.market.v1beta5.QueryLeasesRequest) | [QueryLeasesResponse](#akash.market.v1beta5.QueryLeasesResponse) | Leases queries leases with filters. | GET|/akash/market/v1beta5/leases/list|
+ | `Lease` | [QueryLeaseRequest](#akash.market.v1beta5.QueryLeaseRequest) | [QueryLeaseResponse](#akash.market.v1beta5.QueryLeaseResponse) | Lease queries lease details. | GET|/akash/market/v1beta5/leases/info|
+ | `Params` | [QueryParamsRequest](#akash.market.v1beta5.QueryParamsRequest) | [QueryParamsResponse](#akash.market.v1beta5.QueryParamsResponse) | Params returns the total set of market parameters. | GET|/akash/market/v1beta5/params|
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/market/v1beta5/service.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/market/v1beta5/service.proto
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.market.v1beta5.Msg"></a>
+
+ ### Msg
+ Msg defines the market Msg service.
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `CreateBid` | [MsgCreateBid](#akash.market.v1beta5.MsgCreateBid) | [MsgCreateBidResponse](#akash.market.v1beta5.MsgCreateBidResponse) | CreateBid defines a method to create a bid given proper inputs. | |
+ | `CloseBid` | [MsgCloseBid](#akash.market.v1beta5.MsgCloseBid) | [MsgCloseBidResponse](#akash.market.v1beta5.MsgCloseBidResponse) | CloseBid defines a method to close a bid given proper inputs. | |
+ | `WithdrawLease` | [MsgWithdrawLease](#akash.market.v1beta5.MsgWithdrawLease) | [MsgWithdrawLeaseResponse](#akash.market.v1beta5.MsgWithdrawLeaseResponse) | WithdrawLease withdraws accrued funds from the lease payment | |
+ | `CreateLease` | [MsgCreateLease](#akash.market.v1beta5.MsgCreateLease) | [MsgCreateLeaseResponse](#akash.market.v1beta5.MsgCreateLeaseResponse) | CreateLease creates a new lease | |
+ | `CloseLease` | [MsgCloseLease](#akash.market.v1beta5.MsgCloseLease) | [MsgCloseLeaseResponse](#akash.market.v1beta5.MsgCloseLeaseResponse) | CloseLease defines a method to close an order given proper inputs. | |
+ | `LeaseStartReclaim` | [MsgLeaseStartReclaim](#akash.market.v1beta5.MsgLeaseStartReclaim) | [MsgLeaseStartReclaimResponse](#akash.market.v1beta5.MsgLeaseStartReclaimResponse) | LeaseStartReclaim initiates the reclamation window on an active lease. | |
+ | `UpdateParams` | [MsgUpdateParams](#akash.market.v1beta5.MsgUpdateParams) | [MsgUpdateParamsResponse](#akash.market.v1beta5.MsgUpdateParamsResponse) | UpdateParams defines a governance operation for updating the x/market module parameters. The authority is hard-coded to the x/gov module account.
+
+Since: akash v1.0.0 | |
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/oracle/v1/prices.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/oracle/v1/prices.proto
+ 
+
+ 
+ <a name="akash.oracle.v1.AggregatedPrice"></a>
+
+ ### AggregatedPrice
+ AggregatedPrice represents the final aggregated price from all sources
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `denom` | [string](#string) |  | denom is the asset denomination |
+ | `twap` | [string](#string) |  | twap is the time-weighted average price over the configured window |
+ | `median_price` | [string](#string) |  | median_price is the median of all source prices |
+ | `min_price` | [string](#string) |  | min_price is the minimum price from all sources |
+ | `max_price` | [string](#string) |  | max_price is the maximum price from all sources |
+ | `timestamp` | [google.protobuf.Timestamp](#google.protobuf.Timestamp) |  | timestamp is when the aggregated price was computed |
+ | `num_sources` | [uint32](#uint32) |  | num_sources is the number of price sources contributing to this aggregation |
+ | `deviation_bps` | [uint64](#uint64) |  | deviation_bps is the price deviation in basis points between min and max prices |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v1.DataID"></a>
+
+ ### DataID
+ DataID uniquely identifies a price pair by asset and base denomination
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `denom` | [string](#string) |  | denom is the asset denomination (e.g., "uakt") |
+ | `base_denom` | [string](#string) |  | base_denom is the base denomination for the price pair (e.g., "usd") |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v1.PriceData"></a>
+
+ ### PriceData
+ PriceData combines a price record identifier with its state
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [PriceDataRecordID](#akash.oracle.v1.PriceDataRecordID) |  | id uniquely identifies this price record |
+ | `state` | [PriceDataState](#akash.oracle.v1.PriceDataState) |  | state contains the price value and timestamp |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v1.PriceDataID"></a>
+
+ ### PriceDataID
+ PriceDataID identifies price data from a specific source for a specific pair
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `source` | [uint32](#uint32) |  | source is the index of the price source (oracle provider) |
+ | `denom` | [string](#string) |  | denom is the asset denomination |
+ | `base_denom` | [string](#string) |  | base_denom is the base denomination for the price pair |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v1.PriceDataRecordID"></a>
+
+ ### PriceDataRecordID
+ PriceDataRecordID represents a price from a specific source at a specific time.
+It also represents a single data point in TWAP history
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `source` | [uint32](#uint32) |  | source is the index of the price source (oracle provider) |
+ | `denom` | [string](#string) |  | denom is the asset denomination |
+ | `base_denom` | [string](#string) |  | base_denom is the base denomination for the price pair |
+ | `height` | [int64](#int64) |  | height is the block height when this price was recorded |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v1.PriceDataState"></a>
+
+ ### PriceDataState
+ PriceDataState represents the price value and timestamp for a price entry
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `price` | [string](#string) |  | price is the decimal price value |
+ | `timestamp` | [google.protobuf.Timestamp](#google.protobuf.Timestamp) |  | timestamp is when the price was recorded |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v1.PriceHealth"></a>
+
+ ### PriceHealth
+ PriceHealth represents the health status of a price feed
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `denom` | [string](#string) |  | denom is the asset denomination |
+ | `is_healthy` | [bool](#bool) |  | is_healthy indicates if the price feed meets all health requirements |
+ | `has_min_sources` | [bool](#bool) |  | has_min_sources indicates if minimum number of sources are reporting |
+ | `deviation_ok` | [bool](#bool) |  | deviation_ok indicates if price deviation is within acceptable limits |
+ | `total_sources` | [uint32](#uint32) |  | total_sources indicates total amount of sources registered for price calculations |
+ | `total_healthy_sources` | [uint32](#uint32) |  | total_healthy_sources indicates total usable sources for price calculations |
+ | `failure_reason` | [string](#string) | repeated | failure_reason lists reasons for unhealthy status, if any |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v1.PricesFilter"></a>
+
+ ### PricesFilter
+ PricesFilter defines filters used to query price data
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `asset_denom` | [string](#string) |  | asset_denom is the asset denomination to filter by |
+ | `base_denom` | [string](#string) |  | base_denom is the base denomination to filter by |
+ | `height` | [int64](#int64) |  | height is the block height to filter by |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v1.QueryPricesRequest"></a>
+
+ ### QueryPricesRequest
+ QueryPricesRequest is the request type for querying price history
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `filters` | [PricesFilter](#akash.oracle.v1.PricesFilter) |  | filters holds the price fields to filter the request |
+ | `pagination` | [cosmos.base.query.v1beta1.PageRequest](#cosmos.base.query.v1beta1.PageRequest) |  | pagination is used to paginate the request |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v1.QueryPricesResponse"></a>
+
+ ### QueryPricesResponse
+ QueryPricesResponse is the response type for querying price history
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `prices` | [PriceData](#akash.oracle.v1.PriceData) | repeated | prices is the list of historical price data matching the filters |
+ | `pagination` | [cosmos.base.query.v1beta1.PageResponse](#cosmos.base.query.v1beta1.PageResponse) |  | pagination contains the information about response pagination |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/oracle/v1/events.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/oracle/v1/events.proto
+ 
+
+ 
+ <a name="akash.oracle.v1.EventAggregatedPrice"></a>
+
+ ### EventAggregatedPrice
+ EventAggregatedPrice is emitted when aggregated price has an update
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `price` | [AggregatedPrice](#akash.oracle.v1.AggregatedPrice) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v1.EventPriceData"></a>
+
+ ### EventPriceData
+ EventPriceData is emitted when new price data is added to the oracle
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `source` | [string](#string) |  | source is the address of the price source (oracle provider) |
+ | `id` | [DataID](#akash.oracle.v1.DataID) |  | id identifies the price pair (denom and base_denom) |
+ | `data` | [PriceDataState](#akash.oracle.v1.PriceDataState) |  | data contains the price value and timestamp |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v1.EventPriceRecovered"></a>
+
+ ### EventPriceRecovered
+ EventPriceRecovered is emitted when a stale price has started receiving updates again
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [DataID](#akash.oracle.v1.DataID) |  | id identifies the price pair |
+ | `height` | [int64](#int64) |  | height is the block height when the price recovery was detected |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v1.EventPriceStaleWarning"></a>
+
+ ### EventPriceStaleWarning
+ EventPriceStaleWarning is emitted when price has not been updated and is about to become stale
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `source` | [string](#string) |  | source is the address of the price source |
+ | `id` | [DataID](#akash.oracle.v1.DataID) |  | id identifies the price pair |
+ | `last_height` | [int64](#int64) |  | last_height is the block height when the price was last updated |
+ | `blocks_to_stall` | [int64](#int64) |  | blocks_to_stall is the number of blocks until the price becomes stale |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v1.EventPriceStaled"></a>
+
+ ### EventPriceStaled
+ EventPriceStaled is emitted when a price has become stale
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [DataID](#akash.oracle.v1.DataID) |  | id identifies the price pair |
+ | `last_height` | [int64](#int64) |  | last_height is the block height when the price was last updated before becoming stale |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/oracle/v1/params.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/oracle/v1/params.proto
+ 
+
+ 
+ <a name="akash.oracle.v1.Params"></a>
+
+ ### Params
+ Params defines the parameters for the oracle module
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `sources` | [string](#string) | repeated | sources addresses allowed to write prices into oracle module those are to be smartcontract addresses |
+ | `min_price_sources` | [uint32](#uint32) |  | Minimum number of price sources required (default: 2) |
+ | `max_price_staleness_blocks` | [int64](#int64) |  | Maximum price staleness in blocks (default: 50 = ~ 5 minutes) |
+ | `twap_window` | [int64](#int64) |  | TWAP window in blocks (default: 50 = ~ 5 minutes) |
+ | `max_price_deviation_bps` | [uint64](#uint64) |  | Maximum price deviation in basis points (default: 150 = 1.5%) |
+ | `feed_contracts_params` | [google.protobuf.Any](#google.protobuf.Any) | repeated | feed_contracts_params contains the configuration for the price feed contracts |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/oracle/v1/genesis.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/oracle/v1/genesis.proto
+ 
+
+ 
+ <a name="akash.oracle.v1.GenesisState"></a>
+
+ ### GenesisState
+ GenesisState defines the oracle module's genesis state
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `params` | [Params](#akash.oracle.v1.Params) |  | params holds the oracle module parameters |
+ | `prices` | [PriceData](#akash.oracle.v1.PriceData) | repeated | prices is the list of all historical price data entries |
+ | `latest_height` | [PriceDataID](#akash.oracle.v1.PriceDataID) | repeated | latest_height tracks the most recent block height for each price feed source |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/oracle/v1/msgs.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/oracle/v1/msgs.proto
+ 
+
+ 
+ <a name="akash.oracle.v1.MsgAddPriceEntry"></a>
+
+ ### MsgAddPriceEntry
+ MsgAddPriceEntry defines an SDK message to add oracle price entry.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `signer` | [string](#string) |  | Signer is the bech32 address of the account of the provider. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `id` | [DataID](#akash.oracle.v1.DataID) |  | id uniquely identifies the price data by denomination and base denomination |
+ | `price` | [PriceDataState](#akash.oracle.v1.PriceDataState) |  | price contains the price value and timestamp for this entry |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v1.MsgAddPriceEntryResponse"></a>
+
+ ### MsgAddPriceEntryResponse
+ MsgAddPriceEntryResponse defines the Msg/MsgAddDPriceEntry response type.
+
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v1.MsgUpdateParams"></a>
+
+ ### MsgUpdateParams
+ MsgUpdateParams is the Msg/UpdateParams request type.
+
+Since: akash v2.0.0
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `authority` | [string](#string) |  | authority is the address of the governance account. |
+ | `params` | [Params](#akash.oracle.v1.Params) |  | params defines the x/oracle parameters to update.
+
+NOTE: All parameters must be supplied. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v1.MsgUpdateParamsResponse"></a>
+
+ ### MsgUpdateParamsResponse
+ MsgUpdateParamsResponse defines the response structure for executing a
+MsgUpdateParams message.
+
+Since: akash v2.0.0
+
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/oracle/v1/query.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/oracle/v1/query.proto
+ 
+
+ 
+ <a name="akash.oracle.v1.QueryAggregatedPriceRequest"></a>
+
+ ### QueryAggregatedPriceRequest
+ QueryAggregatedPriceRequest is the request type for aggregated price.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `denom` | [string](#string) |  | denom is the asset denomination |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v1.QueryAggregatedPriceResponse"></a>
+
+ ### QueryAggregatedPriceResponse
+ QueryAggregatedPriceResponse is the response type for aggregated price.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `aggregated_price` | [AggregatedPrice](#akash.oracle.v1.AggregatedPrice) |  | aggregated_price is the aggregated price data |
+ | `price_health` | [PriceHealth](#akash.oracle.v1.PriceHealth) |  | price_health is the health status for the price feed |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v1.QueryParamsRequest"></a>
+
+ ### QueryParamsRequest
+ QueryParamsRequest is the request type for the Query/Params RPC method.
+
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v1.QueryParamsResponse"></a>
+
+ ### QueryParamsResponse
+ QueryParamsResponse is the response type for the Query/Params RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `params` | [Params](#akash.oracle.v1.Params) |  | params defines the parameters of the module. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.oracle.v1.Query"></a>
+
+ ### Query
+ Query defines the gRPC querier service of the oracle package.
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `Prices` | [QueryPricesRequest](#akash.oracle.v1.QueryPricesRequest) | [QueryPricesResponse](#akash.oracle.v1.QueryPricesResponse) | Prices query prices for specific denom | GET|/akash/oracle/v1/prices|
+ | `Params` | [QueryParamsRequest](#akash.oracle.v1.QueryParamsRequest) | [QueryParamsResponse](#akash.oracle.v1.QueryParamsResponse) | Params returns the total set of oracle parameters. | GET|/akash/oracle/v1/params|
+ | `AggregatedPrice` | [QueryAggregatedPriceRequest](#akash.oracle.v1.QueryAggregatedPriceRequest) | [QueryAggregatedPriceResponse](#akash.oracle.v1.QueryAggregatedPriceResponse) | AggregatedPrice queries the aggregated price for a given denom. | GET|/akash/oracle/v1/aggregated_price/{denom}|
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/oracle/v1/service.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/oracle/v1/service.proto
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.oracle.v1.Msg"></a>
+
+ ### Msg
+ Msg defines the oracle Msg service for managing price feeds
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `AddPriceEntry` | [MsgAddPriceEntry](#akash.oracle.v1.MsgAddPriceEntry) | [MsgAddPriceEntryResponse](#akash.oracle.v1.MsgAddPriceEntryResponse) | AddPriceEntry adds a new price entry for a denomination from an authorized source | |
+ | `UpdateParams` | [MsgUpdateParams](#akash.oracle.v1.MsgUpdateParams) | [MsgUpdateParamsResponse](#akash.oracle.v1.MsgUpdateParamsResponse) | UpdateParams defines a governance operation for updating the x/wasm module parameters. The authority is hard-coded to the x/gov module account.
+
+Since: akash v2.0.0 | |
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/oracle/v2/prices.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/oracle/v2/prices.proto
+ 
+
+ 
+ <a name="akash.oracle.v2.AggregatedPrice"></a>
+
+ ### AggregatedPrice
+ AggregatedPrice represents the final aggregated price from all sources
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `denom` | [string](#string) |  | denom is the asset denomination |
+ | `twap` | [string](#string) |  | twap is the time-weighted average price over the configured window |
+ | `median_price` | [string](#string) |  | median_price is the median of all source prices |
+ | `min_price` | [string](#string) |  | min_price is the minimum price from all sources |
+ | `max_price` | [string](#string) |  | max_price is the maximum price from all sources |
+ | `timestamp` | [google.protobuf.Timestamp](#google.protobuf.Timestamp) |  | timestamp is when the aggregated price was computed |
+ | `num_sources` | [uint32](#uint32) |  | num_sources is the number of price sources contributing to this aggregation |
+ | `deviation_bps` | [uint64](#uint64) |  | deviation_bps is the price deviation in basis points between min and max prices |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.DataID"></a>
+
+ ### DataID
+ DataID uniquely identifies a price pair by asset and base denomination
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `denom` | [string](#string) |  | denom is the asset denomination (e.g., "uakt") |
+ | `base_denom` | [string](#string) |  | base_denom is the base denomination for the price pair (e.g., "usd") |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.PriceData"></a>
+
+ ### PriceData
+ PriceData combines a price record identifier with its state
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [PriceDataRecordID](#akash.oracle.v2.PriceDataRecordID) |  | id uniquely identifies this price record |
+ | `state` | [PriceDataState](#akash.oracle.v2.PriceDataState) |  | state contains the price value and timestamp |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.PriceDataID"></a>
+
+ ### PriceDataID
+ PriceDataID identifies price data from a specific source for a specific pair
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `source` | [uint32](#uint32) |  | source is the index of the price source (oracle provider) |
+ | `denom` | [string](#string) |  | denom is the asset denomination |
+ | `base_denom` | [string](#string) |  | base_denom is the base denomination for the price pair |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.PriceDataRecordID"></a>
+
+ ### PriceDataRecordID
+ PriceDataRecordID represents a price from a specific source at a specific time.
+It also represents a single data point in TWAP history
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `source` | [uint32](#uint32) |  | source is the index of the price source (oracle provider) |
+ | `denom` | [string](#string) |  | denom is the asset denomination |
+ | `base_denom` | [string](#string) |  | base_denom is the base denomination for the price pair |
+ | `timestamp` | [google.protobuf.Timestamp](#google.protobuf.Timestamp) |  | timestamp is when this price was recorded |
+ | `sequence` | [uint64](#uint64) |  | sequence disambiguates multiple price entries at the same timestamp |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.PriceDataState"></a>
+
+ ### PriceDataState
+ PriceDataState represents the price value
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `price` | [string](#string) |  | price is the decimal price value |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.PriceHealth"></a>
+
+ ### PriceHealth
+ PriceHealth represents the health status of a price feed
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `denom` | [string](#string) |  | denom is the asset denomination |
+ | `is_healthy` | [bool](#bool) |  | is_healthy indicates if the price feed meets all health requirements |
+ | `has_min_sources` | [bool](#bool) |  | has_min_sources indicates if minimum number of sources are reporting |
+ | `deviation_ok` | [bool](#bool) |  | deviation_ok indicates if price deviation is within acceptable limits |
+ | `total_sources` | [uint32](#uint32) |  | total_sources indicates total amount of sources registered for price calculations |
+ | `total_healthy_sources` | [uint32](#uint32) |  | total_healthy_sources indicates total usable sources for price calculations |
+ | `failure_reason` | [string](#string) | repeated | failure_reason lists reasons for unhealthy status, if any |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.PriceLatestDataState"></a>
+
+ ### PriceLatestDataState
+ PriceLatestDataState holds the timestamp of the most recent price record for a source/pair
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `timestamp` | [google.protobuf.Timestamp](#google.protobuf.Timestamp) |  | timestamp is when the price was recorded |
+ | `sequence` | [uint64](#uint64) |  | sequence disambiguates multiple price entries at the same timestamp |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/oracle/v2/events.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/oracle/v2/events.proto
+ 
+
+ 
+ <a name="akash.oracle.v2.EventAggregatedPrice"></a>
+
+ ### EventAggregatedPrice
+ EventAggregatedPrice is emitted when aggregated price has an update
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `price` | [AggregatedPrice](#akash.oracle.v2.AggregatedPrice) |  | price is the aggregated price data |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.EventPriceData"></a>
+
+ ### EventPriceData
+ EventPriceData is emitted when new price data is added to the oracle
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `source` | [string](#string) |  | source is the address of the price source (oracle provider) |
+ | `id` | [DataID](#akash.oracle.v2.DataID) |  | id identifies the price pair (denom and base_denom) |
+ | `price` | [string](#string) |  | price is the decimal price value |
+ | `timestamp` | [google.protobuf.Timestamp](#google.protobuf.Timestamp) |  | timestamp is when this price was recorded |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.EventPriceRecovered"></a>
+
+ ### EventPriceRecovered
+ EventPriceRecovered is emitted when a stale price has started receiving updates again
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [DataID](#akash.oracle.v2.DataID) |  | id identifies the price pair |
+ | `height` | [int64](#int64) |  | height is the block height when the price recovery was detected |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.EventPriceStaleWarning"></a>
+
+ ### EventPriceStaleWarning
+ EventPriceStaleWarning is emitted when price has not been updated and is about to become stale
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [DataID](#akash.oracle.v2.DataID) |  | id identifies the price pair |
+ | `last_height` | [int64](#int64) |  | last_height is the block height when the price was last updated |
+ | `blocks_to_stall` | [int64](#int64) |  | blocks_to_stall is the number of blocks until the price becomes stale |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.EventPriceStaled"></a>
+
+ ### EventPriceStaled
+ EventPriceStaled is emitted when a price has become stale
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [DataID](#akash.oracle.v2.DataID) |  | id identifies the price pair |
+ | `last_height` | [int64](#int64) |  | last_height is the block height when the price was last updated before becoming stale |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/oracle/v2/params.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/oracle/v2/params.proto
+ 
+
+ 
+ <a name="akash.oracle.v2.Params"></a>
+
+ ### Params
+ Params defines the parameters for the oracle module
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `sources` | [string](#string) | repeated | sources addresses allowed to write prices into oracle module those are to be smartcontract addresses |
+ | `min_price_sources` | [uint32](#uint32) |  | Minimum number of price sources required (default: 1) |
+ | `max_price_staleness_period` | [google.protobuf.Duration](#google.protobuf.Duration) |  | Maximum price staleness in seconds (default: 60s) |
+ | `twap_window` | [google.protobuf.Duration](#google.protobuf.Duration) |  | TWAP window as a duration (default: 5s) |
+ | `max_price_deviation_bps` | [uint64](#uint64) |  | Maximum price deviation in basis points (default: 150 = 1.5%) |
+ | `feed_contracts_params` | [google.protobuf.Any](#google.protobuf.Any) | repeated | feed_contracts_params contains the configuration for the price feed contracts |
+ | `price_retention` | [google.protobuf.Duration](#google.protobuf.Duration) |  | price_retention is how long to keep price records (default: 24h) |
+ | `prune_epoch` | [string](#string) |  | prune_epoch is the epoch identifier that triggers pruning (default: "hour") |
+ | `max_prune_per_epoch` | [int64](#int64) |  | max_prune_per_epoch is the max records to delete per epoch pruning pass (default: 1000) |
+ | `max_future_time_drift` | [google.protobuf.Duration](#google.protobuf.Duration) |  | max_future_time_drift is the maximum amount of time a price timestamp may exceed the current block time (default: 1m) |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/oracle/v2/genesis.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/oracle/v2/genesis.proto
+ 
+
+ 
+ <a name="akash.oracle.v2.GenesisLatestPricesIDs"></a>
+
+ ### GenesisLatestPricesIDs
+ GenesisLatestPricesIDs stores the latest price state for a given price pair
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `id` | [PriceDataID](#akash.oracle.v2.PriceDataID) |  | id identifies the price pair (source, denom, base_denom) |
+ | `state` | [PriceLatestDataState](#akash.oracle.v2.PriceLatestDataState) |  | state holds the timestamp of the latest price record |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.GenesisSourceID"></a>
+
+ ### GenesisSourceID
+ GenesisSourceID maps an oracle source address to its numeric identifier
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `address` | [string](#string) |  | address is the bech32 address of the oracle source |
+ | `id` | [uint32](#uint32) |  | id is the numeric identifier assigned to the source |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.GenesisState"></a>
+
+ ### GenesisState
+ GenesisState defines the oracle module's genesis state
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `params` | [Params](#akash.oracle.v2.Params) |  | params holds the oracle module parameters |
+ | `prices` | [PriceData](#akash.oracle.v2.PriceData) | repeated | prices is the list of all historical price data entries |
+ | `latest_prices_ids` | [GenesisLatestPricesIDs](#akash.oracle.v2.GenesisLatestPricesIDs) | repeated | latest_height tracks the most recent block height for each price feed source |
+ | `source_ids` | [GenesisSourceID](#akash.oracle.v2.GenesisSourceID) | repeated | source_ids is the list of oracle source address-to-ID mappings |
+ | `source_seq` | [uint64](#uint64) |  | source_seq is the next available source identifier sequence number |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/oracle/v2/msgs.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/oracle/v2/msgs.proto
+ 
+
+ 
+ <a name="akash.oracle.v2.MsgAddPriceEntry"></a>
+
+ ### MsgAddPriceEntry
+ MsgAddPriceEntry defines an SDK message to add oracle price entry.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `signer` | [string](#string) |  | Signer is the bech32 address of the account of the provider. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `id` | [DataID](#akash.oracle.v2.DataID) |  | id uniquely identifies the price data by denomination and base denomination |
+ | `price` | [string](#string) |  | price is the decimal price value |
+ | `timestamp` | [google.protobuf.Timestamp](#google.protobuf.Timestamp) |  | timestamp is when this price was observed |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.MsgAddPriceEntryResponse"></a>
+
+ ### MsgAddPriceEntryResponse
+ MsgAddPriceEntryResponse defines the Msg/MsgAddPriceEntry response type.
+
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.MsgUpdateParams"></a>
+
+ ### MsgUpdateParams
+ MsgUpdateParams is the Msg/UpdateParams request type.
+
+Since: akash v2.0.0
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `authority` | [string](#string) |  | authority is the address of the governance account. |
+ | `params` | [Params](#akash.oracle.v2.Params) |  | params defines the x/oracle parameters to update.
+
+NOTE: All parameters must be supplied. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.MsgUpdateParamsResponse"></a>
+
+ ### MsgUpdateParamsResponse
+ MsgUpdateParamsResponse defines the response structure for executing a
+MsgUpdateParams message.
+
+Since: akash v2.0.0
+
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/oracle/v2/query.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/oracle/v2/query.proto
+ 
+
+ 
+ <a name="akash.oracle.v2.PricesFilter"></a>
+
+ ### PricesFilter
+ PricesFilter defines filters used to query price data
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `asset_denom` | [string](#string) |  | asset_denom is the asset denomination to filter by |
+ | `base_denom` | [string](#string) |  | base_denom is the base denomination to filter by |
+ | `start_time` | [google.protobuf.Timestamp](#google.protobuf.Timestamp) |  | start_time is the inclusive start of the time range to filter by |
+ | `end_time` | [google.protobuf.Timestamp](#google.protobuf.Timestamp) |  | end_time is the inclusive end of the time range to filter by |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.QueryAggregatedPriceRequest"></a>
+
+ ### QueryAggregatedPriceRequest
+ QueryAggregatedPriceRequest is the request type for aggregated price.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `denom` | [string](#string) |  | denom is the asset denomination |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.QueryAggregatedPriceResponse"></a>
+
+ ### QueryAggregatedPriceResponse
+ QueryAggregatedPriceResponse is the response type for aggregated price.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `aggregated_price` | [AggregatedPrice](#akash.oracle.v2.AggregatedPrice) |  | aggregated_price is the aggregated price data |
+ | `price_health` | [PriceHealth](#akash.oracle.v2.PriceHealth) |  | price_health is the health status for the price feed |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.QueryParamsRequest"></a>
+
+ ### QueryParamsRequest
+ QueryParamsRequest is the request type for the Query/Params RPC method.
+
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.QueryParamsResponse"></a>
+
+ ### QueryParamsResponse
+ QueryParamsResponse is the response type for the Query/Params RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `params` | [Params](#akash.oracle.v2.Params) |  | params defines the parameters of the module. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.QueryPricesRequest"></a>
+
+ ### QueryPricesRequest
+ QueryPricesRequest is the request type for querying price history
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `filters` | [PricesFilter](#akash.oracle.v2.PricesFilter) |  | filters holds the price fields to filter the request |
+ | `pagination` | [cosmos.base.query.v1beta1.PageRequest](#cosmos.base.query.v1beta1.PageRequest) |  | pagination is used to paginate the request |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.oracle.v2.QueryPricesResponse"></a>
+
+ ### QueryPricesResponse
+ QueryPricesResponse is the response type for querying price history
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `prices` | [PriceData](#akash.oracle.v2.PriceData) | repeated | prices is the list of historical price data matching the filters |
+ | `pagination` | [cosmos.base.query.v1beta1.PageResponse](#cosmos.base.query.v1beta1.PageResponse) |  | pagination contains the information about response pagination |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.oracle.v2.Query"></a>
+
+ ### Query
+ Query defines the gRPC querier service of the oracle package.
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `Prices` | [QueryPricesRequest](#akash.oracle.v2.QueryPricesRequest) | [QueryPricesResponse](#akash.oracle.v2.QueryPricesResponse) | Prices query prices for specific denom | GET|/akash/oracle/v2/prices|
+ | `Params` | [QueryParamsRequest](#akash.oracle.v2.QueryParamsRequest) | [QueryParamsResponse](#akash.oracle.v2.QueryParamsResponse) | Params returns the total set of oracle parameters. | GET|/akash/oracle/v2/params|
+ | `AggregatedPrice` | [QueryAggregatedPriceRequest](#akash.oracle.v2.QueryAggregatedPriceRequest) | [QueryAggregatedPriceResponse](#akash.oracle.v2.QueryAggregatedPriceResponse) | AggregatedPrice queries the aggregated price for a given denom. | GET|/akash/oracle/v2/aggregated_price/{denom=**}|
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/oracle/v2/service.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/oracle/v2/service.proto
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.oracle.v2.Msg"></a>
+
+ ### Msg
+ Msg defines the oracle Msg service for managing price feeds
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `AddPriceEntry` | [MsgAddPriceEntry](#akash.oracle.v2.MsgAddPriceEntry) | [MsgAddPriceEntryResponse](#akash.oracle.v2.MsgAddPriceEntryResponse) | AddPriceEntry adds a new price entry for a denomination from an authorized source | |
+ | `UpdateParams` | [MsgUpdateParams](#akash.oracle.v2.MsgUpdateParams) | [MsgUpdateParamsResponse](#akash.oracle.v2.MsgUpdateParamsResponse) | UpdateParams defines a governance operation for updating the x/oracle module parameters. The authority is hard-coded to the x/gov module account.
+
+Since: akash v2.0.0 | |
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/provider/v1beta4/event.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/provider/v1beta4/event.proto
+ 
+
+ 
+ <a name="akash.provider.v1beta4.EventProviderCreated"></a>
+
+ ### EventProviderCreated
+ EventProviderCreated defines an SDK message for provider created event.
+It contains all the required information to identify a provider on-chain.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the bech32 address of the account of the provider. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.provider.v1beta4.EventProviderDeleted"></a>
+
+ ### EventProviderDeleted
+ EventProviderDeleted defines an SDK message for provider deleted event.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the bech32 address of the account of the provider. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.provider.v1beta4.EventProviderUpdated"></a>
+
+ ### EventProviderUpdated
+ EventProviderUpdated defines an SDK message for provider updated event.
+It contains all the required information to identify a provider on-chain.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the bech32 address of the account of the provider. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/provider/v1beta4/provider.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/provider/v1beta4/provider.proto
+ 
+
+ 
+ <a name="akash.provider.v1beta4.Info"></a>
+
+ ### Info
+ Info contains information on the provider.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `email` | [string](#string) |  | Email is the email address to contact the provider. |
+ | `website` | [string](#string) |  | Website is the URL to the landing page or socials of the provider. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.provider.v1beta4.Provider"></a>
+
+ ### Provider
+ Provider stores owner and host details.
+Akash providers are entities that contribute computing resources to the network.
+They can be individuals or organizations with underutilized computing resources, such as data centers or personal servers.
+Providers participate in the network by running the Akash node software and setting the price for their services.
+Users can then choose a provider based on factors such as cost, performance, and location.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the bech32 address of the account of the provider. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `host_uri` | [string](#string) |  | HostURI is the Uniform Resource Identifier for provider connection. This URI is used to directly connect to the provider to perform tasks such as sending the manifest. |
+ | `attributes` | [akash.base.attributes.v1.Attribute](#akash.base.attributes.v1.Attribute) | repeated | Attributes is a list of arbitrary attribute key-value pairs. |
+ | `info` | [Info](#akash.provider.v1beta4.Info) |  | Info contains additional provider information. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/provider/v1beta4/genesis.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/provider/v1beta4/genesis.proto
+ 
+
+ 
+ <a name="akash.provider.v1beta4.GenesisState"></a>
+
+ ### GenesisState
+ GenesisState defines the basic genesis state used by provider module.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `providers` | [Provider](#akash.provider.v1beta4.Provider) | repeated | Providers is a list of genesis providers. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/provider/v1beta4/msg.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/provider/v1beta4/msg.proto
+ 
+
+ 
+ <a name="akash.provider.v1beta4.MsgCreateProvider"></a>
+
+ ### MsgCreateProvider
+ MsgCreateProvider defines an SDK message for creating a provider.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the bech32 address of the account of the provider. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ | `host_uri` | [string](#string) |  | HostURI is the Uniform Resource Identifier for provider connection. This URI is used to directly connect to the provider to perform tasks such as sending the manifest. |
+ | `attributes` | [akash.base.attributes.v1.Attribute](#akash.base.attributes.v1.Attribute) | repeated | Attributes is a list of arbitrary attribute key-value pairs. |
+ | `info` | [Info](#akash.provider.v1beta4.Info) |  | Info contains additional provider information. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.provider.v1beta4.MsgCreateProviderResponse"></a>
+
+ ### MsgCreateProviderResponse
+ MsgCreateProviderResponse defines the Msg/CreateProvider response type.
+
+ 
+
+ 
+
+ 
+ <a name="akash.provider.v1beta4.MsgDeleteProvider"></a>
+
+ ### MsgDeleteProvider
+ MsgDeleteProvider defines an SDK message for deleting a provider
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.provider.v1beta4.MsgDeleteProviderResponse"></a>
+
+ ### MsgDeleteProviderResponse
+ MsgDeleteProviderResponse defines the Msg/DeleteProvider response type.
+
+ 
+
+ 
+
+ 
+ <a name="akash.provider.v1beta4.MsgUpdateProvider"></a>
+
+ ### MsgUpdateProvider
+ MsgUpdateProvider defines an SDK message for updating a provider
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  |  |
+ | `host_uri` | [string](#string) |  |  |
+ | `attributes` | [akash.base.attributes.v1.Attribute](#akash.base.attributes.v1.Attribute) | repeated |  |
+ | `info` | [Info](#akash.provider.v1beta4.Info) |  |  |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.provider.v1beta4.MsgUpdateProviderResponse"></a>
+
+ ### MsgUpdateProviderResponse
+ MsgUpdateProviderResponse defines the Msg/UpdateProvider response type.
+
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/provider/v1beta4/query.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/provider/v1beta4/query.proto
+ 
+
+ 
+ <a name="akash.provider.v1beta4.QueryProviderRequest"></a>
+
+ ### QueryProviderRequest
+ QueryProviderRequest is request type for the Query/Provider RPC method
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `owner` | [string](#string) |  | Owner is the bech32 address of the account of the provider. It is a string representing a valid account address.
+
+Example: "akash1..." |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.provider.v1beta4.QueryProviderResponse"></a>
+
+ ### QueryProviderResponse
+ QueryProviderResponse is response type for the Query/Provider RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `provider` | [Provider](#akash.provider.v1beta4.Provider) |  | Provider holds the representation of a provider on the network. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.provider.v1beta4.QueryProvidersRequest"></a>
+
+ ### QueryProvidersRequest
+ QueryProvidersRequest is request type for the Query/Providers RPC method
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `pagination` | [cosmos.base.query.v1beta1.PageRequest](#cosmos.base.query.v1beta1.PageRequest) |  | Pagination is used to paginate the request. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.provider.v1beta4.QueryProvidersResponse"></a>
+
+ ### QueryProvidersResponse
+ QueryProvidersResponse is response type for the Query/Providers RPC method
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `providers` | [Provider](#akash.provider.v1beta4.Provider) | repeated | Providers is a list of providers on the network. |
+ | `pagination` | [cosmos.base.query.v1beta1.PageResponse](#cosmos.base.query.v1beta1.PageResponse) |  | Pagination contains the information about response pagination. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.provider.v1beta4.Query"></a>
+
+ ### Query
+ Query defines the gRPC querier service for the provider package.
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `Providers` | [QueryProvidersRequest](#akash.provider.v1beta4.QueryProvidersRequest) | [QueryProvidersResponse](#akash.provider.v1beta4.QueryProvidersResponse) | Providers queries providers | GET|/akash/provider/v1beta4/providers|
+ | `Provider` | [QueryProviderRequest](#akash.provider.v1beta4.QueryProviderRequest) | [QueryProviderResponse](#akash.provider.v1beta4.QueryProviderResponse) | Provider queries provider details | GET|/akash/provider/v1beta4/providers/{owner}|
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/provider/v1beta4/service.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/provider/v1beta4/service.proto
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.provider.v1beta4.Msg"></a>
+
+ ### Msg
+ Msg defines the provider Msg service.
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `CreateProvider` | [MsgCreateProvider](#akash.provider.v1beta4.MsgCreateProvider) | [MsgCreateProviderResponse](#akash.provider.v1beta4.MsgCreateProviderResponse) | CreateProvider defines a method that creates a provider given the proper inputs. | |
+ | `UpdateProvider` | [MsgUpdateProvider](#akash.provider.v1beta4.MsgUpdateProvider) | [MsgUpdateProviderResponse](#akash.provider.v1beta4.MsgUpdateProviderResponse) | UpdateProvider defines a method that updates a provider given the proper inputs. | |
+ | `DeleteProvider` | [MsgDeleteProvider](#akash.provider.v1beta4.MsgDeleteProvider) | [MsgDeleteProviderResponse](#akash.provider.v1beta4.MsgDeleteProviderResponse) | DeleteProvider defines a method that deletes a provider given the proper inputs. | |
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/take/v1/params.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/take/v1/params.proto
+ 
+
+ 
+ <a name="akash.take.v1.DenomTakeRate"></a>
+
+ ### DenomTakeRate
+ DenomTakeRate describes take rate for specified denom.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `denom` | [string](#string) |  | Denom is the denomination of the take rate (uakt, usdc, etc.). |
+ | `rate` | [uint32](#uint32) |  | Rate is the value of the take rate. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.take.v1.Params"></a>
+
+ ### Params
+ Params defines the parameters for the x/take package.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `denom_take_rates` | [DenomTakeRate](#akash.take.v1.DenomTakeRate) | repeated | DenomTakeRates is a list of configured take rates. |
+ | `default_take_rate` | [uint32](#uint32) |  | DefaultTakeRate holds the default take rate. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/take/v1/genesis.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/take/v1/genesis.proto
+ 
+
+ 
+ <a name="akash.take.v1.GenesisState"></a>
+
+ ### GenesisState
+ GenesisState stores slice of genesis staking parameters.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `params` | [Params](#akash.take.v1.Params) |  | Params holds parameters of the genesis of staking. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/take/v1/paramsmsg.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/take/v1/paramsmsg.proto
+ 
+
+ 
+ <a name="akash.take.v1.MsgUpdateParams"></a>
+
+ ### MsgUpdateParams
+ MsgUpdateParams is the Msg/UpdateParams request type.
+
+Since: akash v1.0.0
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `authority` | [string](#string) |  | authority is the address of the governance account. |
+ | `params` | [Params](#akash.take.v1.Params) |  | params defines the x/deployment parameters to update.
+
+NOTE: All parameters must be supplied. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.take.v1.MsgUpdateParamsResponse"></a>
+
+ ### MsgUpdateParamsResponse
+ MsgUpdateParamsResponse defines the response structure for executing a
+MsgUpdateParams message.
+
+Since: akash v1.0.0
+
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/take/v1/query.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/take/v1/query.proto
+ 
+
+ 
+ <a name="akash.take.v1.QueryParamsRequest"></a>
+
+ ### QueryParamsRequest
+ QueryParamsRequest is the request type for the Query/Params RPC method.
+
+ 
+
+ 
+
+ 
+ <a name="akash.take.v1.QueryParamsResponse"></a>
+
+ ### QueryParamsResponse
+ QueryParamsResponse is the response type for the Query/Params RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `params` | [Params](#akash.take.v1.Params) |  | params defines the parameters of the module. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.take.v1.Query"></a>
+
+ ### Query
+ Query defines the gRPC querier service of the take package.
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `Params` | [QueryParamsRequest](#akash.take.v1.QueryParamsRequest) | [QueryParamsResponse](#akash.take.v1.QueryParamsResponse) | Params returns the total set of take parameters. | GET|/akash/take/v1/params|
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/take/v1/service.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/take/v1/service.proto
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.take.v1.Msg"></a>
+
+ ### Msg
+ Msg defines the take Msg service
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `UpdateParams` | [MsgUpdateParams](#akash.take.v1.MsgUpdateParams) | [MsgUpdateParamsResponse](#akash.take.v1.MsgUpdateParamsResponse) | UpdateParams defines a governance operation for updating the x/market module parameters. The authority is hard-coded to the x/gov module account.
+
+Since: akash v1.0.0 | |
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/wasm/v1/event.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/wasm/v1/event.proto
+ 
+
+ 
+ <a name="akash.wasm.v1.EventMsgBlocked"></a>
+
+ ### EventMsgBlocked
+ EventMsgBlocked is triggered when smart contract does not
+pass message filter
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `contract_address` | [string](#string) |  |  |
+ | `msg_type` | [string](#string) |  |  |
+ | `reason` | [string](#string) |  |  |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/wasm/v1/params.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/wasm/v1/params.proto
+ 
+
+ 
+ <a name="akash.wasm.v1.Params"></a>
+
+ ### Params
+ Params defines the parameters for the x/wasm package.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `blocked_addresses` | [string](#string) | repeated |  |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/wasm/v1/genesis.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/wasm/v1/genesis.proto
+ 
+
+ 
+ <a name="akash.wasm.v1.GenesisState"></a>
+
+ ### GenesisState
+ GenesisState stores slice of genesis wasm parameters.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `params` | [Params](#akash.wasm.v1.Params) |  | Params holds parameters of the genesis of akash wasm. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/wasm/v1/paramsmsg.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/wasm/v1/paramsmsg.proto
+ 
+
+ 
+ <a name="akash.wasm.v1.MsgUpdateParams"></a>
+
+ ### MsgUpdateParams
+ MsgUpdateParams is the Msg/UpdateParams request type.
+
+Since: akash v1.0.0
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `authority` | [string](#string) |  | authority is the address of the governance account. |
+ | `params` | [Params](#akash.wasm.v1.Params) |  | params defines the x/wasm parameters to update.
+
+NOTE: All parameters must be supplied. |
+ 
+ 
+
+ 
+
+ 
+ <a name="akash.wasm.v1.MsgUpdateParamsResponse"></a>
+
+ ### MsgUpdateParamsResponse
+ MsgUpdateParamsResponse defines the response structure for executing a
+MsgUpdateParams message.
+
+Since: akash v1.0.0
+
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/wasm/v1/query.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/wasm/v1/query.proto
+ 
+
+ 
+ <a name="akash.wasm.v1.QueryParamsRequest"></a>
+
+ ### QueryParamsRequest
+ QueryParamsRequest is the request type for the Query/Params RPC method.
+
+ 
+
+ 
+
+ 
+ <a name="akash.wasm.v1.QueryParamsResponse"></a>
+
+ ### QueryParamsResponse
+ QueryParamsResponse is the response type for the Query/Params RPC method.
+
+ 
+ | Field | Type | Label | Description |
+ | ----- | ---- | ----- | ----------- |
+ | `params` | [Params](#akash.wasm.v1.Params) |  | params defines the parameters of the module. |
+ 
+ 
+
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.wasm.v1.Query"></a>
+
+ ### Query
+ Query defines the gRPC querier service of the wasm package.
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `Params` | [QueryParamsRequest](#akash.wasm.v1.QueryParamsRequest) | [QueryParamsResponse](#akash.wasm.v1.QueryParamsResponse) | Params returns the total set of wasm parameters. | GET|/akash/wasm/v1/params|
+ 
+  <!-- end services -->
+
+ 
+ 
+ <a name="akash/wasm/v1/service.proto"></a>
+ <p align="right"><a href="#top">Top</a></p>
+
+ ## akash/wasm/v1/service.proto
+ 
+
+  <!-- end messages -->
+
+  <!-- end enums -->
+
+  <!-- end HasExtensions -->
+
+ 
+ <a name="akash.wasm.v1.Msg"></a>
+
+ ### Msg
+ Msg defines the wasm Msg service
+
+ | Method Name | Request Type | Response Type | Description | HTTP Verb | Endpoint |
+ | ----------- | ------------ | ------------- | ------------| ------- | -------- |
+ | `UpdateParams` | [MsgUpdateParams](#akash.wasm.v1.MsgUpdateParams) | [MsgUpdateParamsResponse](#akash.wasm.v1.MsgUpdateParamsResponse) | UpdateParams defines a governance operation for updating the x/wasm module parameters. The authority is hard-coded to the x/gov module account.
+
+Since: akash v2.0.0 | |
+ 
+  <!-- end services -->
+
+ 
+
+ ## Scalar Value Types
+
+ | .proto Type | Notes | C++ | Java | Python | Go | C# | PHP | Ruby |
+ | ----------- | ----- | --- | ---- | ------ | -- | -- | --- | ---- |
+ | <a name="double" /> double |  | double | double | float | float64 | double | float | Float |
+ | <a name="float" /> float |  | float | float | float | float32 | float | float | Float |
+ | <a name="int32" /> int32 | Uses variable-length encoding. Inefficient for encoding negative numbers – if your field is likely to have negative values, use sint32 instead. | int32 | int | int | int32 | int | integer | Bignum or Fixnum (as required) |
+ | <a name="int64" /> int64 | Uses variable-length encoding. Inefficient for encoding negative numbers – if your field is likely to have negative values, use sint64 instead. | int64 | long | int/long | int64 | long | integer/string | Bignum |
+ | <a name="uint32" /> uint32 | Uses variable-length encoding. | uint32 | int | int/long | uint32 | uint | integer | Bignum or Fixnum (as required) |
+ | <a name="uint64" /> uint64 | Uses variable-length encoding. | uint64 | long | int/long | uint64 | ulong | integer/string | Bignum or Fixnum (as required) |
+ | <a name="sint32" /> sint32 | Uses variable-length encoding. Signed int value. These more efficiently encode negative numbers than regular int32s. | int32 | int | int | int32 | int | integer | Bignum or Fixnum (as required) |
+ | <a name="sint64" /> sint64 | Uses variable-length encoding. Signed int value. These more efficiently encode negative numbers than regular int64s. | int64 | long | int/long | int64 | long | integer/string | Bignum |
+ | <a name="fixed32" /> fixed32 | Always four bytes. More efficient than uint32 if values are often greater than 2^28. | uint32 | int | int | uint32 | uint | integer | Bignum or Fixnum (as required) |
+ | <a name="fixed64" /> fixed64 | Always eight bytes. More efficient than uint64 if values are often greater than 2^56. | uint64 | long | int/long | uint64 | ulong | integer/string | Bignum |
+ | <a name="sfixed32" /> sfixed32 | Always four bytes. | int32 | int | int | int32 | int | integer | Bignum or Fixnum (as required) |
+ | <a name="sfixed64" /> sfixed64 | Always eight bytes. | int64 | long | int/long | int64 | long | integer/string | Bignum |
+ | <a name="bool" /> bool |  | bool | boolean | boolean | bool | bool | boolean | TrueClass/FalseClass |
+ | <a name="string" /> string | A string must always contain UTF-8 encoded or 7-bit ASCII text. | string | String | str/unicode | string | string | string | String (UTF-8) |
+ | <a name="bytes" /> bytes | May contain any arbitrary sequence of bytes. | string | ByteString | str | []byte | ByteString | string | String (ASCII-8BIT) |
+ 

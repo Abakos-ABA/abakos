@@ -1,0 +1,67 @@
+import { createSDK } from "../../generated/createProviderSDK.ts";
+import type { PickByPath } from "../../utils/types.ts";
+import type { GrpcTransportOptions } from "../transport/grpc/createGrpcTransport.ts";
+import { createGrpcTransport } from "../transport/grpc/createGrpcTransport.ts";
+import type { RetryOptions } from "../transport/interceptors/retry.ts";
+import { createRetryInterceptor, isRetryEnabled } from "../transport/interceptors/retry.ts";
+
+export type { PayloadOf, ResponseOf } from "../types.ts";
+
+export type ProviderSDK = PickByPath<ReturnType<typeof createSDK>, "akash.provider.v1"> & {
+  [Symbol.asyncDispose]: () => Promise<void>;
+};
+
+export function createProviderSDK(options: ProviderSDKOptions): ProviderSDK {
+  const { retry: retryOptions, ...transportOptions } = options.transportOptions ?? {};
+  const certificateOptions = options.authentication?.type === "mtls"
+    ? {
+        cert: options.authentication?.cert,
+        key: options.authentication?.key,
+      }
+    : null;
+  const transport = createGrpcTransport({
+    ...transportOptions,
+    interceptors: isRetryEnabled(retryOptions) ? [createRetryInterceptor(retryOptions)] : [],
+    baseUrl: options.baseUrl,
+    nodeOptions: {
+      ...certificateOptions,
+      rejectUnauthorized: false,
+    },
+  });
+
+  const sdk = createSDK(transport);
+  return {
+    ...sdk,
+    [Symbol.asyncDispose]: async () => {
+      await transport.dispose();
+    },
+  };
+}
+
+export interface ProviderSDKOptions {
+  /**
+   * Provider gRPC endpoint
+   */
+  baseUrl: string;
+
+  /**
+   * Authentication options
+   */
+  authentication?: {
+    type: "mtls";
+    cert: string;
+    key: string;
+  };
+
+  /**
+   * Options for the gRPC transport
+   */
+  transportOptions?: {
+    pingIdleConnection?: GrpcTransportOptions["pingIdleConnection"];
+    pingIntervalMs?: GrpcTransportOptions["pingIntervalMs"];
+    pingTimeoutMs?: GrpcTransportOptions["pingTimeoutMs"];
+    idleConnectionTimeoutMs?: GrpcTransportOptions["idleConnectionTimeoutMs"];
+    defaultTimeoutMs?: GrpcTransportOptions["defaultTimeoutMs"];
+    retry?: RetryOptions;
+  };
+}

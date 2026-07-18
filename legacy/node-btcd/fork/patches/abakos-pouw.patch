@@ -1,0 +1,361 @@
+diff --git a/blockchain/abakos_validate.go b/blockchain/abakos_validate.go
+new file mode 100644
+index 0000000..58da5d2
+--- /dev/null
++++ b/blockchain/abakos_validate.go
+@@ -0,0 +1,82 @@
++// Copyright (c) 2026 The Abakos developers
++// Use of this source code is governed by an ISC license.
++
++package blockchain
++
++import (
++	"fmt"
++	"math/big"
++	"sync"
++
++	"github.com/btcsuite/btcd/btcutil"
++	"github.com/btcsuite/btcd/wire"
++)
++
++// PoUWVerifier validates an Abakos block header and certificate.
++// Registered from github.com/rexmarlon/abakos/node/fork at init time.
++type PoUWVerifier interface {
++	Verify(header *wire.BlockHeader, certificate []byte) error
++}
++
++var (
++	pouwVerifierMu sync.RWMutex
++	pouwVerifier   PoUWVerifier
++)
++
++// RegisterPoUWVerifier installs the Abakos PoUW verifier (call once at node startup).
++func RegisterPoUWVerifier(v PoUWVerifier) {
++	pouwVerifierMu.Lock()
++	pouwVerifier = v
++	pouwVerifierMu.Unlock()
++}
++
++func getPoUWVerifier() PoUWVerifier {
++	pouwVerifierMu.RLock()
++	defer pouwVerifierMu.RUnlock()
++	return pouwVerifier
++}
++
++func checkAbakosPowTarget(header *wire.BlockHeader, powLimit *big.Int) error {
++	target := CompactToBig(header.Bits)
++	if target.Sign() <= 0 {
++		str := fmt.Sprintf("block target difficulty of %064x is too low", target)
++		return ruleError(ErrUnexpectedDifficulty, str)
++	}
++	if target.Cmp(powLimit) > 0 {
++		str := fmt.Sprintf("block target difficulty of %064x is "+
++			"higher than max of %064x", target, powLimit)
++		return ruleError(ErrUnexpectedDifficulty, str)
++	}
++	return nil
++}
++
++func checkProofOfUsefulWork(header *wire.BlockHeader, certificate []byte,
++	powLimit *big.Int, flags BehaviorFlags) error {
++
++	if err := checkAbakosPowTarget(header, powLimit); err != nil {
++		return err
++	}
++	if flags&BFNoPoWCheck == BFNoPoWCheck {
++		return nil
++	}
++	if len(certificate) == 0 {
++		return ruleError(ErrCertificateMissing, "certificate is missing")
++	}
++	v := getPoUWVerifier()
++	if v == nil {
++		return ruleError(ErrHighHash, "PoUW verifier not registered")
++	}
++	if err := v.Verify(header, certificate); err != nil {
++		return ruleError(ErrHighHash, err.Error())
++	}
++	return nil
++}
++
++// CheckProofOfUsefulWork validates an Abakos block's PoUW certificate.
++func CheckProofOfUsefulWork(block *btcutil.Block, powLimit *big.Int) error {
++	msg := block.MsgBlock()
++	if !wire.IsAbakosVersion(msg.Header.Version) {
++		return ruleError(ErrHighHash, "not an Abakos block version")
++	}
++	return checkProofOfUsefulWork(&msg.Header, msg.Certificate, powLimit, BFNone)
++}
+diff --git a/blockchain/error.go b/blockchain/error.go
+index dc40222..4921f55 100644
+--- a/blockchain/error.go
++++ b/blockchain/error.go
+@@ -220,6 +220,9 @@ const (
+ 	// current chain tip. This is not a block validation rule, but is required
+ 	// for block proposals submitted via getblocktemplate RPC.
+ 	ErrPrevBlockNotBest
++
++	// ErrCertificateMissing indicates an Abakos block has no PoUW certificate.
++	ErrCertificateMissing
+ )
+ 
+ // Map of ErrorCode values back to their constant names for pretty printing.
+@@ -267,6 +270,7 @@ var errorCodeStrings = map[ErrorCode]string{
+ 	ErrPreviousBlockUnknown:      "ErrPreviousBlockUnknown",
+ 	ErrInvalidAncestorBlock:      "ErrInvalidAncestorBlock",
+ 	ErrPrevBlockNotBest:          "ErrPrevBlockNotBest",
++	ErrCertificateMissing:        "ErrCertificateMissing",
+ }
+ 
+ // String returns the ErrorCode as a human-readable name.
+diff --git a/blockchain/validate.go b/blockchain/validate.go
+index 5e24405..653e008 100644
+--- a/blockchain/validate.go
++++ b/blockchain/validate.go
+@@ -437,8 +437,13 @@ func CheckBlockHeaderSanity(header *wire.BlockHeader, powLimit *big.Int,
+ 
+ 	// Ensure the proof of work bits in the block header is in min/max range
+ 	// and the block hash is less than the target value described by the
+-	// bits.
+-	err := checkProofOfWork(header, powLimit, flags)
++	// bits (Bitcoin) or the PoUW certificate is valid (Abakos).
++	var err error
++	if wire.IsAbakosVersion(header.Version) {
++		err = checkAbakosPowTarget(header, powLimit)
++	} else {
++		err = checkProofOfWork(header, powLimit, flags)
++	}
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -479,6 +484,13 @@ func checkBlockSanity(block *btcutil.Block, powLimit *big.Int, timeSource Median
+ 		return err
+ 	}
+ 
++	// Abakos blocks require a valid PoUW certificate before tx checks.
++	if wire.IsAbakosVersion(header.Version) {
++		if err := checkProofOfUsefulWork(header, msgBlock.Certificate, powLimit, flags); err != nil {
++			return err
++		}
++	}
++
+ 	// A block must have at least one transaction.
+ 	numTx := len(msgBlock.Transactions)
+ 	if numTx == 0 {
+diff --git a/wire/abakos.go b/wire/abakos.go
+new file mode 100644
+index 0000000..f40051a
+--- /dev/null
++++ b/wire/abakos.go
+@@ -0,0 +1,29 @@
++// Copyright (c) 2026 The Abakos developers
++// Use of this source code is governed by an ISC license.
++
++package wire
++
++// Abakos PoUW wire extensions (see docs/spec-pouw-integration.md in abakos repo).
++const (
++	// BlockVersionAbakos marks headers that use ProofCommitment + certificate
++	// instead of Bitcoin SHA-256 nonce grinding.
++	BlockVersionAbakos = 0x20000000
++
++	// AbakosHeaderPayloadSize is the fixed Abakos header (no nonce field).
++	AbakosHeaderPayloadSize = 110
++
++	// MaxAbakosCertificateSize caps PoUW certificate bytes on the wire (T0).
++	MaxAbakosCertificateSize = 65536
++)
++
++// IsAbakosVersion reports whether v uses Abakos PoUW header encoding.
++func IsAbakosVersion(version int32) bool {
++	return version&BlockVersionAbakos != 0
++}
++
++func blockHeaderSerializedLen(version int32) int {
++	if IsAbakosVersion(version) {
++		return AbakosHeaderPayloadSize
++	}
++	return blockHeaderLen
++}
+diff --git a/wire/blockheader.go b/wire/blockheader.go
+index b5bce44..e7fc0df 100644
+--- a/wire/blockheader.go
++++ b/wire/blockheader.go
+@@ -12,9 +12,8 @@ import (
+ )
+ 
+ // MaxBlockHeaderPayload is the maximum number of bytes a block header can be.
+-// Version 4 bytes + Timestamp 4 bytes + Bits 4 bytes + Nonce 4 bytes +
+-// PrevBlock and MerkleRoot hashes.
+-const MaxBlockHeaderPayload = 16 + (chainhash.HashSize * 2)
++// Bitcoin: 80 bytes. Abakos PoUW headers may be up to AbakosHeaderPayloadSize.
++const MaxBlockHeaderPayload = AbakosHeaderPayloadSize
+ 
+ // BlockHeader defines information about a block and is used in the bitcoin
+ // block (MsgBlock) and headers (MsgHeaders) messages.
+@@ -35,8 +34,12 @@ type BlockHeader struct {
+ 	// Difficulty target for the block.
+ 	Bits uint32
+ 
+-	// Nonce used to generate the block.
++	// Nonce used to generate the block (Bitcoin only; zero for Abakos).
+ 	Nonce uint32
++
++	// Abakos PoUW fields (serialized when Version has BlockVersionAbakos).
++	ProofCommitment chainhash.Hash
++	UsefulRatioBps  uint16
+ }
+ 
+ // blockHeaderLen is a constant that represents the number of bytes for a block
+@@ -151,6 +154,18 @@ func readBlockHeaderBuf(r io.Reader, pver uint32, bh *BlockHeader,
+ 	}
+ 	bh.Bits = littleEndian.Uint32(buf[:4])
+ 
++	if IsAbakosVersion(bh.Version) {
++		if _, err := io.ReadFull(r, bh.ProofCommitment[:]); err != nil {
++			return err
++		}
++		if _, err := io.ReadFull(r, buf[:2]); err != nil {
++			return err
++		}
++		bh.UsefulRatioBps = littleEndian.Uint16(buf[:2])
++		bh.Nonce = 0
++		return nil
++	}
++
+ 	if _, err := io.ReadFull(r, buf[:4]); err != nil {
+ 		return err
+ 	}
+@@ -206,6 +221,17 @@ func writeBlockHeaderBuf(w io.Writer, pver uint32, bh *BlockHeader,
+ 		return err
+ 	}
+ 
++	if IsAbakosVersion(bh.Version) {
++		if _, err := w.Write(bh.ProofCommitment[:]); err != nil {
++			return err
++		}
++		littleEndian.PutUint16(buf[:2], bh.UsefulRatioBps)
++		if _, err := w.Write(buf[:2]); err != nil {
++			return err
++		}
++		return nil
++	}
++
+ 	littleEndian.PutUint32(buf[:4], bh.Nonce)
+ 	if _, err := w.Write(buf[:4]); err != nil {
+ 		return err
+diff --git a/wire/msgblock.go b/wire/msgblock.go
+index 59dbbb1..17e714f 100644
+--- a/wire/msgblock.go
++++ b/wire/msgblock.go
+@@ -42,6 +42,7 @@ type TxLoc struct {
+ // response to a getdata message (MsgGetData) for a given block hash.
+ type MsgBlock struct {
+ 	Header       BlockHeader
++	Certificate  []byte // Abakos PoUW certificate (before transactions)
+ 	Transactions []*MsgTx
+ }
+ 
+@@ -49,6 +50,7 @@ type MsgBlock struct {
+ func (msg *MsgBlock) Copy() *MsgBlock {
+ 	block := &MsgBlock{
+ 		Header:       msg.Header,
++		Certificate:  append([]byte(nil), msg.Certificate...),
+ 		Transactions: make([]*MsgTx, len(msg.Transactions)),
+ 	}
+ 
+@@ -84,6 +86,22 @@ func (msg *MsgBlock) BtcDecode(r io.Reader, pver uint32, enc MessageEncoding) er
+ 		return err
+ 	}
+ 
++	if IsAbakosVersion(msg.Header.Version) {
++		certLen, err := ReadVarIntBuf(r, pver, buf)
++		if err != nil {
++			return err
++		}
++		if certLen > MaxAbakosCertificateSize {
++			str := fmt.Sprintf("certificate too large [size %d, max %d]",
++				certLen, MaxAbakosCertificateSize)
++			return messageError("MsgBlock.BtcDecode", str)
++		}
++		msg.Certificate = make([]byte, certLen)
++		if _, err := io.ReadFull(r, msg.Certificate); err != nil {
++			return err
++		}
++	}
++
+ 	txCount, err := ReadVarIntBuf(r, pver, buf)
+ 	if err != nil {
+ 		return err
+@@ -160,6 +178,22 @@ func (msg *MsgBlock) DeserializeTxLoc(r *bytes.Buffer) ([]TxLoc, error) {
+ 		return nil, err
+ 	}
+ 
++	if IsAbakosVersion(msg.Header.Version) {
++		certLen, err := ReadVarIntBuf(r, 0, buf)
++		if err != nil {
++			return nil, err
++		}
++		if certLen > MaxAbakosCertificateSize {
++			str := fmt.Sprintf("certificate too large [size %d, max %d]",
++				certLen, MaxAbakosCertificateSize)
++			return nil, messageError("MsgBlock.DeserializeTxLoc", str)
++		}
++		msg.Certificate = make([]byte, certLen)
++		if _, err := io.ReadFull(r, msg.Certificate); err != nil {
++			return nil, err
++		}
++	}
++
+ 	txCount, err := ReadVarIntBuf(r, 0, buf)
+ 	if err != nil {
+ 		return nil, err
+@@ -208,6 +242,18 @@ func (msg *MsgBlock) BtcEncode(w io.Writer, pver uint32, enc MessageEncoding) er
+ 		return err
+ 	}
+ 
++	if IsAbakosVersion(msg.Header.Version) {
++		err = WriteVarIntBuf(w, pver, uint64(len(msg.Certificate)), buf)
++		if err != nil {
++			return err
++		}
++		if len(msg.Certificate) > 0 {
++			if _, err := w.Write(msg.Certificate); err != nil {
++				return err
++			}
++		}
++	}
++
+ 	err = WriteVarIntBuf(w, pver, uint64(len(msg.Transactions)), buf)
+ 	if err != nil {
+ 		return err
+@@ -255,9 +301,11 @@ func (msg *MsgBlock) SerializeNoWitness(w io.Writer) error {
+ // SerializeSize returns the number of bytes it would take to serialize the
+ // block, factoring in any witness data within transaction.
+ func (msg *MsgBlock) SerializeSize() int {
+-	// Block header bytes + Serialized varint size for the number of
+-	// transactions.
+-	n := blockHeaderLen + VarIntSerializeSize(uint64(len(msg.Transactions)))
++	n := blockHeaderSerializedLen(msg.Header.Version)
++	if IsAbakosVersion(msg.Header.Version) {
++		n += VarIntSerializeSize(uint64(len(msg.Certificate))) + len(msg.Certificate)
++	}
++	n += VarIntSerializeSize(uint64(len(msg.Transactions)))
+ 
+ 	for _, tx := range msg.Transactions {
+ 		n += tx.SerializeSize()
+@@ -269,9 +317,11 @@ func (msg *MsgBlock) SerializeSize() int {
+ // SerializeSizeStripped returns the number of bytes it would take to serialize
+ // the block, excluding any witness data (if any).
+ func (msg *MsgBlock) SerializeSizeStripped() int {
+-	// Block header bytes + Serialized varint size for the number of
+-	// transactions.
+-	n := blockHeaderLen + VarIntSerializeSize(uint64(len(msg.Transactions)))
++	n := blockHeaderSerializedLen(msg.Header.Version)
++	if IsAbakosVersion(msg.Header.Version) {
++		n += VarIntSerializeSize(uint64(len(msg.Certificate))) + len(msg.Certificate)
++	}
++	n += VarIntSerializeSize(uint64(len(msg.Transactions)))
+ 
+ 	for _, tx := range msg.Transactions {
+ 		n += tx.SerializeSizeStripped()

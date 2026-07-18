@@ -1,0 +1,67 @@
+---
+name: lint
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - v*
+  pull_request:
+
+jobs:
+  go:
+    runs-on: [self-hosted, akash]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup env
+        uses: HatsuneMiku3939/direnv-action@v1
+      - run: |
+          toolchain=$(./script/tools.sh gotoolchain | sed 's/go*//')
+          echo "GOVERSION=${toolchain}" >> $GITHUB_ENV
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GOVERSION }}"
+      - name: go mod vendor
+        run: make modvendor
+      - name: lint
+        run: make lint-go
+  proto:
+    runs-on: [self-hosted, akash]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup env
+        uses: HatsuneMiku3939/direnv-action@v1
+      - run: |
+          toolchain=$(./script/tools.sh gotoolchain | sed 's/go*//')
+          echo "GOVERSION=${toolchain}" >> $GITHUB_ENV
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GOVERSION }}"
+      - name: go mod vendor
+        run: make modvendor
+      - name: lint-proto
+        run: make lint-proto
+  sdl-schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup env
+        uses: HatsuneMiku3939/direnv-action@v1
+      - name: lint SDL schema
+        run: make lint-sdl-schema
+  ts:
+    runs-on: [self-hosted, akash]
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup env
+        uses: HatsuneMiku3939/direnv-action@v1
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "${{ env.NODE_VERSION }}"
+      - name: lint-ts
+        run: make lint-ts

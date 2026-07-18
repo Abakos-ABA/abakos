@@ -1,0 +1,5 @@
+# Keep vendored chain code and shell scripts as LF so Linux/WSL builds are stable
+chain/** text eol=lf
+chain-sdk/** text eol=lf
+scripts/*.sh text eol=lf
+legacy/** text eol=lf

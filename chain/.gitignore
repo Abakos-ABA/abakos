@@ -1,0 +1,43 @@
+# etc
+*.DS_Store
+
+#vendor
+/vendor
+
+# dev artifacts
+/devdata
+
+# chain data
+*.tsd
+
+# test artifacts
+debug.test
+
+dist
+
+#IDE
+.idea/
+*.iml
+coverage.txt
+.vscode
+
+/.cache
+/.release-env
+/.docker-creds
+
+/tmp-swagger-gen
+
+# go workspaces
+/go.work
+/go.work.sum
+
+/.editorconfig
+
+dev.env
+
+*.test
+
+# Added by cargo
+
+/target
+/artifacts

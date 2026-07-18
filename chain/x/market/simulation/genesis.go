@@ -1,0 +1,25 @@
+package simulation
+
+import (
+	"github.com/cosmos/cosmos-sdk/types/module"
+
+	dtypes "pkg.akt.dev/go/node/deployment/v1beta4"
+	mv1 "pkg.akt.dev/go/node/market/v1"
+	mvbeta "pkg.akt.dev/go/node/market/v1beta5"
+)
+
+var minDeposit, _ = dtypes.DefaultParams().MinDepositFor("uakt")
+
+// RandomizedGenState generates a random GenesisState for supply
+func RandomizedGenState(simState *module.SimulationState) {
+	marketGenesis := &mvbeta.GenesisState{
+		Params: mvbeta.Params{
+			BidMinDeposit:        minDeposit,
+			OrderMaxBids:         20,
+			MinReclamationWindow: mvbeta.DefaultMinReclamationWindow,
+			MaxReclamationWindow: mvbeta.DefaultMaxReclamationWindow,
+		},
+	}
+
+	simState.GenState[mv1.ModuleName] = simState.Cdc.MustMarshalJSON(marketGenesis)
+}

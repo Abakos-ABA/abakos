@@ -1,0 +1,350 @@
+<div class="xexp">
+<section><div class="wrap">
+  <div class="xsearch">
+    <input id="q" placeholder="Search block height, tx hash, or abakos1 address" autocomplete="off">
+    <button class="btn btn-fill" id="go">Search</button>
+  </div>
+  <div class="proof-grid">
+    <div><b id="height">-</b><span>Height</span></div>
+    <div><b id="chainid" style="font-size:15px">-</b><span>Chain ID</span></div>
+    <div><b id="blocktime">-</b><span>Block time</span></div>
+    <div><b id="supply" style="font-size:17px">-</b><span>Total supply</span></div>
+    <div><b id="inflation">-</b><span>Inflation</span></div>
+    <div><b id="bonded" style="font-size:15px">-</b><span>Bonded</span></div>
+    <div><b id="valcount">-</b><span>Validators (bonded/total)</span></div>
+    <div><b id="txcount">-</b><span>Transactions</span></div>
+  </div>
+  <p class="source-note" id="livestate">Connecting to rpc.abakos.ai ...</p>
+</div></section>
+
+<div id="overview">
+  <section><div class="wrap">
+    <div class="section-label">Latest transactions</div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Hash</th><th>Height</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead>
+      <tbody id="txs"><tr><td colspan="5" class="mut">loading...</td></tr></tbody>
+    </table></div>
+  </div></section>
+
+  <section><div class="wrap">
+    <div class="section-label">Latest blocks</div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Height</th><th>Time</th><th>Txs</th><th>Proposer</th></tr></thead>
+      <tbody id="blocks"><tr><td colspan="4" class="mut">loading...</td></tr></tbody>
+    </table></div>
+  </div></section>
+
+  <section><div class="wrap">
+    <div class="section-label">Validators</div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Moniker</th><th>Status</th><th>Voting power (ABA)</th><th>Share</th><th>Commission</th><th>Uptime</th></tr></thead>
+      <tbody id="vals"><tr><td colspan="6" class="mut">loading...</td></tr></tbody>
+    </table></div>
+  </div></section>
+
+  <section><div class="wrap">
+    <div class="section-label">EVM &amp; DEX</div>
+    <div class="proof-grid">
+      <div><b id="evm_chain" style="font-size:15px">9721</b><span>EVM chain ID</span></div>
+      <div><b id="evm_block">-</b><span>ETH block</span></div>
+      <div><b id="evm_gas" style="font-size:14px">-</b><span>Gas price (gwei)</span></div>
+      <div><b id="dex_price" style="font-size:15px">-</b><span>DEX price (1 ABA)</span></div>
+      <div><b id="dex_aba" style="font-size:14px">-</b><span>Pool ABA</span></div>
+      <div><b id="dex_usdc" style="font-size:14px">-</b><span>Pool USDT</span></div>
+    </div>
+    <p class="source-note">Abakos EVM &middot; eth JSON-RPC <a href="https://evm-rpc.abakos.ai" target="_blank" rel="noopener">evm-rpc.abakos.ai</a> (chain 9721) &middot; <a href="https://abakos.ai/dex/">Swap ABA/USDT</a> &middot; Uniswap-v2 pair <span class="mono">0x6C50f8b591f91Be81f7dC36B878427256850BA43</span></p>
+    <p class="source-note" id="evm_buyback">&nbsp;</p>
+  </div></section>
+
+  <section><div class="wrap">
+    <div class="section-label">Governance</div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>ID</th><th>Title</th><th>Status</th></tr></thead>
+      <tbody id="gov"><tr><td colspan="3" class="mut">loading...</td></tr></tbody>
+    </table></div>
+  </div></section>
+
+  <section><div class="wrap">
+    <div class="section-label">Chain parameters</div>
+    <div id="params"><p class="mut">loading...</p></div>
+    <p class="source-note">Sandbox network. ABA has no value. RPC rpc.abakos.ai &middot; REST rest.abakos.ai &middot; <a href="https://abakos.ai/wallet/">Wallet</a></p>
+  </div></section>
+</div>
+
+<div id="detail" style="display:none">
+  <section><div class="wrap">
+    <p><a class="xback" data-nav="home" href="#">&larr; Back to overview</a></p>
+    <div class="section-label" id="detailtitle">Detail</div>
+    <div id="detailbody"><p class="mut">loading...</p></div>
+    <p class="source-note">Sandbox network. ABA has no value. <a href="https://abakos.ai/wallet/">Wallet</a></p>
+  </div></section>
+</div>
+</div>
+
+<style>
+  .xexp .xsearch { display:flex; gap:10px; margin:0 0 22px; }
+  .xexp .xsearch input { flex:1; background:#0b0b11; border:1px solid var(--line,#24242e); color:inherit; border-radius:10px; padding:11px 12px; font-size:14px; }
+  .xexp .mono { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; }
+  .xexp .mut { color:var(--muted,#9a9ab0); }
+  .xexp a[data-nav] { color:#7aa2ff; text-decoration:none; }
+  .xexp a[data-nav]:hover { text-decoration:underline; }
+  .xexp .xback { font-size:13px; }
+  .xexp .xb { font-size:11px; padding:2px 8px; border-radius:999px; white-space:nowrap; }
+  .xexp .xb-ok { color:#39d98a; background:#0c1a13; border:1px solid #1c3a2b; }
+  .xexp .xb-fail { color:#ff8d8d; background:#1a0c0c; border:1px solid #3a1c1c; }
+  .xexp .kv { display:grid; grid-template-columns:190px 1fr; gap:8px 16px; font-size:13px; }
+  .xexp .kv-k { color:var(--muted,#9a9ab0); }
+  .xexp .kv-v { word-break:break-all; }
+  .xexp .xcard { border:1px solid var(--line,#24242e); border-radius:10px; padding:12px 14px; margin:10px 0; }
+  .xexp .xtype { font-weight:600; margin-bottom:10px; }
+  @media(max-width:600px){ .xexp .kv{ grid-template-columns:1fr; gap:2px 0; } .xexp .kv-k{ margin-top:8px; } }
+</style>
+
+<script>
+const RPC="https://rpc.abakos.ai", REST="https://rest.abakos.ai";
+const el=(id)=>document.getElementById(id);
+const j=async(u)=>{ const r=await fetch(u); if(!r.ok) throw new Error(r.status+" "+u); return r.json(); };
+const esc=(s)=>String(s==null?"":s).replace(/[&<>"']/g,(c)=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+const short=(s,n=8)=>s?(s.length>2*n?s.slice(0,n)+"\u2026"+s.slice(-6):s):"";
+const abaN=(u)=>Number(u)/1e6;
+const aba=(u)=>abaN(u).toLocaleString(undefined,{maximumFractionDigits:6});
+const aba0=(u)=>abaN(u).toLocaleString(undefined,{maximumFractionDigits:0});
+const ago=(t)=>{const s=Math.max(0,(Date.now()-new Date(t).getTime())/1000);return s<60?((s|0)+"s ago"):s<3600?(((s/60)|0)+"m ago"):(((s/3600)|0)+"h ago");};
+const fmt=(t)=>new Date(t).toLocaleString();
+function secDays(s){ if(!s) return "-"; const n=parseInt(String(s).replace(/s$/,""),10); if(isNaN(n)) return String(s); const d=n/86400; return d>=1?((d%1===0?d:d.toFixed(1))+" days"):((n/3600).toFixed(1)+" h"); }
+function coin(s){ if(!s) return "-"; return String(s).split(",").map((part)=>{ const m=/^(\d+)(.+)$/.exec(part.trim()); if(!m) return part; if(m[2]==="uaba") return aba(m[1])+" ABA"; return part; }).join(", "); }
+const evsOf=(events,type)=>(events||[]).filter((e)=>e.type===type);
+const attrOf=(e,key)=>{ const a=(e.attributes||[]).find((x)=>x.key===key); return a?a.value:null; };
+function actionOf(events){ for(const e of evsOf(events,"message")){ const a=attrOf(e,"action"); if(a) return a; } return null; }
+function lastTransfer(events){ const t=evsOf(events,"transfer"); return t.length?t[t.length-1]:null; }
+const TYPES={ "/cosmos.bank.v1beta1.MsgSend":"Send","/cosmos.bank.v1beta1.MsgMultiSend":"Multi-Send","/cosmos.staking.v1beta1.MsgDelegate":"Delegate","/cosmos.staking.v1beta1.MsgUndelegate":"Undelegate","/cosmos.staking.v1beta1.MsgBeginRedelegate":"Redelegate","/cosmos.staking.v1beta1.MsgCreateValidator":"Create Validator","/cosmos.staking.v1beta1.MsgEditValidator":"Edit Validator","/cosmos.distribution.v1beta1.MsgWithdrawDelegatorReward":"Claim Rewards","/cosmos.gov.v1.MsgVote":"Vote","/cosmos.gov.v1beta1.MsgVote":"Vote" };
+const typeLabel=(a)=>a?(TYPES[a]||a.split(".").pop().replace(/^Msg/,"")):"\u2014";
+const okBadge=(code)=>(code===0||code==="0")?'<span class="xb xb-ok">success</span>':'<span class="xb xb-fail">failed</span>';
+const txSearch=(query,n)=>j(`${RPC}/tx_search?query=${encodeURIComponent('"'+query+'"')}&order_by=${encodeURIComponent('"desc"')}&per_page=${n||25}&page=1`);
+const kv=(pairs)=>`<div class="kv">`+pairs.map(([k,v])=>`<div class="kv-k">${esc(k)}</div><div class="kv-v">${v}</div>`).join("")+`</div>`;
+const acctLink=(a)=>a?`<a data-nav="acct" data-val="${esc(a)}" href="#" class="mono">${esc(a)}</a>`:"-";
+const txRow=(t)=>{ const ev=t.tx_result.events; const tr=lastTransfer(ev); const amt=tr?attrOf(tr,"amount"):null; return `<tr><td><a data-nav="tx" data-val="${t.hash}" href="#" class="mono">${short(t.hash,6)}</a></td><td><a data-nav="block" data-val="${t.height}" href="#">${Number(t.height).toLocaleString()}</a></td><td>${typeLabel(actionOf(ev))}</td><td>${amt?coin(amt):"-"}</td><td>${okBadge(t.tx_result.code)}</td></tr>`; };
+
+// bech32 (BIP173) minimal encoder to derive valcons from a CometBFT hex consensus address
+const B32="qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+function b32Polymod(v){ const G=[0x3b6a57b2,0x26508e6d,0x1ea119fa,0x3d4233dd,0x2a1462b3]; let c=1; for(const x of v){ const b=c>>25; c=((c&0x1ffffff)<<5)^x; for(let i=0;i<5;i++) if((b>>i)&1) c^=G[i]; } return c; }
+function b32Hrp(h){ const r=[]; for(let i=0;i<h.length;i++) r.push(h.charCodeAt(i)>>5); r.push(0); for(let i=0;i<h.length;i++) r.push(h.charCodeAt(i)&31); return r; }
+function b32Checksum(h,d){ const v=b32Hrp(h).concat(d).concat([0,0,0,0,0,0]); const m=b32Polymod(v)^1; const r=[]; for(let i=0;i<6;i++) r.push((m>>(5*(5-i)))&31); return r; }
+function b32Conv(data){ let acc=0,bits=0; const r=[]; for(const val of data){ acc=(acc<<8)|val; bits+=8; while(bits>=5){ bits-=5; r.push((acc>>bits)&31); } } if(bits>0) r.push((acc<<(5-bits))&31); return r; }
+function hexBytes(h){ const b=[]; for(let i=0;i<h.length;i+=2) b.push(parseInt(h.substr(i,2),16)); return b; }
+function valcons(hex){ try{ const d=b32Conv(hexBytes(hex)); const c=d.concat(b32Checksum("abakosvalcons",d)); let s="abakosvalcons1"; for(const x of c) s+=B32[x]; return s; }catch(e){ return null; } }
+
+async function buildUptime(){
+  const map={};
+  try{
+    const cv=((await j(`${RPC}/validators?per_page=100&page=1`)).result.validators)||[];
+    const si=((await j(`${REST}/cosmos/slashing/v1beta1/signing_infos?pagination.limit=300`)).info)||[];
+    const win=Number(((await j(`${REST}/cosmos/slashing/v1beta1/params`)).params||{}).signed_blocks_window||0);
+    const byVc={}; si.forEach((s)=>{ byVc[s.address]=s; });
+    cv.forEach((v)=>{ const vc=valcons(v.address); const s=vc?byVc[vc]:null; if(v.pub_key&&v.pub_key.value){ map[v.pub_key.value]={ missed:s?Number(s.missed_blocks_counter):null, window:win }; } });
+  }catch(e){}
+  return map;
+}
+function uptimeStr(u){ if(!u||!u.window||u.missed==null) return "-"; return (((u.window-u.missed)/u.window)*100).toFixed(2)+"%"; }
+
+function openDetail(title){ const wasDetail=el("detail").style.display!=="none"; el("overview").style.display="none"; el("detail").style.display="block"; el("detailtitle").textContent=title; el("detailbody").innerHTML='<p class="mut">loading\u2026</p>'; if(!wasDetail){ try{ el("detail").scrollIntoView({block:"nearest"}); }catch(e){} } }
+function showOverview(){ el("detail").style.display="none"; el("overview").style.display="block"; tick(); }
+
+async function showBlock(h){
+  openDetail("Block #"+Number(h).toLocaleString());
+  try{
+    const b=(await j(`${RPC}/block?height=${h}`)).result;
+    const hd=b.block.header;
+    const txs=((await txSearch(`tx.height=${h}`,100)).result.txs)||[];
+    let html=kv([["Height",Number(hd.height).toLocaleString()],["Time",fmt(hd.time)+" ("+ago(hd.time)+")"],["Proposer",'<span class="mono">'+esc(hd.proposer_address)+'</span>'],["Transactions",txs.length],["Block hash",'<span class="mono">'+esc(b.block_id.hash)+'</span>'],["App hash",'<span class="mono">'+esc(hd.app_hash)+'</span>']]);
+    html+='<div class="section-label" style="margin-top:20px">Transactions in this block</div>';
+    html+='<div class="tablewrap"><table><thead><tr><th>Hash</th><th>Height</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead><tbody>';
+    html+= txs.length ? txs.map(txRow).join("") : '<tr><td colspan="5" class="mut">no transactions in this block</td></tr>';
+    html+='</tbody></table></div>';
+    el("detailbody").innerHTML=html;
+  }catch(e){ el("detailbody").innerHTML='<p class="mut">Block not found or node unreachable.</p>'; }
+}
+
+async function showTx(hash){
+  openDetail("Transaction");
+  try{
+    const d=await j(`${REST}/cosmos/tx/v1beta1/txs/${hash}`);
+    const r=d.tx_response, tx=d.tx;
+    const msgs=(tx.body&&tx.body.messages)||[];
+    const fee=(((tx.auth_info||{}).fee||{}).amount||[]).map((c)=>coin(c.amount+c.denom)).join(", ")||"0";
+    let html=kv([
+      ["Hash",'<span class="mono">'+esc(r.txhash)+'</span>'],
+      ["Status",okBadge(r.code)+(Number(r.code)?(' <span class="mut">'+esc(String(r.raw_log).slice(0,200))+'</span>'):'')],
+      ["Height",'<a data-nav="block" data-val="'+r.height+'" href="#">'+Number(r.height).toLocaleString()+'</a>'],
+      ["Time",fmt(r.timestamp)+" ("+ago(r.timestamp)+")"],
+      ["Fee",fee],
+      ["Gas (used / wanted)",Number(r.gas_used).toLocaleString()+" / "+Number(r.gas_wanted).toLocaleString()]
+    ]);
+    html+='<div class="section-label" style="margin-top:20px">Messages ('+msgs.length+')</div>';
+    html+= msgs.map((m)=>{ const type=m["@type"]||""; let extra="";
+      if(type==="/cosmos.bank.v1beta1.MsgSend"){ extra=kv([["From",acctLink(m.from_address)],["To",acctLink(m.to_address)],["Amount",(m.amount||[]).map((c)=>coin(c.amount+c.denom)).join(", ")]]); }
+      else if(type.indexOf("MsgDelegate")>=0||type.indexOf("MsgUndelegate")>=0){ extra=kv([["Delegator",acctLink(m.delegator_address)],["Validator",'<a data-nav="val" data-val="'+esc(m.validator_address||"")+'" href="#" class="mono">'+esc(m.validator_address||"")+'</a>'],["Amount",m.amount?coin(m.amount.amount+m.amount.denom):"-"]]); }
+      else if(type.indexOf("MsgCreateValidator")>=0){ extra=kv([["Validator",'<span class="mono">'+esc(m.validator_address||"")+'</span>'],["Self-stake",m.value?coin(m.value.amount+m.value.denom):"-"]]); }
+      return '<div class="xcard"><div class="xtype">'+esc(typeLabel(type))+' <span class="mut mono">'+esc(type)+'</span></div>'+extra+'</div>'; }).join("") || '<p class="mut">no messages</p>';
+    el("detailbody").innerHTML=html;
+  }catch(e){ el("detailbody").innerHTML='<p class="mut">Transaction not found (it may still be indexing) or node unreachable.</p>'; }
+}
+
+async function showAccount(addr){
+  openDetail("Account");
+  try{
+    const bal=(await j(`${REST}/cosmos/bank/v1beta1/balances/${addr}`)).balances||[];
+    const abaBal=(bal.find((b)=>b.denom==="uaba")||{}).amount||"0";
+    let dels=[]; try{ dels=(await j(`${REST}/cosmos/staking/v1beta1/delegations/${addr}`)).delegation_responses||[]; }catch(e){}
+    const delTotal=dels.reduce((a,d)=>a+Number(((d.balance)||{}).amount||0),0);
+    let html=kv([["Address",'<span class="mono">'+esc(addr)+'</span>'],["Balance",aba(abaBal)+" ABA"],["Delegated",aba(delTotal)+" ABA"]]);
+    let sent=[],recv=[];
+    try{ sent=((await txSearch("message.sender='"+addr+"'",20)).result.txs)||[]; }catch(e){}
+    try{ recv=((await txSearch("transfer.recipient='"+addr+"'",20)).result.txs)||[]; }catch(e){}
+    const seen={}, all=[];
+    sent.concat(recv).forEach((t)=>{ if(!seen[t.hash]){ seen[t.hash]=1; all.push(t); } });
+    all.sort((a,b)=>Number(b.height)-Number(a.height));
+    html+='<div class="section-label" style="margin-top:20px">Recent transactions</div>';
+    html+='<div class="tablewrap"><table><thead><tr><th>Hash</th><th>Height</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead><tbody>';
+    html+= all.length ? all.slice(0,25).map(txRow).join("") : '<tr><td colspan="5" class="mut">no transactions</td></tr>';
+    html+='</tbody></table></div>';
+    el("detailbody").innerHTML=html;
+  }catch(e){ el("detailbody").innerHTML='<p class="mut">Account not found or node unreachable.</p>'; }
+}
+
+async function showValidator(valoper){
+  openDetail("Validator");
+  try{
+    const v=(await j(`${REST}/cosmos/staking/v1beta1/validators/${valoper}`)).validator;
+    let delCount="-"; try{ const dc=await j(`${REST}/cosmos/staking/v1beta1/validators/${valoper}/delegations?pagination.limit=1&pagination.count_total=true`); delCount=(dc.pagination&&dc.pagination.total)?Number(dc.pagination.total).toLocaleString():"-"; }catch(e){}
+    const up=await buildUptime(); const u=up[v.consensus_pubkey&&v.consensus_pubkey.key];
+    const cr=(v.commission&&v.commission.commission_rates)||{};
+    let html=kv([
+      ["Moniker",esc((v.description&&v.description.moniker)||"-")+(v.jailed?' <span class="xb xb-fail">jailed</span>':'')],
+      ["Operator",'<span class="mono">'+esc(v.operator_address)+'</span>'],
+      ["Status",String(v.status).replace("BOND_STATUS_","").toLowerCase()],
+      ["Voting power",aba0(v.tokens)+" ABA"],
+      ["Commission","rate "+Math.round(Number(cr.rate||0)*100)+"% · max "+Math.round(Number(cr.max_rate||0)*100)+"% · max change "+(Number(cr.max_change_rate||0)*100).toFixed(0)+"%/day"],
+      ["Min self-delegation",aba(v.min_self_delegation||0)+" ABA"],
+      ["Uptime",uptimeStr(u)+(u&&u.missed!=null?(" ("+(u.window-u.missed)+"/"+u.window+" blocks signed)"):"")],
+      ["Delegators",delCount],
+      ["Website",(v.description&&v.description.website)?('<a href="'+esc(v.description.website)+'" target="_blank" rel="noopener">'+esc(v.description.website)+'</a>'):"-"],
+      ["Details",esc((v.description&&v.description.details)||"-")]
+    ]);
+    el("detailbody").innerHTML=html;
+  }catch(e){ el("detailbody").innerHTML='<p class="mut">Validator not found or node unreachable.</p>'; }
+}
+
+async function renderGov(){
+  try{
+    let props=[];
+    try{ props=((await j(`${REST}/cosmos/gov/v1/proposals?pagination.limit=20&pagination.reverse=true`)).proposals)||[]; }
+    catch(e){ props=((await j(`${REST}/cosmos/gov/v1beta1/proposals?pagination.limit=20&pagination.reverse=true`)).proposals)||[]; }
+    el("gov").innerHTML= props.length ? props.map((p)=>{ const id=p.id||p.proposal_id; const title=p.title||(p.content&&p.content.title)||("Proposal #"+id); const status=String(p.status||"").replace("PROPOSAL_STATUS_","").toLowerCase(); return `<tr><td>${esc(id)}</td><td>${esc(title)}</td><td>${esc(status)}</td></tr>`; }).join("") : '<tr><td colspan="3" class="mut">no proposals yet</td></tr>';
+  }catch(e){ el("gov").innerHTML='<tr><td colspan="3" class="mut">governance module unavailable</td></tr>'; }
+}
+
+async function renderParams(){
+  try{
+    const sp=((await j(`${REST}/cosmos/staking/v1beta1/params`)).params)||{};
+    let slp={}; try{ slp=((await j(`${REST}/cosmos/slashing/v1beta1/params`)).params)||{}; }catch(e){}
+    let vp="-",md="-";
+    try{ const v=await j(`${REST}/cosmos/gov/v1/params/voting`); vp=(v.params&&v.params.voting_period)||(v.voting_params&&v.voting_params.voting_period)||"-"; }catch(e){}
+    try{ const d=await j(`${REST}/cosmos/gov/v1/params/deposit`); const dep=(d.params&&d.params.min_deposit)||(d.deposit_params&&d.deposit_params.min_deposit)||[]; md=dep.map((c)=>coin(c.amount+c.denom)).join(", ")||"-"; }catch(e){}
+    el("params").innerHTML=kv([
+      ["Bond denom","uaba (ABA)"],
+      ["Max validators",sp.max_validators!=null?sp.max_validators:"-"],
+      ["Min commission",(Number(sp.min_commission_rate||0)*100).toFixed(0)+"%"],
+      ["Unbonding time",secDays(sp.unbonding_time)],
+      ["Min self-stake to validate","0.01% of total supply (~"+aba0((10000000000000000/10000).toString())+" ABA)"],
+      ["Inflation","0% (fixed 10B supply)"],
+      ["Signed blocks window",slp.signed_blocks_window||"-"],
+      ["Min signed / window",(Number(slp.min_signed_per_window||0)*100).toFixed(0)+"%"],
+      ["Slash · double-sign",(Number(slp.slash_fraction_double_sign||0)*100).toFixed(2)+"%"],
+      ["Slash · downtime",(Number(slp.slash_fraction_downtime||0)*100).toFixed(2)+"%"],
+      ["Gov voting period",secDays(vp)],
+      ["Gov min deposit",md]
+    ]);
+  }catch(e){ el("params").innerHTML='<p class="mut">parameters unavailable</p>'; }
+}
+
+function doSearch(){ const v=(el("q").value||"").trim(); if(!v) return; if(/^\d+$/.test(v)) location.hash="block/"+v; else if(/^[0-9A-Fa-f]{64}$/.test(v)) location.hash="tx/"+v.toUpperCase(); else if(/^abakosvaloper1[0-9a-z]{6,}$/.test(v)) location.hash="val/"+v; else if(/^abakos1[0-9a-z]{6,}$/.test(v)) location.hash="acct/"+v; else el("livestate").textContent="Enter a block height, 64-character tx hash, or abakos1 address."; }
+function route(){ const h=decodeURIComponent(location.hash.replace(/^#/,"")); if(!h){ showOverview(); return; } const i=h.indexOf("/"); const k=i<0?h:h.slice(0,i); const v=i<0?"":h.slice(i+1); if(k==="tx") showTx(v); else if(k==="block") showBlock(v); else if(k==="acct") showAccount(v); else if(k==="val") showValidator(v); else showOverview(); }
+
+async function tick(){
+  if(el("detail").style.display!=="none") return;
+  try{
+    const st=(await j(`${RPC}/status`)).result;
+    el("livestate").textContent = st.sync_info.catching_up ? "syncing \u2026" : "live";
+    el("chainid").textContent = st.node_info.network;
+    const h=Number(st.sync_info.latest_block_height);
+    el("height").textContent = h.toLocaleString();
+    const metas=((await j(`${RPC}/blockchain?minHeight=${Math.max(1,h-19)}&maxHeight=${h}`)).result.block_metas)||[];
+    let bt="-"; if(metas.length>1){ const ts=metas.map((m)=>new Date(m.header.time).getTime()); const d=[]; for(let i=0;i<ts.length-1;i++) d.push(Math.abs(ts[i]-ts[i+1])); bt=(d.reduce((a,b)=>a+b,0)/d.length/1000).toFixed(1)+"s"; }
+    el("blocktime").textContent=bt;
+    el("blocks").innerHTML=metas.map((m)=>{const hd=m.header;return `<tr><td><a data-nav="block" data-val="${hd.height}" href="#">${Number(hd.height).toLocaleString()}</a></td><td>${ago(hd.time)}</td><td>${m.num_txs||"0"}</td><td class="mono mut">${short(hd.proposer_address)}</td></tr>`;}).join("")||'<tr><td colspan="4" class="mut">no blocks</td></tr>';
+    const sup=await j(`${REST}/cosmos/bank/v1beta1/supply/by_denom?denom=uaba`);
+    const total=Number(sup.amount.amount);
+    el("supply").textContent=aba0(sup.amount.amount)+" ABA";
+    try{ const inf=await j(`${REST}/cosmos/mint/v1beta1/inflation`); el("inflation").textContent=(Number(inf.inflation)*100).toFixed(0)+"%"; }catch(e){ el("inflation").textContent="-"; }
+    try{ const pool=(await j(`${REST}/cosmos/staking/v1beta1/pool`)).pool; el("bonded").textContent=aba0(pool.bonded_tokens)+" ABA ("+(total?(Number(pool.bonded_tokens)/total*100).toFixed(2):"0")+"%)"; }catch(e){}
+    const vs=((await j(`${REST}/cosmos/staking/v1beta1/validators?pagination.limit=300`)).validators)||[];
+    const bondedVs=vs.filter((v)=>v.status==="BOND_STATUS_BONDED");
+    el("valcount").textContent=bondedVs.length+" / "+vs.length;
+    const totalVP=bondedVs.reduce((a,v)=>a+Number(v.tokens),0)||1;
+    const up=await buildUptime();
+    el("vals").innerHTML=vs.slice().sort((a,b)=>Number(b.tokens)-Number(a.tokens)).map((v)=>{ const u=up[v.consensus_pubkey&&v.consensus_pubkey.key]; return `<tr><td><a data-nav="val" data-val="${esc(v.operator_address)}" href="#">${esc((v.description&&v.description.moniker)||"-")}</a>${v.jailed?' <span class="xb xb-fail">jailed</span>':''}</td><td>${v.status.replace("BOND_STATUS_","").toLowerCase()}</td><td>${aba0(v.tokens)}</td><td>${(Number(v.tokens)/totalVP*100).toFixed(1)}%</td><td>${Math.round(Number(((v.commission||{}).commission_rates||{}).rate||0)*100)}%</td><td>${uptimeStr(u)}</td></tr>`;}).join("")||'<tr><td colspan="6" class="mut">none</td></tr>';
+    const ts=(await txSearch("tx.height>=1",25)).result;
+    const txs=(ts&&ts.txs)||[];
+    el("txcount").textContent=(ts&&ts.total_count)?Number(ts.total_count).toLocaleString():txs.length;
+    el("txs").innerHTML=txs.length?txs.map(txRow).join(""):'<tr><td colspan="5" class="mut">no transactions yet &mdash; claim from the faucet in the Wallet to create one</td></tr>';
+  }catch(e){ el("livestate").textContent="unreachable (retrying)"; }
+}
+
+document.addEventListener("click",(e)=>{ const a=e.target.closest("[data-nav]"); if(!a) return; e.preventDefault(); const nav=a.getAttribute("data-nav"), val=a.getAttribute("data-val"); location.hash=(nav==="home")?"":(nav+"/"+val); });
+el("go").onclick=doSearch;
+el("q").addEventListener("keydown",(e)=>{ if(e.key==="Enter") doSearch(); });
+window.addEventListener("hashchange",route);
+route(); renderGov(); renderParams();
+setInterval(()=>{ if(el("detail").style.display==="none"){ tick(); renderGov(); } },5000);
+</script>
+
+<script type="module">
+/* EVM & DEX panel: eth JSON-RPC + Uniswap-v2 WABA/USDT pair (same pool as /dex). */
+import { ethers } from "https://esm.sh/ethers@6.13.0";
+const ep = new ethers.JsonRpcProvider("https://evm-rpc.abakos.ai", 9721);
+const WABA = "0x6F1212300a629A28cB87FDDa66a29B29A62af887";
+const USDT = "0x17Ecb8BcaDbe756c1bB0DDb3a6dbd169741C05F9";
+const PAIR = "0x6C50f8b591f91Be81f7dC36B878427256850BA43";
+const erc = (a) => new ethers.Contract(a, ["function balanceOf(address) view returns (uint256)"], ep);
+const gid = (id) => document.getElementById(id);
+async function evmTick(){
+  try {
+    const bn = await ep.getBlockNumber(); if (gid("evm_block")) gid("evm_block").textContent = bn.toLocaleString();
+    try { const fd = await ep.getFeeData(); if (fd.gasPrice && gid("evm_gas")) gid("evm_gas").textContent = (Number(fd.gasPrice)/1e9).toLocaleString(undefined,{maximumFractionDigits:3}); } catch(e) {}
+    const ra = await erc(WABA).balanceOf(PAIR), ru = await erc(USDT).balanceOf(PAIR);
+    const aba = Number(ra)/1e18, usdc = Number(ru)/1e6;
+    if (gid("dex_aba")) gid("dex_aba").textContent = aba.toLocaleString(undefined,{maximumFractionDigits:0});
+    if (gid("dex_usdc")) gid("dex_usdc").textContent = usdc.toLocaleString(undefined,{maximumFractionDigits:0});
+    if (gid("dex_price")) gid("dex_price").textContent = (aba>0?(usdc/aba).toFixed(4):"-")+" USDT";
+  } catch(e) {}
+}
+evmTick(); setInterval(evmTick, 10000);
+
+async function buybackTick(){
+  try {
+    const d = await (await fetch("https://explorer.abakos.ai/agent/stats", {cache:"no-store"})).json();
+    const bb = d.buyback || {}, el = gid("evm_buyback");
+    if (!el) return;
+    if (bb.enabled) {
+      el.innerHTML = "Provider Agent buyback: <b>live DEX swap</b> \u00b7 ABA "
+        + "$" + Number(d.aba_price_usd||0).toLocaleString(undefined,{maximumFractionDigits:6})
+        + " (" + (d.aba_price_source||"?") + ") \u00b7 wallet <span class=\"mono\">" + (bb.wallet||"") + "</span> \u00b7 "
+        + "<a href=\"https://abakos.ai/dashboard/\">Dashboard</a>";
+    } else {
+      el.textContent = "Provider Agent buyback: fallback (cosmos transfer)";
+    }
+  } catch(e) {}
+}
+buybackTick(); setInterval(buybackTick, 15000);
+</script>

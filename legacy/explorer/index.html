@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Abakos Explorer: Testnet (wireframe)</title>
+<link rel="icon" href="../site/favicon.png" type="image/png" />
+<style>
+:root{--bg:#070709;--bg2:#0c0d11;--surface:#101118;--line:#1b1d26;--ink:#f6f7fb;--muted:#8a8fa0;--blue:#0c5cfd;--blue2:#0c5cfd;--green:#4ade80;--red:#ff5d6c;--mono:ui-monospace,Menlo,Consolas,monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;line-height:1.5}
+a{color:var(--blue2)}
+.wrap{max-width:1100px;margin:0 auto;padding:24px}
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;padding-bottom:24px;border-bottom:1px solid var(--line);margin-bottom:28px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand img{height:28px;width:auto;display:block}
+.badge{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);border:1px solid var(--line);padding:6px 10px;border-radius:4px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:32px}
+@media(max-width:800px){.grid{grid-template-columns:repeat(2,1fr)}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:20px}
+.card .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
+.card .val{font-size:clamp(24px,4vw,36px);font-weight:800;font-variant-numeric:tabular-nums}
+.card .val.good{color:var(--green)}
+.card .val.warn{color:var(--red)}
+h2{font-size:20px;margin-bottom:14px}
+.note{color:var(--muted);font-size:14px;margin-bottom:20px;max-width:70ch}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:12px 14px;text-align:left;border-bottom:1px solid var(--line)}
+th{background:var(--bg2);color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+tr:last-child td{border-bottom:none}
+.mono{font-family:var(--mono);font-size:12px}
+.pearl{margin-top:28px;padding:16px;background:var(--bg2);border:1px solid var(--line);border-left:3px solid var(--blue);border-radius:6px;font-size:14px;color:var(--muted)}
+.status{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand"><img src="../site/assets/logo-horizontal.png" alt="Abakos" width="132" height="32" decoding="async" /><span style="margin-left:8px;font-weight:800;font-size:18px;color:var(--muted)">Explorer</span></div>
+    <div class="badge">Testnet wireframe · T1</div>
+  </div>
+
+  <p class="note">Live data from <code>abkd --http :13080</code> when running locally. Open this file after starting a seed node, or set <code>API_BASE</code> below.</p>
+  <p class="status" id="status">connecting…</p>
+
+  <div class="grid">
+    <div class="card"><div class="lbl">% useful (24h)</div><div class="val" id="useful">—</div></div>
+    <div class="card"><div class="lbl">Block height</div><div class="val" id="height">—</div></div>
+    <div class="card"><div class="lbl">Blocks</div><div class="val" id="blocks">—</div></div>
+    <div class="card"><div class="lbl">PoUW verifier</div><div class="val" style="font-size:18px" id="verifier">—</div></div>
+  </div>
+
+  <h2>Recent blocks</h2>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Height</th><th>Hash</th><th>Useful</th><th>Reward (ABA)</th><th>Time (UTC)</th></tr></thead>
+      <tbody id="rows"><tr><td colspan="5" class="mono">loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="pearl">
+    <strong>Pearl comparison (static):</strong> Pearl measured <strong>0% useful AI</strong> on mainnet (arXiv 2606.04819). Abakos publishes this metric live; empty mining earns only 25% reward until paid escrow jobs land (T2).
+  </div>
+</div>
+<script>
+const API_BASE = "http://127.0.0.1:13080";
+
+async function refresh() {
+  const status = document.getElementById("status");
+  try {
+    const [statsRes, blocksRes] = await Promise.all([
+      fetch(API_BASE + "/api/v1/stats"),
+      fetch(API_BASE + "/api/v1/blocks")
+    ]);
+    if (!statsRes.ok || !blocksRes.ok) throw new Error("HTTP " + statsRes.status);
+    const stats = await statsRes.json();
+    const blocks = await blocksRes.json();
+    document.getElementById("useful").textContent = stats.useful_pct_24h.toFixed(1) + "%";
+    document.getElementById("useful").className = "val " + (stats.useful_pct_24h > 0 ? "good" : "warn");
+    document.getElementById("height").textContent = stats.height;
+    document.getElementById("blocks").textContent = stats.block_count;
+    document.getElementById("verifier").textContent = stats.verifier;
+    const tbody = document.getElementById("rows");
+    tbody.innerHTML = "";
+    const list = (blocks.blocks || []).slice().reverse();
+    if (!list.length) {
+      tbody.innerHTML = "<tr><td colspan='5'>no blocks yet, start <code>abkd --simnet --mine --http :13080</code></td></tr>";
+    } else {
+      for (const b of list) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = "<td>" + b.height + "</td><td class='mono'>" + b.hash.slice(0,16) + "…</td><td>" +
+          b.useful_pct.toFixed(0) + "%</td><td>" + b.reward_abk.toFixed(2) + "</td><td class='mono'>" + b.timestamp + "</td>";
+        tbody.appendChild(tr);
+      }
+    }
+    status.textContent = "live · " + API_BASE + " · updated " + new Date().toLocaleTimeString();
+  } catch (e) {
+    status.textContent = "offline, start abkd with --http :13080 (" + e.message + ")";
+    document.getElementById("useful").textContent = "0%";
+    document.getElementById("useful").className = "val warn";
+  }
+}
+refresh();
+setInterval(refresh, 4000);
+</script>
+</body>
+</html>

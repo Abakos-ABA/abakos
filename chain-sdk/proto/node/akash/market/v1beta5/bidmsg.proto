@@ -1,0 +1,84 @@
+syntax = "proto3";
+package akash.market.v1beta5;
+
+import "gogoproto/gogo.proto";
+
+import "cosmos/base/v1beta1/coin.proto";
+
+import "akash/market/v1beta5/resourcesoffer.proto";
+import "akash/market/v1/bid.proto";
+import "akash/base/deposit/v1/deposit.proto";
+import "akash/market/v1/types.proto";
+import "google/protobuf/duration.proto";
+
+option go_package = "pkg.akt.dev/go/node/market/v1beta5";
+
+// MsgCreateBid defines an SDK message for creating Bid.
+message MsgCreateBid {
+  option (gogoproto.equal)      = false;
+
+  akash.market.v1.BidID id = 1 [
+    (gogoproto.customname) = "ID",
+    (gogoproto.nullable)   = false,
+    (gogoproto.jsontag)    = "id",
+    (gogoproto.moretags)   = "yaml:\"id\""
+  ];
+
+  // Price holds the pricing stated on the Bid.
+  cosmos.base.v1beta1.DecCoin price = 2 [
+    (gogoproto.nullable) = false,
+    (gogoproto.jsontag)  = "price",
+    (gogoproto.moretags) = "yaml:\"price\""
+  ];
+
+  // Deposit holds the amount of coins to deposit.
+  akash.base.deposit.v1.Deposit deposit = 3 [
+    (gogoproto.nullable) = false,
+    (gogoproto.jsontag)  = "deposit",
+    (gogoproto.moretags) = "yaml:\"deposit\""
+  ];
+
+  // ResourceOffer is a list of resource offers.
+  repeated ResourceOffer resources_offer = 4 [
+    (gogoproto.nullable)     = false,
+    (gogoproto.castrepeated) = "ResourcesOffer",
+    (gogoproto.customname)   = "ResourcesOffer",
+    (gogoproto.jsontag)      = "resources_offer",
+    (gogoproto.moretags)     = "yaml:\"resources_offer\""
+  ];
+
+  // reclamation_window is the reclamation window duration the provider offers.
+  // If the order requires reclamation, this must be >= the order's min_window.
+  // Nil means the provider does not offer reclamation on this bid.
+  google.protobuf.Duration reclamation_window = 5 [
+    (gogoproto.nullable)    = true,
+    (gogoproto.stdduration) = true,
+    (gogoproto.jsontag)     = "reclamation_window,omitempty",
+    (gogoproto.moretags)    = "yaml:\"reclamation_window,omitempty\""
+  ];
+}
+
+// MsgCreateBidResponse defines the Msg/CreateBid response type.
+message MsgCreateBidResponse {}
+
+// MsgCloseBid defines an SDK message for closing bid.
+message MsgCloseBid {
+  option (gogoproto.equal) = false;
+//  option (cosmos.msg.v1.signer) = "id.provider";
+
+  // Id is the unique identifier of the Bid.
+  akash.market.v1.BidID id = 1 [
+    (gogoproto.customname) = "ID",
+    (gogoproto.nullable)   = false,
+    (gogoproto.jsontag)    = "id",
+    (gogoproto.moretags)   = "yaml:\"id\""
+  ];
+
+  akash.market.v1.LeaseClosedReason reason = 2 [
+    (gogoproto.jsontag)  = "reason",
+    (gogoproto.moretags) = "yaml:\"reason\""
+  ];
+}
+
+// MsgCloseBidResponse defines the Msg/CloseBid response type.
+message MsgCloseBidResponse {}

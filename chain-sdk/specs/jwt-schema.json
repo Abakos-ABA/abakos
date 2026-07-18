@@ -1,0 +1,272 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://raw.githubusercontent.com/akash-network/chain-sdk/refs/heads/main/specs/jwt-schema.json",
+    "title": "Akash JWT Schema",
+    "description": "JSON Schema for JWT used in the Akash Provider API.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "iss",
+        "iat",
+        "exp",
+        "nbf",
+        "version",
+        "leases"
+    ],
+    "properties": {
+        "iss": {
+            "$ref": "#/definitions/akash-address",
+            "description": "Akash address of the lease(s) owner, e.g., akash1abcd... (44 characters)"
+        },
+        "iat": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Token issuance timestamp as Unix time (seconds since 1970-01-01T00:00:00Z). Should be <= exp and >= nbf."
+        },
+        "nbf": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Not valid before timestamp as Unix time (seconds since 1970-01-01T00:00:00Z). Should be <= iat."
+        },
+        "exp": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Expiration timestamp as Unix time (seconds since 1970-01-01T00:00:00Z). Should be >= iat."
+        },
+        "jti": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Unique identifier for the JWT, used to prevent token reuse."
+        },
+        "version": {
+            "type": "string",
+            "enum": [
+                "v1"
+            ],
+            "description": "Version of the JWT specification (currently fixed at v1)."
+        },
+        "leases": {
+            "$ref": "#/definitions/leases"
+        }
+    },
+    "definitions": {
+        "akash-address": {
+            "type": "string",
+            "pattern": "^akash1[a-z0-9]{38}$"
+        },
+        "action-scope": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+                "type": "string",
+                "enum": [
+                    "send-manifest",
+                    "get-manifest",
+                    "logs",
+                    "shell",
+                    "events",
+                    "status",
+                    "restart",
+                    "hostname-migrate",
+                    "ip-migrate"
+                ]
+            }
+        },
+        "leases": {
+            "type": "object",
+            "description": "Access level for the lease: 'full' for unrestricted access to all actions, 'scoped' for specific actions across all provider leases, 'granular' for provider-specific permissions.",
+            "oneOf": [
+                {
+                    "$ref": "#/definitions/leases-full"
+                },
+                {
+                    "$ref": "#/definitions/leases-scoped"
+                },
+                {
+                    "$ref": "#/definitions/leases-granular"
+                }
+            ]
+        },
+        "leases-full": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "access"
+            ],
+            "properties": {
+                "access": {
+                    "const": "full",
+                    "description": "Unrestricted access to all actions on all leases."
+                }
+            }
+        },
+        "leases-scoped": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "access",
+                "scope"
+            ],
+            "properties": {
+                "access": {
+                    "const": "scoped",
+                    "description": "Specific actions across all provider leases."
+                },
+                "scope": {
+                    "$ref": "#/definitions/action-scope",
+                    "description": "Global list of permitted actions across all owned leases (no duplicates)."
+                }
+            }
+        },
+        "leases-granular": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "access",
+                "permissions"
+            ],
+            "properties": {
+                "access": {
+                    "const": "granular",
+                    "description": "Provider-specific permissions."
+                },
+                "permissions": {
+                    "type": "array",
+                    "description": "Defines provider-specific permissions. The provider address must be unique across all permissions entries.",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/lease-permission"
+                    }
+                }
+            }
+        },
+        "lease-permission": {
+            "type": "object",
+            "description": "Provider-level access: 'full' for all actions, 'scoped' for specific actions across all provider leases, 'granular' for deployment-specific actions.",
+            "oneOf": [
+                {
+                    "$ref": "#/definitions/lease-permission-full"
+                },
+                {
+                    "$ref": "#/definitions/lease-permission-scoped"
+                },
+                {
+                    "$ref": "#/definitions/lease-permission-granular"
+                }
+            ]
+        },
+        "lease-permission-full": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "provider",
+                "access"
+            ],
+            "properties": {
+                "provider": {
+                    "$ref": "#/definitions/akash-address",
+                    "description": "Provider address, e.g., akash1xyz... (44 characters)."
+                },
+                "access": {
+                    "const": "full",
+                    "description": "Full access to all actions on this provider's leases."
+                }
+            }
+        },
+        "lease-permission-scoped": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "provider",
+                "access",
+                "scope"
+            ],
+            "properties": {
+                "provider": {
+                    "$ref": "#/definitions/akash-address",
+                    "description": "Provider address, e.g., akash1xyz... (44 characters)."
+                },
+                "access": {
+                    "const": "scoped",
+                    "description": "Specific actions across all this provider's leases."
+                },
+                "scope": {
+                    "$ref": "#/definitions/action-scope",
+                    "description": "Provider-level list of permitted actions (no duplicates)."
+                }
+            }
+        },
+        "lease-permission-granular": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "provider",
+                "access",
+                "deployments"
+            ],
+            "properties": {
+                "provider": {
+                    "$ref": "#/definitions/akash-address",
+                    "description": "Provider address, e.g., akash1xyz... (44 characters)."
+                },
+                "access": {
+                    "const": "granular",
+                    "description": "Deployment-specific actions."
+                },
+                "deployments": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/lease-permission-deployment"
+                    }
+                }
+            }
+        },
+        "lease-permission-deployment": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "dseq",
+                "scope",
+                "services"
+            ],
+            "properties": {
+                "dseq": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Deployment sequence number."
+                },
+                "scope": {
+                    "$ref": "#/definitions/action-scope",
+                    "description": "Deployment-level list of permitted actions (no duplicates)."
+                },
+                "gseq": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Group sequence number (requires dseq)."
+                },
+                "oseq": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Order sequence number (requires dseq and gseq)."
+                },
+                "services": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "description": "List of service names (requires dseq)."
+                }
+            },
+            "dependencies": {
+                "oseq": [
+                    "gseq"
+                ]
+            }
+        }
+    }
+}

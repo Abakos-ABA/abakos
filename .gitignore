@@ -1,0 +1,43 @@
+# --- Secrets / env ---
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+credentials.json
+
+# --- Data / runtime ---
+data/
+*.csv
+*.log
+model/model_output.csv
+
+# --- Go ---
+/legacy/node-btcd/bin/
+/legacy/node-btcd/.btcd-fork/
+# chain/ is the vendored Akash fork (committed); ignore its build outputs only
+/chain/_build/
+/chain/.cache/
+/chain/bin/
+*.exe
+*.test
+*.out
+
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# --- Node / web ---
+node_modules/
+dist/
+.next/
+/site/test-results/
+/site/playwright-report/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

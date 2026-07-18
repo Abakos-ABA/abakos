@@ -1,0 +1,30 @@
+{
+  "chainId": "abakos-sandbox-1",
+  "chainName": "Abakos Sandbox",
+  "networkType": "testnet",
+  "rpc": "https://rpc.abakos.ai",
+  "rest": "https://rest.abakos.ai",
+  "bip44": { "coinType": 118 },
+  "bech32Config": {
+    "bech32PrefixAccAddr": "abakos",
+    "bech32PrefixAccPub": "abakospub",
+    "bech32PrefixValAddr": "abakosvaloper",
+    "bech32PrefixValPub": "abakosvaloperpub",
+    "bech32PrefixConsAddr": "abakosvalcons",
+    "bech32PrefixConsPub": "abakosvalconspub"
+  },
+  "currencies": [
+    { "coinDenom": "ABA", "coinMinimalDenom": "uaba", "coinDecimals": 6 }
+  ],
+  "feeCurrencies": [
+    {
+      "coinDenom": "ABA",
+      "coinMinimalDenom": "uaba",
+      "coinDecimals": 6,
+      "gasPriceStep": { "low": 0, "average": 0, "high": 0 }
+    }
+  ],
+  "stakeCurrency": { "coinDenom": "ABA", "coinMinimalDenom": "uaba", "coinDecimals": 6 },
+  "features": ["cosmwasm"],
+  "_note": "Abakos sandbox network. ABA on this network has no value; sandbox only."
+}
