@@ -35,6 +35,7 @@ export const navGroups = [
     label: "Resources",
     links: [
       ["Docs", "https://abakos.ai/docs/"],
+      ["GitHub", "https://github.com/Abakos-ABA/abakos"],
       ["Investors", "https://abakos.ai/investors/"],
       ["Contact", "https://abakos.ai/contact/"],
     ],

@@ -110,7 +110,7 @@ const footer = () => `
         </div>
         <div class="footer-column"><h4>Products</h4><a href="https://console.abakos.ai/">Console</a><a href="https://chat.abakos.ai/">Chat</a><a href="https://abakos.ai/developers/">API</a><a href="https://abakos.ai/wallet/">Wallet</a><a href="https://abakos.ai/providers/">Providers</a></div>
         <div class="footer-column"><h4>Network</h4><a href="https://abakos.ai/network/">Protocol</a><a href="https://status.abakos.ai/">Status</a><a href="https://abakos.ai/explorer/">Explorer</a><a href="https://abakos.ai/dex/">DEX</a><a href="https://abakos.ai/investors/">Investors</a></div>
-        <div class="footer-column"><h4>Resources</h4><a href="https://abakos.ai/docs/">Docs</a><a href="https://abakos.ai/litepaper/">Litepaper</a><a href="https://abakos.ai/whitepaper/">Whitepaper</a><a href="https://discord.gg/zBxNvdMjtM" target="_blank" rel="noopener">Discord</a></div>
+        <div class="footer-column"><h4>Resources</h4><a href="https://abakos.ai/docs/">Docs</a><a href="https://abakos.ai/litepaper/">Litepaper</a><a href="https://abakos.ai/whitepaper/">Whitepaper</a><a href="https://github.com/Abakos-ABA/abakos" target="_blank" rel="noopener">GitHub</a><a href="https://discord.gg/zBxNvdMjtM" target="_blank" rel="noopener">Discord</a></div>
       </div>
       <div class="footer-bottom">
         <span>© <span id="yr">2026</span> Abakos</span>
