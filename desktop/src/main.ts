@@ -211,11 +211,11 @@ function renderApp(): void {
       </div>
       <p class="soft" id="hw">Detecting hardware\u2026</p>
       <label class="field"><span>CPU threads: <b id="thlabel">\u2013</b></span><input type="range" id="threads" min="1" max="1" value="1"></label>
-      <label class="field"><span class="toggle"><input type="checkbox" id="gpu" disabled> Use GPU (NVIDIA / KawPow) \u2014 coming soon</span></label>
+      <label class="field"><span class="toggle"><input type="checkbox" id="gpu"> Use GPU \u2014 Pearl (PearlHash; NVIDIA / AMD / Intel Arc)</span></label>
       <button class="btn fill big" id="mine">Start earning</button>
       <div class="stat-grid" style="margin-top:14px">
-        <div class="stat"><b id="hs">0 H/s</b><span>Local hashrate</span></div>
-        <div class="stat"><b id="coin">\u2013</b><span>Coin / algo</span></div>
+        <div class="stat"><b id="cpuhs">0 H/s</b><span>CPU \u00b7 Monero (RandomX)</span></div>
+        <div class="stat"><b id="gpuhs">0 H/s</b><span>GPU \u00b7 Pearl (PearlHash)</span></div>
         <div class="stat"><b id="vshares">0</b><span>Verified shares (proxy)</span></div>
         <div class="stat"><b id="earned">0</b><span>Earned ABA</span></div>
       </div>
@@ -302,10 +302,11 @@ async function setupMining(): Promise<void> {
   try {
     const info = await mining.hardwareInfo();
     mineHardwareThreads = Math.max(1, info.cpu_threads);
-    hw.textContent = `${info.os}/${info.arch} \u00b7 ${info.cpu_threads} CPU threads \u00b7 GPU: ${info.has_nvidia ? "NVIDIA detected" : "none detected"}`;
+    hw.textContent = `${info.os}/${info.arch} \u00b7 ${info.cpu_threads} CPU threads \u00b7 GPU: ${info.has_nvidia ? "NVIDIA detected" : "detect on start"}`;
     range.max = String(mineHardwareThreads);
     range.value = String(Math.max(1, Math.floor(mineHardwareThreads / 2)));
-    gpu.disabled = true; // phase 2
+    gpu.disabled = false;
+    gpu.checked = info.has_nvidia;
   } catch {
     hw.textContent = "hardware detection unavailable";
   }
@@ -341,7 +342,8 @@ async function toggleMining(): Promise<void> {
       await mining.stopMiner();
       mining_ = false;
     } else {
-      await mining.startMiner(a.aba, Number(range.value), true, false);
+      const gpuOn = (document.getElementById("gpu") as HTMLInputElement).checked;
+      await mining.startMiner(a.aba, Number(range.value), true, gpuOn);
       mining_ = true;
     }
     paintMineButton();
@@ -374,10 +376,9 @@ async function refreshLive(): Promise<void> {
     const el = document.getElementById(id);
     if (el) el.textContent = v;
   };
-  set("hs", fmtHs(miner.hashrate));
-  set("poolline", `Pool: ${miner.pool}${miner.error ? " \u00b7 " + miner.error : ""}`);
-  const cpu = agent?.oracle?.cpu;
-  set("coin", cpu ? `${cpu.tag} (${cpu.algorithm})` : "\u2013");
+  set("cpuhs", fmtHs(miner.cpu_hashrate));
+  set("gpuhs", fmtHs(miner.gpu_hashrate));
+  set("poolline", `CPU pool: ${miner.pool} \u00b7 GPU pool: prl.kryptex.network${miner.error ? " \u00b7 " + miner.error : ""}`);
   set("vshares", provider ? fmtAba(provider.window_shares) : "0");
   set("earned", provider ? fmtAba(provider.earned_aba) + " ABA" : "0 ABA");
   if (agent) {

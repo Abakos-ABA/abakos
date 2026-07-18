@@ -1,7 +1,11 @@
-//! Miner orchestration (CPU / RandomX). Downloads xmrig on first run, writes a
-//! config that points at the Abakos stratum proxy with the user's ABA address as
-//! the login (so the proxy attributes verified shares to it), and runs it.
-//! GPU (KawPow) is a phase-2 handler. Stats are read from xmrig's local HTTP API.
+//! Dual-mining orchestration.
+//!   CPU = xmrig (RandomX / Monero) through the Abakos stratum proxy, login = the
+//!         user's ABA address, so the proxy attributes verified shares to it.
+//!   GPU = SRBMiner-MULTI (PearlHash / Pearl) to Kryptex. Pearl is GPU-only and not
+//!         relayed by the proxy yet, so it mines to the project Kryptex account
+//!         (auto-exchanged to USDT); per-address GPU attribution is a later step.
+//! Both run in parallel. Binaries are downloaded on first run. Stats come from each
+//! miner's local HTTP API.
 
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
@@ -10,14 +14,19 @@ use std::sync::{Arc, Mutex};
 use serde::Serialize;
 use tauri::{Manager, State};
 
-/// Default Abakos pool (our stratum proxy -> Kryptex upstream). DNS `mine.abakos.ai`
-/// resolves to the sandbox VPS; the proxy listens on 3355 (RandomX/cryptonote).
 const POOL_HOST: &str = "mine.abakos.ai";
 const POOL_PORT: u16 = 3355;
 const XMRIG_API_PORT: u16 = 16000;
+const SRB_API_PORT: u16 = 21555;
+const PRL_POOL: &str = "prl.kryptex.network:7048";
+/// Kryptex account that receives the mined value (auto-exchanged to USDT).
+fn kryptex_user() -> String {
+    std::env::var("ABA_KRYPTEX_USER").unwrap_or_else(|_| "krxXP93EGN".to_string())
+}
 
 pub struct Inner {
-    pub child: Option<Child>,
+    pub cpu: Option<Child>,
+    pub gpu: Option<Child>,
     pub status: String, // "stopped" | "starting" | "running" | "error"
     pub error: Option<String>,
     pub address: Option<String>,
@@ -27,7 +36,8 @@ pub struct Inner {
 impl Default for Inner {
     fn default() -> Self {
         Inner {
-            child: None,
+            cpu: None,
+            gpu: None,
             status: "stopped".into(),
             error: None,
             address: None,
@@ -45,8 +55,11 @@ pub struct Status {
     pub error: Option<String>,
     pub address: Option<String>,
     pub pool: String,
-    pub hashrate: f64,
-    pub shares_good: u64,
+    pub cpu_running: bool,
+    pub gpu_running: bool,
+    pub cpu_hashrate: f64, // H/s (RandomX)
+    pub gpu_hashrate: f64, // H/s (PearlHash)
+    pub shares_good: u64,  // CPU accepted shares (xmrig)
     pub shares_total: u64,
 }
 
@@ -55,40 +68,61 @@ pub fn start(
     state: State<MinerState>,
     address: String,
     threads: u32,
-    _cpu: bool,
-    _gpu: bool,
+    cpu: bool,
+    gpu: bool,
 ) -> Result<(), String> {
     if !address.starts_with("abakos1") {
         return Err("address must be an abakos1 address".into());
     }
+    if !cpu && !gpu {
+        return Err("enable CPU and/or GPU".into());
+    }
     {
         let mut g = state.0.lock().map_err(|_| "lock poisoned")?;
-        if g.child.is_some() {
+        if g.cpu.is_some() || g.gpu.is_some() {
             return Err("miner already running".into());
         }
         g.status = "starting".into();
         g.error = None;
         g.address = Some(address.clone());
     }
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let arc = state.0.clone();
-    // Download + launch off the UI thread; status reflects progress.
     std::thread::spawn(move || {
-        let res = run_cpu(&data_dir, &address, threads);
-        if let Ok(mut g) = arc.lock() {
-            match res {
-                Ok(child) => {
-                    g.child = Some(child);
-                    g.status = "running".into();
+        let mut err: Option<String> = None;
+        if cpu {
+            match run_cpu(&data_dir, &address, threads) {
+                Ok(c) => {
+                    if let Ok(mut g) = arc.lock() {
+                        g.cpu = Some(c);
+                    }
+                }
+                Err(e) => err = Some(format!("cpu: {e}")),
+            }
+        }
+        if gpu {
+            match run_gpu(&data_dir, &address) {
+                Ok(c) => {
+                    if let Ok(mut g) = arc.lock() {
+                        g.gpu = Some(c);
+                    }
                 }
                 Err(e) => {
-                    g.status = "error".into();
-                    g.error = Some(e);
+                    let m = format!("gpu: {e}");
+                    err = Some(match err {
+                        Some(p) => format!("{p}; {m}"),
+                        None => m,
+                    });
                 }
             }
+        }
+        if let Ok(mut g) = arc.lock() {
+            g.error = err;
+            g.status = if g.cpu.is_some() || g.gpu.is_some() {
+                "running".into()
+            } else {
+                "error".into()
+            };
         }
     });
     Ok(())
@@ -96,7 +130,8 @@ pub fn start(
 
 pub fn stop(state: State<MinerState>) -> Result<(), String> {
     let mut g = state.0.lock().map_err(|_| "lock poisoned")?;
-    if let Some(mut child) = g.child.take() {
+    for child in [g.cpu.take(), g.gpu.take()].into_iter().flatten() {
+        let mut child = child;
         let _ = child.kill();
         let _ = child.wait();
     }
@@ -106,7 +141,7 @@ pub fn stop(state: State<MinerState>) -> Result<(), String> {
 }
 
 pub fn status(state: State<MinerState>) -> Status {
-    let (st, err, addr, pool) = {
+    let (st, err, addr, pool, cpu_up, gpu_up) = {
         let mut g = match state.0.lock() {
             Ok(g) => g,
             Err(_) => {
@@ -115,55 +150,71 @@ pub fn status(state: State<MinerState>) -> Status {
                     error: Some("lock poisoned".into()),
                     address: None,
                     pool: format!("{POOL_HOST}:{POOL_PORT}"),
-                    hashrate: 0.0,
+                    cpu_running: false,
+                    gpu_running: false,
+                    cpu_hashrate: 0.0,
+                    gpu_hashrate: 0.0,
                     shares_good: 0,
                     shares_total: 0,
                 }
             }
         };
-        // Reap the child if it exited on its own.
-        if let Some(child) = g.child.as_mut() {
-            if let Ok(Some(_)) = child.try_wait() {
-                g.child = None;
-                if g.status == "running" {
-                    g.status = "stopped".into();
-                }
-            }
+        let cpu_done = g.cpu.as_mut().map(|c| matches!(c.try_wait(), Ok(Some(_)))).unwrap_or(false);
+        if cpu_done {
+            g.cpu = None;
         }
-        (g.status.clone(), g.error.clone(), g.address.clone(), g.pool.clone())
+        let gpu_done = g.gpu.as_mut().map(|c| matches!(c.try_wait(), Ok(Some(_)))).unwrap_or(false);
+        if gpu_done {
+            g.gpu = None;
+        }
+        let cpu_up = g.cpu.is_some();
+        let gpu_up = g.gpu.is_some();
+        if !cpu_up && !gpu_up && g.status == "running" {
+            g.status = "stopped".into();
+        }
+        (g.status.clone(), g.error.clone(), g.address.clone(), g.pool.clone(), cpu_up, gpu_up)
     };
 
-    let (mut hr, mut sg, mut stot) = (0.0, 0u64, 0u64);
-    if st == "running" {
+    let (mut chr, mut sg, mut stot) = (0.0, 0u64, 0u64);
+    if cpu_up {
         if let Ok(v) = query_xmrig() {
-            hr = v.0;
+            chr = v.0;
             sg = v.1;
             stot = v.2;
         }
     }
+    let mut ghr = 0.0;
+    if gpu_up {
+        if let Ok(v) = query_srbminer() {
+            ghr = v;
+        }
+    }
     Status {
-        state: st,
+        state: if cpu_up || gpu_up { "running".into() } else { st },
         error: err,
         address: addr,
         pool,
-        hashrate: hr,
+        cpu_running: cpu_up,
+        gpu_running: gpu_up,
+        cpu_hashrate: chr,
+        gpu_hashrate: ghr,
         shares_good: sg,
         shares_total: stot,
     }
 }
 
+// ------------------------------------------------------------------ CPU (xmrig)
 fn run_cpu(data_dir: &Path, address: &str, threads: u32) -> Result<Child, String> {
-    let bin = ensure_xmrig(data_dir)?;
+    let bin = ensure_binary(
+        data_dir,
+        "xmrig",
+        if cfg!(windows) { "xmrig.exe" } else { "xmrig" },
+        xmrig_asset,
+    )?;
     let rig = &address[..address.len().min(24)];
     let cfg = serde_json::json!({
         "autosave": false,
-        "http": {
-            "enabled": true,
-            "host": "127.0.0.1",
-            "port": XMRIG_API_PORT,
-            "access-token": serde_json::Value::Null,
-            "restricted": true
-        },
+        "http": { "enabled": true, "host": "127.0.0.1", "port": XMRIG_API_PORT, "access-token": serde_json::Value::Null, "restricted": true },
         "cpu": { "enabled": true },
         "randomx": { "1gb-pages": false },
         "pools": [ {
@@ -177,39 +228,67 @@ fn run_cpu(data_dir: &Path, address: &str, threads: u32) -> Result<Child, String
         } ]
     });
     let cfg_path = data_dir.join("xmrig-abakos.json");
-    std::fs::write(
-        &cfg_path,
-        serde_json::to_vec_pretty(&cfg).map_err(|e| e.to_string())?,
-    )
-    .map_err(|e| e.to_string())?;
-
+    std::fs::write(&cfg_path, serde_json::to_vec_pretty(&cfg).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
     let mut cmd = Command::new(&bin);
     cmd.arg("-c").arg(&cfg_path);
     if threads > 0 {
         cmd.arg("-t").arg(threads.to_string());
     }
-    cmd.stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null());
+    hidden(&mut cmd);
+    cmd.spawn().map_err(|e| format!("failed to start xmrig: {e}"))
+}
+
+// ------------------------------------------------------------------ GPU (SRBMiner)
+fn run_gpu(data_dir: &Path, address: &str) -> Result<Child, String> {
+    let bin = ensure_binary(
+        data_dir,
+        "srbminer",
+        if cfg!(windows) { "SRBMiner-MULTI.exe" } else { "SRBMiner-MULTI" },
+        srbminer_asset,
+    )?;
+    let tag: String = address.chars().skip(7).take(10).filter(|c| c.is_ascii_alphanumeric()).collect();
+    let worker = format!("gpu{}", if tag.is_empty() { "abk".into() } else { tag });
+    let mut cmd = Command::new(&bin);
+    cmd.args([
+        "--algorithm", "pearlhash",
+        "--pool", PRL_POOL,
+        "--wallet", &format!("{}.{}", kryptex_user(), worker),
+        "--password", "x",
+        "--disable-cpu",
+        "--api-enable",
+        "--api-port", &SRB_API_PORT.to_string(),
+    ]);
+    hidden(&mut cmd);
+    cmd.spawn().map_err(|e| format!("failed to start SRBMiner: {e}"))
+}
+
+fn hidden(cmd: &mut Command) {
+    cmd.stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
     }
-    cmd.spawn().map_err(|e| format!("failed to start xmrig: {e}"))
 }
 
-fn ensure_xmrig(data_dir: &Path) -> Result<PathBuf, String> {
-    let root = data_dir.join("xmrig");
+// ------------------------------------------------------------------ downloads
+fn ensure_binary(
+    data_dir: &Path,
+    subdir: &str,
+    exe: &str,
+    asset: fn() -> Result<(String, String), String>,
+) -> Result<PathBuf, String> {
+    let root = data_dir.join(subdir);
     std::fs::create_dir_all(&root).map_err(|e| e.to_string())?;
-    let exe = if cfg!(windows) { "xmrig.exe" } else { "xmrig" };
     if let Some(p) = find_file(&root, exe) {
         return Ok(p);
     }
-    let (url, name) = latest_xmrig_asset()?;
+    let (url, name) = asset()?;
     let archive = root.join(&name);
     download(&url, &archive)?;
     extract(&archive, &root)?;
-    let p = find_file(&root, exe).ok_or_else(|| "xmrig binary not found after extract".to_string())?;
+    let p = find_file(&root, exe).ok_or_else(|| format!("{exe} not found after extract"))?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -220,45 +299,47 @@ fn ensure_xmrig(data_dir: &Path) -> Result<PathBuf, String> {
     Ok(p)
 }
 
-fn latest_xmrig_asset() -> Result<(String, String), String> {
+fn gh_latest_asset(repo: &str, wants: &[&str], exts: &[&str]) -> Result<(String, String), String> {
     let c = http_client(30)?;
     let rel: serde_json::Value = c
-        .get("https://api.github.com/repos/xmrig/xmrig/releases/latest")
+        .get(format!("https://api.github.com/repos/{repo}/releases/latest"))
         .header("User-Agent", "abakos-provider")
         .header("Accept", "application/vnd.github+json")
         .send()
         .map_err(|e| e.to_string())?
         .json()
         .map_err(|e| e.to_string())?;
-    let assets = rel
-        .get("assets")
-        .and_then(|a| a.as_array())
-        .ok_or("no release assets")?;
-    let want: &[&str] = if cfg!(windows) {
-        &["msvc-win64", "win64", "windows-x64"]
-    } else if cfg!(target_os = "macos") {
-        if cfg!(target_arch = "aarch64") {
-            &["macos-arm64"]
-        } else {
-            &["macos-x64"]
-        }
-    } else if cfg!(target_arch = "aarch64") {
-        &["linux-static-arm64", "linux-arm64"]
-    } else {
-        &["linux-static-x64", "linux-x64"]
-    };
-    for w in want {
+    let assets = rel.get("assets").and_then(|a| a.as_array()).ok_or("no release assets")?;
+    for w in wants {
         for a in assets {
             let n = a.get("name").and_then(|x| x.as_str()).unwrap_or("");
             let nl = n.to_lowercase();
-            if nl.contains(w) && (nl.ends_with(".zip") || nl.ends_with(".tar.gz")) {
+            if nl.contains(w) && exts.iter().any(|e| nl.ends_with(e)) {
                 if let Some(u) = a.get("browser_download_url").and_then(|x| x.as_str()) {
                     return Ok((u.to_string(), n.to_string()));
                 }
             }
         }
     }
-    Err("no matching xmrig asset for this platform".into())
+    Err(format!("no matching asset in {repo}"))
+}
+
+fn xmrig_asset() -> Result<(String, String), String> {
+    let wants: &[&str] = if cfg!(windows) {
+        &["windows-x64", "msvc-win64", "win64"]
+    } else if cfg!(target_os = "macos") {
+        if cfg!(target_arch = "aarch64") { &["macos-arm64"] } else { &["macos-x64"] }
+    } else if cfg!(target_arch = "aarch64") {
+        &["linux-static-arm64", "linux-arm64"]
+    } else {
+        &["linux-static-x64", "linux-x64"]
+    };
+    gh_latest_asset("xmrig/xmrig", wants, &[".zip", ".tar.gz"])
+}
+
+fn srbminer_asset() -> Result<(String, String), String> {
+    let wants: &[&str] = if cfg!(windows) { &["win64"] } else { &["linux"] };
+    gh_latest_asset("doktor83/SRBMiner-Multi", wants, &[".zip", ".tar.gz"])
 }
 
 fn http_client(secs: u64) -> Result<reqwest::blocking::Client, String> {
@@ -310,6 +391,7 @@ fn find_file(root: &Path, name: &str) -> Option<PathBuf> {
     None
 }
 
+// ------------------------------------------------------------------ stats
 fn query_xmrig() -> Result<(f64, u64, u64), String> {
     let c = http_client(4)?;
     let v: serde_json::Value = c
@@ -322,4 +404,20 @@ fn query_xmrig() -> Result<(f64, u64, u64), String> {
     let sg = v.pointer("/results/shares_good").and_then(|x| x.as_u64()).unwrap_or(0);
     let stot = v.pointer("/results/shares_total").and_then(|x| x.as_u64()).unwrap_or(0);
     Ok((hr, sg, stot))
+}
+
+fn query_srbminer() -> Result<f64, String> {
+    let c = http_client(4)?;
+    let v: serde_json::Value = c
+        .get(format!("http://127.0.0.1:{SRB_API_PORT}/"))
+        .send()
+        .map_err(|e| e.to_string())?
+        .json()
+        .map_err(|e| e.to_string())?;
+    let hr = v
+        .pointer("/algorithms/0/hashrate/total/0")
+        .and_then(|x| x.as_f64())
+        .or_else(|| v.pointer("/hashrate_total_now").and_then(|x| x.as_f64()))
+        .unwrap_or(0.0);
+    Ok(hr)
 }

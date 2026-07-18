@@ -41,7 +41,10 @@ export interface MinerStatus {
   error: string | null;
   address: string | null;
   pool: string;
-  hashrate: number;
+  cpu_running: boolean;
+  gpu_running: boolean;
+  cpu_hashrate: number; // RandomX / Monero
+  gpu_hashrate: number; // PearlHash / Pearl
   shares_good: number;
   shares_total: number;
 }
