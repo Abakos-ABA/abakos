@@ -13,8 +13,10 @@ Demonstrates the Abakos differentiator end-to-end against the live sandbox chain
      obscure the on-chain flow, which is the part that matters here).
   4. Buyback -> ABA         - convert proceeds to ABA at the live Uniswap-v2
      WABA/USDT spot (eth_call token balances); falls back to ABA_PRICE_USD if RPC is down.
-     D4: mined value auto-exchanges to USDT (Kryptex); on the sandbox the buyback
-     wallet is kept solvent in TEST-USDT (public drip faucet) so USDT->ABA clears.
+     Real USDT: Kryptex auto-exchanges mined value to USDT into our treasury on BSC;
+     the agent watches that real balance (read-only) and sizes the ABA buyback to
+     actual inflow. The zero-fee EVM swap medium is the drip-funded TEST-USDT (1:1
+     mirror); the real USDT stays in the treasury (mainnet: bridge it).
   5. Split 88 / 4 / 4 / 4   - 88% host, 4% stakers (community/reward pool), 4%
      treasury, 4% burn (sent to an unspendable burn address). REAL on-chain
      transfers, visible in the explorer.
@@ -117,7 +119,7 @@ _state = {
     "rent_first": {"active_rentals": 0, "idle_fraction": 1.0},
     "payout_basis": {"source": "shares", "proxy": PROXY_HTTP, "window_total_shares": 0.0, "providers_paid": 0},
     "oracle": {},
-    "totals": {"mined_usd": 0.0, "aba_bought": 0.0, "host_aba": 0.0, "stakers_aba": 0.0, "treasury_aba": 0.0, "burn_aba": 0.0, "usdt_inflow_test": 0.0},
+    "totals": {"mined_usd": 0.0, "aba_bought": 0.0, "host_aba": 0.0, "stakers_aba": 0.0, "treasury_aba": 0.0, "burn_aba": 0.0, "usdt_inflow_test": 0.0, "real_usdt_distributed": 0.0},
     "pending": {"stakers_uaba": 0, "treasury_uaba": 0, "burn_uaba": 0},
     "addresses": {},
     "host": {"address": None, "balance_aba": None},
@@ -230,7 +232,7 @@ def _balance_of_data(holder: str) -> str:
 # libraries or the buyback key are missing, BUYBACK stays disabled and payouts
 # fall back to the cosmos bank send from the liquidity account.
 BUYBACK_KEYFILE = os.environ.get("ABA_BUYBACK_KEYFILE", "/opt/abakos-agent/buyback.key")
-MIN_SWAP_USDT = int(os.environ.get("ABA_MIN_SWAP_USDT", "1000"))     # 0.001 USDT (6-dec) floor per swap
+MIN_SWAP_USDT = int(os.environ.get("ABA_MIN_SWAP_USDT", "100"))     # 0.0001 USDT (6-dec) dust floor; pay ~everyone. Raise later.
 SWAP_SLIPPAGE = float(os.environ.get("ABA_SWAP_SLIPPAGE", "0.02"))
 SWAP_GAS = int(os.environ.get("ABA_SWAP_GAS", "300000"))
 EVM_CHAIN_ID = int(os.environ.get("ABA_EVM_CHAIN_ID", "9721"))
@@ -249,7 +251,18 @@ _buyback = {"loaded": False, "acct": None, "address": None, "error": None}
 # mainnet this is real bridged USDT and the drip is disabled (ABA_USDT_DRIP=0).
 USDT_DRIP = os.environ.get("ABA_USDT_DRIP", "1") == "1"
 USDT_MIN_BAL = int(float(os.environ.get("ABA_USDT_MIN_BAL", "500")) * 1e6)   # top up below 500 USDT
-_usdt = {"balance": 0, "dripped_usdt": 0.0, "error": None}
+
+# Payout value source. "kryptex-bsc" (default) sizes the ABA buyback to the REAL
+# USDT that Kryptex auto-exchanges into our treasury on BSC: the agent watches the
+# treasury's BEP20-USDT balance (read-only, no key) and distributes each new inflow
+# to miners by their proxy shares. The swap medium on our zero-fee EVM stays the
+# drip-funded test-USDT (1:1 mirror); the real USDT stays in the treasury (mainnet:
+# bridge it). "oracle" falls back to the sandbox estimate (no real USDT needed).
+USDT_SOURCE = os.environ.get("ABA_USDT_SOURCE", "kryptex-bsc")   # "kryptex-bsc" | "oracle"
+BSC_RPC = os.environ.get("ABA_BSC_RPC", "https://bsc-dataseed.binance.org")
+BSC_USDT = os.environ.get("ABA_BSC_USDT", "0x55d398326f99059fF775485246999027B3197955")  # BEP20 USDT (18-dec)
+TREASURY_BSC = os.environ.get("ABA_TREASURY_BSC", "0x0BfFbd3F4cB218f0926218915adD810C6Be72dcB")
+_usdt = {"balance": 0, "dripped_usdt": 0.0, "error": None, "bsc_base6": None, "bsc_target6": None}
 
 
 def _load_buyback():
@@ -414,6 +427,47 @@ def ensure_usdt_topped_up():
     except Exception as e:
         with _lock:
             _usdt["error"] = str(e)[:160]
+
+
+def bsc_treasury_usdt6():
+    """Real treasury USDT on BSC (BEP20 USDT, 18-dec) normalized to 6-dec int, or None."""
+    try:
+        body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "eth_call",
+                           "params": [{"to": BSC_USDT, "data": _balance_of_data(TREASURY_BSC)}, "latest"]}).encode()
+        req = urllib.request.Request(BSC_RPC, data=body,
+                                     headers={"Content-Type": "application/json", "User-Agent": "abakos-agent"},
+                                     method="POST")
+        with urllib.request.urlopen(req, timeout=10) as r:
+            raw = json.load(r).get("result")
+        if not raw or raw == "0x":
+            return 0
+        return int(raw, 16) // 10**12   # 18-dec BEP20 USDT -> 6-dec
+    except Exception as e:
+        with _lock:
+            _usdt["error"] = "bsc: " + str(e)[:120]
+        return None
+
+
+def real_usdt_epoch_value():
+    """USD (float) of NEW real Kryptex USDT to distribute this epoch (kryptex-bsc mode).
+
+    Watches the treasury's BEP20-USDT balance on BSC. The first read sets a baseline
+    (pre-existing balance is not paid out). The undistributed delta is then returned
+    so step() can attribute it to current proxy shares; the baseline is only advanced
+    once it is actually distributed, so inflow arriving while nobody has shares is held,
+    not lost."""
+    real6 = bsc_treasury_usdt6()
+    if real6 is None:
+        return 0.0
+    with _lock:
+        _state.setdefault("buyback", {})["treasury_usdt"] = round(real6 / 1e6, 6)
+        _usdt["bsc_target6"] = real6
+        base = _usdt.get("bsc_base6")
+        if base is None:
+            _usdt["bsc_base6"] = real6
+            return 0.0
+        delta6 = real6 - base
+    return delta6 / 1e6 if delta6 > 0 else 0.0
 
 
 def fetch_dex_aba_price() -> tuple[float, str]:
@@ -692,13 +746,25 @@ def step():
     gpu_rate = (oracle["gpu"]["revenue_usd_day"] / oracle["gpu"]["hashrate_hs"]) if oracle.get("gpu") and oracle["gpu"].get("hashrate_hs") else 0.0
     mining_coin = (oracle.get("cpu") or {}).get("tag") or coin
 
-    attribution = {}     # abakos1 address -> USD earned this epoch
+    attribution = {}     # abakos1 address -> USD to pay this epoch
     shares = fetch_proxy_shares() if PAY_SOURCE == "shares" else {"total": 0.0, "per_address": {}, "source": "disabled"}
-    if shares.get("total", 0) > 0 and cpu_rate > 0:
-        # Weighted shares ≈ hashes done, so shares/window ≈ effective fleet hashrate.
+
+    # This epoch's distributable USD value. "kryptex-bsc": the REAL USDT that
+    # arrived in the treasury (sized to actual Kryptex payouts). "oracle": the
+    # sandbox estimate (weighted shares ≈ hashes -> USD via the CPU coin rate).
+    if USDT_SOURCE == "kryptex-bsc":
+        epoch_usd = real_usdt_epoch_value()
+        value_src = "kryptex-usdt"
+    else:
         wsec = max(1, int(shares.get("window_sec", 3600)))
-        fleet_hs = shares["total"] / wsec
-        epoch_usd = fleet_hs * cpu_rate * (EPOCH_SECONDS / 86400.0)
+        epoch_usd = (shares["total"] / wsec) * cpu_rate * (EPOCH_SECONDS / 86400.0) \
+            if (shares.get("total", 0) > 0 and cpu_rate > 0) else 0.0
+        value_src = "proxy-shares"
+
+    attr_src = "idle"
+    if shares.get("total", 0) > 0 and epoch_usd > 0:
+        # Pay EVERY address with shares, proportional to its share of the pot.
+        wsec = max(1, int(shares.get("window_sec", 3600)))
         tot = shares["total"]
         with _lock:
             for a, w in shares["per_address"].items():
@@ -709,8 +775,10 @@ def step():
                 p["share_fraction"] = round(w / tot, 6)
                 p["last_report"] = time.time()
                 p.setdefault("cpu_coin", mining_coin)
-        attr_src = "proxy-shares"
-    else:
+        attr_src = value_src
+    elif USDT_SOURCE != "kryptex-bsc":
+        # Self-reported hashrate fallback (oracle mode only; real-USDT mode pays
+        # strictly by verified proxy shares against real inflow).
         now = time.time()
         with _lock:
             active = [dict(p) for p in _providers.values() if now - p.get("last_report", 0) < 180]
@@ -718,14 +786,22 @@ def step():
             pusd = (p.get("cpu_hs", 0) * cpu_rate + p.get("gpu_hs", 0) * gpu_rate) * (EPOCH_SECONDS / 86400.0)
             if pusd > 0:
                 attribution[p["address"]] = pusd
-        attr_src = "self-report" if attribution else (shares.get("source") or "none")
+        attr_src = "self-report" if attribution else (shares.get("source") or "idle")
 
     for addr, pusd in attribution.items():
         pay_provider(addr, pusd, mining_coin, use_buyback, aba_price)
 
+    # Real-USDT mode: advance the treasury baseline only once the inflow was paid out.
+    if USDT_SOURCE == "kryptex-bsc" and attribution and epoch_usd > 0:
+        with _lock:
+            if _usdt.get("bsc_target6") is not None:
+                _usdt["bsc_base6"] = _usdt["bsc_target6"]
+            _state["totals"]["real_usdt_distributed"] = round(
+                _state["totals"].get("real_usdt_distributed", 0.0) + epoch_usd, 6)
+
     with _lock:
         _state["payout_basis"] = {
-            "source": attr_src, "proxy": PROXY_HTTP,
+            "source": attr_src, "proxy": PROXY_HTTP, "usdt_source": USDT_SOURCE,
             "window_total_shares": round(shares.get("total", 0.0), 2),
             "providers_paid": len(attribution),
         }
@@ -837,7 +913,8 @@ def main():
     _state["host"]["address"] = _state["addresses"]["host"]
     if buyback_enabled():
         _state["buyback"] = {"enabled": True, "wallet": _buyback["address"], "mode": "dex-swap",
-                             "stablecoin": "USDT", "usdt_drip": USDT_DRIP, "usdt_balance": None}
+                             "stablecoin": "USDT", "usdt_source": USDT_SOURCE, "usdt_drip": USDT_DRIP,
+                             "usdt_balance": None, "treasury_usdt": None, "treasury_bsc": TREASURY_BSC}
     else:
         _state["buyback"] = {"enabled": False, "wallet": None, "mode": "cosmos-transfer",
                              "error": _buyback.get("error")}
