@@ -44,7 +44,7 @@
 <script type="module">
 import { ethers } from "https://esm.sh/ethers@6.13.0";
 const CFG = { idHex:"0x25f9", id:9721, name:"Abakos Sandbox", rpc:"https://evm-rpc.abakos.ai", explorer:"https://abakos.ai/explorer/",
-  usdc:"0x17Ecb8BcaDbe756c1bB0DDb3a6dbd169741C05F9",
+  usdt:"0x17Ecb8BcaDbe756c1bB0DDb3a6dbd169741C05F9",
   waba:"0x6F1212300a629A28cB87FDDa66a29B29A62af887",
   router:"0x3E321D05BC2De36152Db588bCbec252Bac87902b",
   pair:"0x6C50f8b591f91Be81f7dC36B878427256850BA43" };
@@ -57,9 +57,9 @@ const ROUTER_ABI=[
 const SLIPPAGE = 0.01;
 const $=(id)=>document.getElementById(id);
 const log=(m)=>{const el=$("log");el.textContent=(typeof m==="string"?m:JSON.stringify(m))+"\n"+el.textContent;};
-let read=null, signer=null, addr=null, abaToUsdc=true;
+let read=null, signer=null, addr=null, abaToUsdt=true;
 const routerR=()=> new ethers.Contract(CFG.router,ROUTER_ABI,read);
-const usdcR=()=> new ethers.Contract(CFG.usdc,USDT_ABI,read);
+const usdtR=()=> new ethers.Contract(CFG.usdt,USDT_ABI,read);
 const wabaR=()=> new ethers.Contract(CFG.waba,["function balanceOf(address) view returns (uint256)"],read);
 
 async function connect(){
@@ -78,26 +78,26 @@ async function connect(){
 
 async function refresh(){
   try{
-    const rABA=await wabaR().balanceOf(CFG.pair), rUSDT=await usdcR().balanceOf(CFG.pair);
-    const aba=Number(rABA)/1e18, usdc=Number(rUSDT)/1e6; const price=aba>0?usdc/aba:0;
-    $("pool").textContent="Reserves: "+aba.toLocaleString()+" WABA  /  "+usdc.toLocaleString()+" USDT   \u00b7   1 ABA = "+price.toFixed(4)+" USDT";
-    const bABA=await read.getBalance(addr); const bUSDT=await usdcR().balanceOf(addr);
+    const rABA=await wabaR().balanceOf(CFG.pair), rUSDT=await usdtR().balanceOf(CFG.pair);
+    const aba=Number(rABA)/1e18, usdt=Number(rUSDT)/1e6; const price=aba>0?usdt/aba:0;
+    $("pool").textContent="Reserves: "+aba.toLocaleString()+" WABA  /  "+usdt.toLocaleString()+" USDT   \u00b7   1 ABA = "+price.toFixed(4)+" USDT";
+    const bABA=await read.getBalance(addr); const bUSDT=await usdtR().balanceOf(addr);
     $("frombal").textContent="Balance: "+(Number(bABA)/1e18).toLocaleString(undefined,{maximumFractionDigits:6})+" ABA  \u00b7  "+(Number(bUSDT)/1e6).toLocaleString(undefined,{maximumFractionDigits:6})+" USDT";
     await quote();
   }catch(e){ log("Refresh error: "+(e.message||e)); }
 }
 
-function setLabels(){ $("fromlabel").textContent="From: "+(abaToUsdc?"ABA":"USDT"); $("tolabel").textContent="To: "+(abaToUsdc?"USDT":"ABA")+" (estimated)"; }
-function path(){ return abaToUsdc?[CFG.waba,CFG.usdc]:[CFG.usdc,CFG.waba]; }
+function setLabels(){ $("fromlabel").textContent="From: "+(abaToUsdt?"ABA":"USDT"); $("tolabel").textContent="To: "+(abaToUsdt?"USDT":"ABA")+" (estimated)"; }
+function path(){ return abaToUsdt?[CFG.waba,CFG.usdt]:[CFG.usdt,CFG.waba]; }
 
 async function quote(){
   const v=parseFloat($("amountIn").value); if(!v||v<=0){ $("amountOut").value=""; $("rate").textContent="-"; return; }
   try{
-    const amtIn=abaToUsdc?ethers.parseEther(String(v)):BigInt(Math.round(v*1e6));
+    const amtIn=abaToUsdt?ethers.parseEther(String(v)):BigInt(Math.round(v*1e6));
     const outs=await routerR().getAmountsOut(amtIn,path());
-    const out=outs[1]; const outDec=abaToUsdc?Number(out)/1e6:Number(out)/1e18;
+    const out=outs[1]; const outDec=abaToUsdt?Number(out)/1e6:Number(out)/1e18;
     $("amountOut").value=outDec.toLocaleString(undefined,{maximumFractionDigits:6});
-    $("rate").textContent="min received ("+(SLIPPAGE*100)+"% slippage): "+(outDec*(1-SLIPPAGE)).toFixed(6)+" "+(abaToUsdc?"USDT":"ABA");
+    $("rate").textContent="min received ("+(SLIPPAGE*100)+"% slippage): "+(outDec*(1-SLIPPAGE)).toFixed(6)+" "+(abaToUsdt?"USDT":"ABA");
   }catch(e){ $("amountOut").value=""; $("rate").textContent="quote error"; }
 }
 
@@ -106,16 +106,16 @@ async function swap(){
   try{
     const router=new ethers.Contract(CFG.router,ROUTER_ABI,signer);
     const dl=Math.floor(Date.now()/1000)+900;
-    if(abaToUsdc){
+    if(abaToUsdt){
       const inWei=ethers.parseEther(String(v));
       const outs=await routerR().getAmountsOut(inWei,path()); const minOut=outs[1]*99n/100n;
       log("Swapping "+v+" ABA -> USDT ...");
       const tx=await router.swapExactETHForTokens(minOut,path(),addr,dl,{value:inWei}); log("tx: "+tx.hash); await tx.wait();
     } else {
       const inU=BigInt(Math.round(v*1e6));
-      const usdc=new ethers.Contract(CFG.usdc,USDT_ABI,signer);
-      const allow=await usdcR().allowance(addr,CFG.router);
-      if(allow<inU){ log("Approving USDT ..."); const a=await usdc.approve(CFG.router,ethers.MaxUint256); await a.wait(); }
+      const usdt=new ethers.Contract(CFG.usdt,USDT_ABI,signer);
+      const allow=await usdtR().allowance(addr,CFG.router);
+      if(allow<inU){ log("Approving USDT ..."); const a=await usdt.approve(CFG.router,ethers.MaxUint256); await a.wait(); }
       const outs=await routerR().getAmountsOut(inU,path()); const minOut=outs[1]*99n/100n;
       log("Swapping "+v+" USDT -> ABA ...");
       const tx=await router.swapExactTokensForETH(inU,minOut,path(),addr,dl); log("tx: "+tx.hash); await tx.wait();
@@ -125,12 +125,12 @@ async function swap(){
 }
 
 async function drip(){
-  try{ const usdc=new ethers.Contract(CFG.usdc,USDT_ABI,signer); log("Requesting 1000 test USDT ..."); const tx=await usdc.drip(); log("tx: "+tx.hash); await tx.wait(); log("Got 1000 test USDT."); await refresh(); }
+  try{ const usdt=new ethers.Contract(CFG.usdt,USDT_ABI,signer); log("Requesting 1000 test USDT ..."); const tx=await usdt.drip(); log("tx: "+tx.hash); await tx.wait(); log("Got 1000 test USDT."); await refresh(); }
   catch(e){ log("Drip failed: "+(e.shortMessage||e.message||e)); }
 }
 
 $("connect").onclick=connect;
-$("flip").onclick=()=>{ abaToUsdc=!abaToUsdc; setLabels(); quote(); };
+$("flip").onclick=()=>{ abaToUsdt=!abaToUsdt; setLabels(); quote(); };
 $("amountIn").addEventListener("input",()=>{ clearTimeout(window._q); window._q=setTimeout(quote,250); });
 $("swap").onclick=swap; $("drip").onclick=drip;
 setLabels();

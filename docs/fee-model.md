@@ -27,7 +27,7 @@ supply-reducing burn via module/precompile is a mainnet TODO).
 - **Stablecoin standard: USDT (BEP20).** Pool payouts (Kryptex) and the DEX pairing use
   USDT. Pool payout / treasury address (BEP20): `0x0BfFbd3F4cB218f0926218915adD810C6Be72dcB`.
   The sandbox test token mirrors this (symbol USDT, 6-dec, no value). Rationale: same cost
-  and effort as USDC for us, deepest liquidity, and it is what we operate with.
+  and effort as USDC would be for us, deepest liquidity, and it is what we operate with.
 - The ABA/USDT AMM (Uniswap-v2 fork) charges the standard **0.30% swap fee, which goes
   entirely to liquidity providers** (it stays in the pool reserves). No protocol split on
   DEX swaps. This is separate from the protocol revenue share above.

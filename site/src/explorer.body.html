@@ -50,7 +50,7 @@
       <div><b id="evm_gas" style="font-size:14px">-</b><span>Gas price (gwei)</span></div>
       <div><b id="dex_price" style="font-size:15px">-</b><span>DEX price (1 ABA)</span></div>
       <div><b id="dex_aba" style="font-size:14px">-</b><span>Pool ABA</span></div>
-      <div><b id="dex_usdc" style="font-size:14px">-</b><span>Pool USDT</span></div>
+      <div><b id="dex_usdt" style="font-size:14px">-</b><span>Pool USDT</span></div>
     </div>
     <p class="source-note">Abakos EVM &middot; eth JSON-RPC <a href="https://evm-rpc.abakos.ai" target="_blank" rel="noopener">evm-rpc.abakos.ai</a> (chain 9721) &middot; <a href="https://abakos.ai/dex/">Swap ABA/USDT</a> &middot; Uniswap-v2 pair <span class="mono">0x6C50f8b591f91Be81f7dC36B878427256850BA43</span></p>
     <p class="source-note" id="evm_buyback">&nbsp;</p>
@@ -323,10 +323,10 @@ async function evmTick(){
     const bn = await ep.getBlockNumber(); if (gid("evm_block")) gid("evm_block").textContent = bn.toLocaleString();
     try { const fd = await ep.getFeeData(); if (fd.gasPrice && gid("evm_gas")) gid("evm_gas").textContent = (Number(fd.gasPrice)/1e9).toLocaleString(undefined,{maximumFractionDigits:3}); } catch(e) {}
     const ra = await erc(WABA).balanceOf(PAIR), ru = await erc(USDT).balanceOf(PAIR);
-    const aba = Number(ra)/1e18, usdc = Number(ru)/1e6;
+    const aba = Number(ra)/1e18, usdt = Number(ru)/1e6;
     if (gid("dex_aba")) gid("dex_aba").textContent = aba.toLocaleString(undefined,{maximumFractionDigits:0});
-    if (gid("dex_usdc")) gid("dex_usdc").textContent = usdc.toLocaleString(undefined,{maximumFractionDigits:0});
-    if (gid("dex_price")) gid("dex_price").textContent = (aba>0?(usdc/aba).toFixed(4):"-")+" USDT";
+    if (gid("dex_usdt")) gid("dex_usdt").textContent = usdt.toLocaleString(undefined,{maximumFractionDigits:0});
+    if (gid("dex_price")) gid("dex_price").textContent = (aba>0?(usdt/aba).toFixed(4):"-")+" USDT";
   } catch(e) {}
 }
 evmTick(); setInterval(evmTick, 10000);

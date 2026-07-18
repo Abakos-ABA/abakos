@@ -742,7 +742,7 @@ response = client.embeddings.create(
           ["01", "Get in touch", "Email us or use the button below. You'll get straight answers and the current terms."],
           ["02", "Intro call", "About 30 minutes, no commitment. We answer questions, you decide whether it's a fit."],
           ["03", "Instrument", "Compute voucher, grant, or other counsel-approved structure against the 10B genesis design. Not a public token sale page."],
-          ["04", "Pay", "Wire transfer or USDC/USDT to instructions sent after you sign, personally."],
+          ["04", "Pay", "Wire transfer or USDT to instructions sent after you sign, personally."],
           ["05", "You're in", "Delivery tracked against the public roadmap. Token allocation, if any, follows the signed instrument and vesting rules."],
         ])}
         <div class="actions"><a class="btn btn-fill" href="mailto:info@abakos.ai?subject=Abakos%20pre-seed">Get in touch</a></div>

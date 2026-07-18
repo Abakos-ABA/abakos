@@ -5,8 +5,9 @@ Demonstrates the Abakos differentiator end-to-end against the live sandbox chain
 
   1. Rent-first scheduler  - serve Console rentals/jobs first; only *idle* GPU/CPU
      capacity is used for mining (sandbox has no rentals yet -> fully idle).
-  2. Profitability oracle   - pick the most profitable coin using *live* market
-     prices (CoinGecko) x illustrative per-GPU yields.
+  2. Fixed Kryptex pools    - Monero (CPU / RandomX) + Pearl (GPU / PearlHash),
+     both auto-exchanged to USDT by Kryptex. Monero priced from live stats
+     (p2pool.observer + CoinGecko); Pearl from a configurable fallback.
   3. Idle mining            - accrue mining proceeds (USD) for the idle fleet
      (simulated: a real miner earns nothing meaningful on a VPS and would only
      obscure the on-chain flow, which is the part that matters here).
@@ -28,7 +29,7 @@ this network has no value. Serves JSON at :8091/stats for the dashboard.
 Sandbox buyback still pays from the genesis `liquidity` account (no private key
 for an EVM swap wallet on the agent yet); the *price* is the live DEX quote
 from the same Uniswap-v2 pool used by abakos.ai/dex. Staker share funds the
-community pool. Mainnet would execute a real USDC->ABA swap and route staker
+community pool. Mainnet would execute a real USDT->ABA swap and route staker
 share via a protocol module.
 """
 from __future__ import annotations
@@ -56,9 +57,9 @@ STATE_PATH = os.environ.get("ABA_AGENT_STATE", "/opt/abakos-agent/state.json")
 
 ABA_PRICE_USD = float(os.environ.get("ABA_PRICE_USD", "0.25"))  # fallback if DEX RPC down
 EVM_RPC = os.environ.get("ABA_EVM_RPC", "http://127.0.0.1:8545")
-# Same Uniswap-v2 WABA/USDT pool as site/src/dex.body.html (token var kept as USDC for the address)
+# Same Uniswap-v2 WABA/USDT pool as site/src/dex.body.html
 WABA = os.environ.get("ABA_WABA", "0x6F1212300a629A28cB87FDDa66a29B29A62af887")
-USDC = os.environ.get("ABA_USDC", "0x17Ecb8BcaDbe756c1bB0DDb3a6dbd169741C05F9")
+USDT = os.environ.get("ABA_USDT", os.environ.get("ABA_USDC", "0x17Ecb8BcaDbe756c1bB0DDb3a6dbd169741C05F9"))
 PAIR = os.environ.get("ABA_PAIR", "0x6C50f8b591f91Be81f7dC36B878427256850BA43")
 ROUTER = os.environ.get("ABA_ROUTER", "0x3E321D05BC2De36152Db588bCbec252Bac87902b")
 # keccak256("balanceOf(address)")[:4]
@@ -85,20 +86,20 @@ BURN_EVM = os.environ.get("ABA_BURN_EVM", "0x00000000000000000000000000000000000
 FEE = "0uaba"
 GAS = "220000"
 
-# Profit-switching by REVENUE per hashrate -- the same principle auto-miners use
-# (NiceHash, multipools like Zergpool/Zpool/Prohashing, Hive OS / minerstat):
-# revenue/day = (my_hashrate / network_hashrate) x blocks/day x block_reward x price,
-# using difficulty from WhatToMine (GPU) and p2pool.observer (Monero/CPU) and USD
-# price from CoinGecko. Electricity is intentionally NOT factored in: it is
-# host-specific and idle hardware is already running.
-GPU_PROFILE = {  # WhatToMine algorithm name -> hashrate H/s (one representative GPU)
-    "KawPow": 24e6, "Ethash": 62e6, "Etchash": 62e6, "Autolykos": 200e6, "Octopus": 78e6,
-}
-GPU_TAGS = ["RVN", "ETC", "ERG", "CFX", "ETHW"]
-CPU_HS = 12000.0  # RandomX (Monero) on a representative CPU
-CG_IDS = {"RVN": "ravencoin", "ETC": "ethereum-classic", "ERG": "ergo",
-          "CFX": "conflux-token", "ETHW": "ethereum-pow-iou", "XMR": "monero"}
-FALLBACK_PRICE = {"RVN": 0.0038, "ETC": 7.0, "ERG": 0.22, "CFX": 0.046, "ETHW": 1.1, "XMR": 330.0}
+# Fixed Kryptex pools (decided): Monero (CPU / RandomX) + Pearl (GPU / PearlHash).
+# We no longer profit-switch across many coins; both auto-exchange to USDT on
+# Kryptex, and per-address attribution comes from our stratum proxy. Monero uses
+# live network stats (p2pool.observer) + CoinGecko; Pearl (PRL) is a PoUW/AI coin
+# (mining = matrix-multiply, a natural fit for a compute network) that is not on
+# WhatToMine/CoinGecko, so it is priced from a configurable fallback.
+CPU_HS = float(os.environ.get("ABA_XMR_HS", "12000"))        # RandomX (Monero) on a representative CPU
+PRL_HS = float(os.environ.get("ABA_PRL_HS", "80000000"))     # PearlHash on a representative GPU (H/s)
+PRL_PRICE_USD = float(os.environ.get("ABA_PRL_PRICE_USD", "0.42"))
+PRL_USD_DAY = float(os.environ.get("ABA_PRL_USD_DAY", "0"))  # optional per-GPU/day revenue override
+PRL_COINS_DAY = float(os.environ.get("ABA_PRL_COINS_DAY", "2.0"))  # est. PRL/day per GPU (display only)
+CG_IDS = {"XMR": "monero"}
+FALLBACK_PRICE = {"XMR": 330.0}
+KRYPTEX_POOLS = {"XMR": "xmr.kryptex.network:7029", "PRL": "prl.kryptex.network:7048"}
 _oracle_cache = {"ts": 0, "data": None}
 
 _lock = threading.Lock()
@@ -110,7 +111,7 @@ _state = {
     "num_gpus": NUM_GPUS,
     "aba_price_usd": ABA_PRICE_USD,
     "aba_price_source": "fallback",
-    "dex": {"pair": PAIR, "waba": WABA, "usdc": USDC, "router": ROUTER, "rpc": EVM_RPC},
+    "dex": {"pair": PAIR, "waba": WABA, "usdt": USDT, "router": ROUTER, "rpc": EVM_RPC},
     "buyback": {"enabled": False, "wallet": None, "mode": "cosmos-transfer"},
     "split": {"host_pct": 88, "stakers_pct": 4, "treasury_pct": 4, "burn_pct": 4},
     "rent_first": {"active_rentals": 0, "idle_fraction": 1.0},
@@ -224,12 +225,12 @@ def _balance_of_data(holder: str) -> str:
     return _SEL_BALANCE_OF + addr
 
 
-# --- EVM buyback signer (real USDC->ABA swap on the DEX) -------------------
+# --- EVM buyback signer (real USDT->ABA swap on the DEX) -------------------
 # secp256k1 signing lives in the agent venv (eth-account/eth-abi). If those
 # libraries or the buyback key are missing, BUYBACK stays disabled and payouts
 # fall back to the cosmos bank send from the liquidity account.
 BUYBACK_KEYFILE = os.environ.get("ABA_BUYBACK_KEYFILE", "/opt/abakos-agent/buyback.key")
-MIN_SWAP_USDC = int(os.environ.get("ABA_MIN_SWAP_USDC", "1000"))     # 0.001 USDC (6-dec) floor per swap
+MIN_SWAP_USDT = int(os.environ.get("ABA_MIN_SWAP_USDT", "1000"))     # 0.001 USDT (6-dec) floor per swap
 SWAP_SLIPPAGE = float(os.environ.get("ABA_SWAP_SLIPPAGE", "0.02"))
 SWAP_GAS = int(os.environ.get("ABA_SWAP_GAS", "300000"))
 EVM_CHAIN_ID = int(os.environ.get("ABA_EVM_CHAIN_ID", "9721"))
@@ -246,7 +247,6 @@ _buyback = {"loaded": False, "acct": None, "address": None, "error": None}
 # TEST-USDT so the USDT->ABA buyback swaps never dry up. The test-USDT token exposes
 # a public drip() faucet (1000 USDT), so no privileged owner key is needed. On
 # mainnet this is real bridged USDT and the drip is disabled (ABA_USDT_DRIP=0).
-USDT = USDC                                              # same 6-dec stablecoin token; standardized on USDT
 USDT_DRIP = os.environ.get("ABA_USDT_DRIP", "1") == "1"
 USDT_MIN_BAL = int(float(os.environ.get("ABA_USDT_MIN_BAL", "500")) * 1e6)   # top up below 500 USDT
 _usdt = {"balance": 0, "dripped_usdt": 0.0, "error": None}
@@ -357,27 +357,27 @@ def _send_evm_tx(to_addr: str, data: str, gas: int, value: int = 0):
     return txh, rc
 
 
-def buyback_swap(usdc_in: int, to_evm: str):
-    """Market-buy native ABA with `usdc_in` (6-dec) USDC on the DEX, delivered to `to_evm`.
+def buyback_swap(usdt_in: int, to_evm: str):
+    """Market-buy native ABA with `usdt_in` (6-dec) USDT on the DEX, delivered to `to_evm`.
 
     Returns (txhash, aba_out_wei). Approves the router once (max allowance)."""
     from eth_abi import encode as abi_encode, decode as abi_decode  # noqa: PLC0415
     acct = _load_buyback()
     if acct is None:
         raise RuntimeError("buyback disabled")
-    allowance = int(_eth_call(USDC, _SEL_ALLOWANCE + _addr32(acct.address) + _addr32(ROUTER)), 16)
-    if allowance < usdc_in:
+    allowance = int(_eth_call(USDT, _SEL_ALLOWANCE + _addr32(acct.address) + _addr32(ROUTER)), 16)
+    if allowance < usdt_in:
         data = _SEL_APPROVE + abi_encode(["address", "uint256"], [ROUTER, (1 << 256) - 1]).hex()
-        _send_evm_tx(USDC, data, gas=80000)
-    path = [USDC, WABA]
-    ao = _eth_call(ROUTER, _SEL_GET_AMOUNTS_OUT + abi_encode(["uint256", "address[]"], [usdc_in, path]).hex())
+        _send_evm_tx(USDT, data, gas=80000)
+    path = [USDT, WABA]
+    ao = _eth_call(ROUTER, _SEL_GET_AMOUNTS_OUT + abi_encode(["uint256", "address[]"], [usdt_in, path]).hex())
     amounts = abi_decode(["uint256[]"], bytes.fromhex(ao[2:]))[0]
     expected = int(amounts[-1])
     min_out = int(expected * (1.0 - SWAP_SLIPPAGE))
     deadline = int(time.time()) + 300
     data = _SEL_SWAP_T4ETH + abi_encode(
         ["uint256", "uint256", "address[]", "address", "uint256"],
-        [usdc_in, min_out, path, to_evm, deadline],
+        [usdt_in, min_out, path, to_evm, deadline],
     ).hex()
     txh, _ = _send_evm_tx(ROUTER, data, gas=SWAP_GAS)
     return txh, expected
@@ -417,19 +417,19 @@ def ensure_usdt_topped_up():
 
 
 def fetch_dex_aba_price() -> tuple[float, str]:
-    """Spot USDC per ABA from Uniswap-v2 pair token balances."""
+    """Spot USDT per ABA from Uniswap-v2 pair token balances."""
     now = time.time()
     if now - _dex_price_cache["ts"] < DEX_PRICE_TTL and _dex_price_cache["price"] > 0:
         return _dex_price_cache["price"], _dex_price_cache["source"]
     try:
         ra_hex = _eth_call(WABA, _balance_of_data(PAIR))
-        ru_hex = _eth_call(USDC, _balance_of_data(PAIR))
+        ru_hex = _eth_call(USDT, _balance_of_data(PAIR))
         reserve_aba_wei = int(ra_hex, 16)
-        reserve_usdc = int(ru_hex, 16)
-        if reserve_aba_wei <= 0 or reserve_usdc <= 0:
+        reserve_usdt = int(ru_hex, 16)
+        if reserve_aba_wei <= 0 or reserve_usdt <= 0:
             raise RuntimeError("empty DEX reserves")
-        # WABA is 18-dec; USDC is 6-dec → USD/ABA = usdc/1e6 / (aba/1e18)
-        price = (reserve_usdc / 1e6) / (reserve_aba_wei / 1e18)
+        # WABA is 18-dec; USDT is 6-dec → USD/ABA = usdt/1e6 / (aba/1e18)
+        price = (reserve_usdt / 1e6) / (reserve_aba_wei / 1e18)
         if price <= 0:
             raise RuntimeError("non-positive DEX price")
         _dex_price_cache.update(ts=now, price=price, source="uniswap-v2")
@@ -453,21 +453,6 @@ def fetch_prices():
         return out, "coingecko"
     except Exception:
         return dict(FALLBACK_PRICE), "fallback"
-
-
-def fetch_wtm():
-    """WhatToMine coins.json -> {tag: coin} with network hashrate, block time and reward."""
-    req = urllib.request.Request("https://whattomine.com/coins.json",
-                                 headers={"User-Agent": "Mozilla/5.0 abakos-agent"})
-    with urllib.request.urlopen(req, timeout=20) as r:
-        data = json.load(r)
-    by_tag = {}
-    for name, c in (data.get("coins") or {}).items():
-        tag = c.get("tag")
-        if tag and tag not in by_tag:
-            c["_name"] = name
-            by_tag[tag] = c
-    return by_tag
 
 
 def fetch_xmr():
@@ -500,27 +485,21 @@ def run_oracle():
     if _oracle_cache["data"] and now - _oracle_cache["ts"] < ORACLE_TTL:
         return _oracle_cache["data"]
     prices, psrc = fetch_prices()
-    try:
-        wtm, wsrc = fetch_wtm(), "whattomine"
-    except Exception:
-        wtm, wsrc = {}, "unavailable"
     cands = []
-    for tag in GPU_TAGS:
-        c = wtm.get(tag)
-        if not c or c.get("algorithm") not in GPU_PROFILE:
-            continue
-        hs = GPU_PROFILE[c["algorithm"]]
-        rev = coin_revenue(hs, c.get("nethash"), c.get("block_time"), c.get("block_reward"), prices.get(tag, 0.0))
-        if rev is not None:
-            cands.append({"device": "GPU", "coin": c.get("_name", tag), "tag": tag, "algorithm": c["algorithm"],
-                          "hashrate_hs": hs, "price_usd": round(prices.get(tag, 0.0), 6),
-                          "revenue_usd_day": round(rev, 4)})
+    # CPU: Monero (RandomX) via Kryptex xmr pool -- real network stats.
     xmr = fetch_xmr()
     rev = coin_revenue(CPU_HS, xmr["nethash"], xmr["block_time"], xmr["block_reward"], prices.get("XMR", 0.0))
     if rev is not None:
         cands.append({"device": "CPU", "coin": "Monero", "tag": "XMR", "algorithm": "RandomX",
                       "hashrate_hs": CPU_HS, "price_usd": round(prices.get("XMR", 0.0), 2),
-                      "revenue_usd_day": round(rev, 4)})
+                      "revenue_usd_day": round(rev, 4), "pool": KRYPTEX_POOLS["XMR"]})
+    # GPU: Pearl (PearlHash) via Kryptex prl pool. Value is realized as USDT by
+    # Kryptex auto-exchange; the figure below is a display estimate only (PRL is
+    # not on WhatToMine/CoinGecko).
+    prl_rev = PRL_USD_DAY if PRL_USD_DAY > 0 else round(PRL_PRICE_USD * PRL_COINS_DAY, 4)
+    cands.append({"device": "GPU", "coin": "Pearl", "tag": "PRL", "algorithm": "PearlHash",
+                  "hashrate_hs": PRL_HS, "price_usd": round(PRL_PRICE_USD, 4),
+                  "revenue_usd_day": prl_rev, "pool": KRYPTEX_POOLS["PRL"]})
     cands.sort(key=lambda x: x["revenue_usd_day"], reverse=True)
     best_gpu = next((c for c in cands if c["device"] == "GPU"), None)
     best_cpu = next((c for c in cands if c["device"] == "CPU"), None)
@@ -532,7 +511,7 @@ def run_oracle():
         "gpu": best_gpu, "cpu": best_cpu,
         "best_coin": top["coin"] if top else "-", "best_symbol": top["tag"] if top else "-",
         "candidates": cands, "fleet_gross_usd_day": round(fleet_gross, 6),
-        "sources": [wsrc, xmr["src"], psrc], "updated": _now(),
+        "sources": [psrc, xmr["src"], "kryptex-fixed"], "updated": _now(),
     }
     _oracle_cache.update({"ts": now, "data": data})
     return data
@@ -573,7 +552,7 @@ def fetch_proxy_shares():
 def pay_provider(addr, pusd, coin, use_buyback, aba_price):
     """Pay ONE provider `pusd` USD for this epoch, split 88 / 4 / 4 / 4.
 
-    Host share is a real USDC->ABA buyback on the DEX (accumulated to the dust
+    Host share is a real USDT->ABA buyback on the DEX (accumulated to the dust
     floor, then swapped straight to the provider); staker/treasury/burn shares
     accrue to `pending` and flush periodically. Mirrors the sim-fleet accounting."""
     if pusd <= 0 or aba_price <= 0:
@@ -588,19 +567,19 @@ def pay_provider(addr, pusd, coin, use_buyback, aba_price):
     try:
         if use_buyback:
             with _lock:
-                pend = int(_providers.get(addr, {}).get("pending_host_usdc", 0)) + int(pusd * SPLIT["host"] * 1e6)
-            if pend >= MIN_SWAP_USDC:
+                pend = int(_providers.get(addr, {}).get("pending_host_usdt", 0)) + int(pusd * SPLIT["host"] * 1e6)
+            if pend >= MIN_SWAP_USDT:
                 txh, out_wei = buyback_swap(pend, bech32_to_evm(addr))
                 with _lock:
                     if addr in _providers:
                         _providers[addr]["earned_aba"] = round(_providers[addr].get("earned_aba", 0.0) + out_wei / 1e18, 6)
-                        _providers[addr]["pending_host_usdc"] = 0
+                        _providers[addr]["pending_host_usdt"] = 0
                     _state["totals"]["host_aba"] = round(_state["totals"]["host_aba"] + out_wei / 1e18, 6)
                     add_payout("buyback", int(out_wei / 1e12), txh, coin)
             else:
                 with _lock:
                     if addr in _providers:
-                        _providers[addr]["pending_host_usdc"] = pend
+                        _providers[addr]["pending_host_usdt"] = pend
             with _lock:
                 _state["totals"]["mined_usd"] = round(_state["totals"]["mined_usd"] + pusd, 6)
                 _state["totals"]["aba_bought"] = round(_state["totals"]["aba_bought"] + ptot / 1e6, 6)
@@ -691,9 +670,9 @@ def step():
         if hu > 0:
             host_addr = _state["host"]["address"]
             try:
-                host_usdc = int(usd * SPLIT["host"] * 1e6)
-                if use_buyback and host_usdc >= MIN_SWAP_USDC:
-                    txh, out_wei = buyback_swap(host_usdc, bech32_to_evm(host_addr))
+                host_usdt = int(usd * SPLIT["host"] * 1e6)
+                if use_buyback and host_usdt >= MIN_SWAP_USDT:
+                    txh, out_wei = buyback_swap(host_usdt, bech32_to_evm(host_addr))
                     with _lock:
                         _state["totals"]["host_aba"] = round(_state["totals"]["host_aba"] + out_wei / 1e18, 6)
                         add_payout("buyback", int(out_wei / 1e12), txh, coin)
