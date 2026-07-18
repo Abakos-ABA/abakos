@@ -15,7 +15,10 @@ Demonstrates the Abakos differentiator end-to-end against the live sandbox chain
   5. Split 88 / 4 / 4 / 4   - 88% host, 4% stakers (community/reward pool), 4%
      treasury, 4% burn (sent to an unspendable burn address). REAL on-chain
      transfers, visible in the explorer.
-  6. Payout                 - the host is paid in ABA every epoch.
+  6. Payout by shares       - each provider is paid in ABA proportional to the
+     VERIFIED accepted shares the stratum proxy counted for its ABA address
+     (/shares); self-reported hashrate is only a display/fallback. Shares cannot
+     be faked, so the payout basis is trustless.
 
 Everything on-chain is real; only the mining hashing itself is simulated. ABA on
 this network has no value. Serves JSON at :8091/stats for the dashboard.
@@ -67,6 +70,14 @@ SIM_FLEET = os.environ.get("ABA_SIM_FLEET", "0") == "1"      # simulated demo fl
 ORACLE_TTL = int(os.environ.get("ABA_ORACLE_TTL", "300"))
 _dex_price_cache = {"ts": 0.0, "price": ABA_PRICE_USD, "source": "fallback"}
 
+# Payout attribution. "shares" (default) pays each provider by the VERIFIED accepted
+# shares the stratum proxy counted for its ABA address -- self-reported hashrate can
+# be faked, accepted shares cannot. "hashrate" falls back to the POST /report values.
+PROXY_HTTP = os.environ.get("ABA_PROXY_HTTP", "http://127.0.0.1:8092").rstrip("/")
+PAY_SOURCE = os.environ.get("ABA_PAY_SOURCE", "shares")     # "shares" | "hashrate"
+PROXY_TTL = int(os.environ.get("ABA_PROXY_TTL", "20"))
+_shares_cache = {"ts": 0.0, "data": None}
+
 SPLIT = {"host": 0.88, "stakers": 0.04, "treasury": 0.04, "burn": 0.04}
 BURN_EVM = os.environ.get("ABA_BURN_EVM", "0x000000000000000000000000000000000000dEaD")  # de-facto burn (no key)
 FEE = "0uaba"
@@ -101,6 +112,7 @@ _state = {
     "buyback": {"enabled": False, "wallet": None, "mode": "cosmos-transfer"},
     "split": {"host_pct": 88, "stakers_pct": 4, "treasury_pct": 4, "burn_pct": 4},
     "rent_first": {"active_rentals": 0, "idle_fraction": 1.0},
+    "payout_basis": {"source": "shares", "proxy": PROXY_HTTP, "window_total_shares": 0.0, "providers_paid": 0},
     "oracle": {},
     "totals": {"mined_usd": 0.0, "aba_bought": 0.0, "host_aba": 0.0, "stakers_aba": 0.0, "treasury_aba": 0.0, "burn_aba": 0.0},
     "pending": {"stakers_uaba": 0, "treasury_uaba": 0, "burn_uaba": 0},
@@ -487,6 +499,85 @@ def add_payout(kind, uaba, txhash, coin):
     del _state["recent_payouts"][20:]
 
 
+def fetch_proxy_shares():
+    """Verified accepted shares per ABA address from the stratum proxy (/shares).
+
+    Returns {total, per_address, window_sec, source}. `total`/`per_address` are
+    difficulty-weighted (≈ hashes done), so they double as a fair payout basis and
+    an on-chain-independent hashrate estimate. Cached briefly; empty on failure."""
+    now = time.time()
+    if _shares_cache["data"] and now - _shares_cache["ts"] < PROXY_TTL:
+        return _shares_cache["data"]
+    out = {"total": 0.0, "per_address": {}, "window_sec": 3600, "source": "unavailable"}
+    try:
+        req = urllib.request.Request(PROXY_HTTP + "/shares", headers={"User-Agent": "abakos-agent"})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            d = json.load(r)
+        win = d.get("window") or {}
+        per = {a: float(w) for a, w in (win.get("per_address") or {}).items()
+               if str(a).startswith("abakos1") and float(w) > 0}
+        out = {"total": float(win.get("total") or 0.0), "per_address": per,
+               "window_sec": int(d.get("window_sec") or 3600), "source": "proxy"}
+    except Exception as e:
+        out["error"] = str(e)[:160]
+    _shares_cache.update(ts=now, data=out)
+    return out
+
+
+def pay_provider(addr, pusd, coin, use_buyback, aba_price):
+    """Pay ONE provider `pusd` USD for this epoch, split 88 / 4 / 4 / 4.
+
+    Host share is a real USDC->ABA buyback on the DEX (accumulated to the dust
+    floor, then swapped straight to the provider); staker/treasury/burn shares
+    accrue to `pending` and flush periodically. Mirrors the sim-fleet accounting."""
+    if pusd <= 0 or aba_price <= 0:
+        return
+    ptot = int(round(pusd / aba_price * 1e6))
+    ph = int(ptot * SPLIT["host"]); ps = int(ptot * SPLIT["stakers"])
+    pb = int(ptot * SPLIT["burn"]); pt = ptot - ph - ps - pb
+    if ph <= 0:
+        return
+    with _lock:
+        _providers.setdefault(addr, {"address": addr, "earned_aba": 0.0})
+    try:
+        if use_buyback:
+            with _lock:
+                pend = int(_providers.get(addr, {}).get("pending_host_usdc", 0)) + int(pusd * SPLIT["host"] * 1e6)
+            if pend >= MIN_SWAP_USDC:
+                txh, out_wei = buyback_swap(pend, bech32_to_evm(addr))
+                with _lock:
+                    if addr in _providers:
+                        _providers[addr]["earned_aba"] = round(_providers[addr].get("earned_aba", 0.0) + out_wei / 1e18, 6)
+                        _providers[addr]["pending_host_usdc"] = 0
+                    _state["totals"]["host_aba"] = round(_state["totals"]["host_aba"] + out_wei / 1e18, 6)
+                    add_payout("buyback", int(out_wei / 1e12), txh, coin)
+            else:
+                with _lock:
+                    if addr in _providers:
+                        _providers[addr]["pending_host_usdc"] = pend
+            with _lock:
+                _state["totals"]["mined_usd"] = round(_state["totals"]["mined_usd"] + pusd, 6)
+                _state["totals"]["aba_bought"] = round(_state["totals"]["aba_bought"] + ptot / 1e6, 6)
+                _state["pending"]["stakers_uaba"] += ps
+                _state["pending"]["treasury_uaba"] += pt
+                _state["pending"]["burn_uaba"] += pb
+        else:
+            r = send(SOURCE_KEY, addr, ph)
+            with _lock:
+                if addr in _providers:
+                    _providers[addr]["earned_aba"] = round(_providers[addr].get("earned_aba", 0.0) + ph / 1e6, 6)
+                _state["totals"]["mined_usd"] = round(_state["totals"]["mined_usd"] + pusd, 6)
+                _state["totals"]["aba_bought"] = round(_state["totals"]["aba_bought"] + ptot / 1e6, 6)
+                _state["totals"]["host_aba"] = round(_state["totals"]["host_aba"] + ph / 1e6, 6)
+                _state["pending"]["stakers_uaba"] += ps
+                _state["pending"]["treasury_uaba"] += pt
+                _state["pending"]["burn_uaba"] += pb
+                add_payout("provider", ph, r["txhash"], coin)
+    except Exception as e:
+        with _lock:
+            _state["last_error"] = "provider payout: " + str(e)[:200]
+
+
 def save_state():
     try:
         os.makedirs(os.path.dirname(STATE_PATH), exist_ok=True)
@@ -565,61 +656,50 @@ def step():
                 with _lock:
                     _state["last_error"] = "host payout: " + str(e)[:200]
 
-    # Real providers: pay each by its reported LIVE hashrate. The host share is a
-    # REAL USDC->ABA buyback on the DEX (delivered straight to the provider); the
-    # staker/treasury shares flow via the cosmos community pool / treasury.
+    # Attribute this epoch's mining revenue to providers, then pay each 88/4/4/4.
+    # PRIMARY basis: VERIFIED accepted shares from the stratum proxy (cannot be
+    # faked). FALLBACK: self-reported live hashrate from POST /report.
     cpu_rate = (oracle["cpu"]["revenue_usd_day"] / oracle["cpu"]["hashrate_hs"]) if oracle.get("cpu") and oracle["cpu"].get("hashrate_hs") else 0.0
     gpu_rate = (oracle["gpu"]["revenue_usd_day"] / oracle["gpu"]["hashrate_hs"]) if oracle.get("gpu") and oracle["gpu"].get("hashrate_hs") else 0.0
-    now = time.time()
+    mining_coin = (oracle.get("cpu") or {}).get("tag") or coin
+
+    attribution = {}     # abakos1 address -> USD earned this epoch
+    shares = fetch_proxy_shares() if PAY_SOURCE == "shares" else {"total": 0.0, "per_address": {}, "source": "disabled"}
+    if shares.get("total", 0) > 0 and cpu_rate > 0:
+        # Weighted shares ≈ hashes done, so shares/window ≈ effective fleet hashrate.
+        wsec = max(1, int(shares.get("window_sec", 3600)))
+        fleet_hs = shares["total"] / wsec
+        epoch_usd = fleet_hs * cpu_rate * (EPOCH_SECONDS / 86400.0)
+        tot = shares["total"]
+        with _lock:
+            for a, w in shares["per_address"].items():
+                attribution[a] = epoch_usd * (w / tot)
+                p = _providers.setdefault(a, {"address": a, "earned_aba": 0.0})
+                p["share_hs"] = round(w / wsec, 2)
+                p["window_shares"] = round(w, 2)
+                p["share_fraction"] = round(w / tot, 6)
+                p["last_report"] = time.time()
+                p.setdefault("cpu_coin", mining_coin)
+        attr_src = "proxy-shares"
+    else:
+        now = time.time()
+        with _lock:
+            active = [dict(p) for p in _providers.values() if now - p.get("last_report", 0) < 180]
+        for p in active:
+            pusd = (p.get("cpu_hs", 0) * cpu_rate + p.get("gpu_hs", 0) * gpu_rate) * (EPOCH_SECONDS / 86400.0)
+            if pusd > 0:
+                attribution[p["address"]] = pusd
+        attr_src = "self-report" if attribution else (shares.get("source") or "none")
+
+    for addr, pusd in attribution.items():
+        pay_provider(addr, pusd, mining_coin, use_buyback, aba_price)
+
     with _lock:
-        active = [dict(p) for p in _providers.values() if now - p.get("last_report", 0) < 180]
-    for p in active:
-        pusd = (p.get("cpu_hs", 0) * cpu_rate + p.get("gpu_hs", 0) * gpu_rate) * (EPOCH_SECONDS / 86400.0)
-        if pusd <= 0:
-            continue
-        ptot = int(round(pusd / aba_price * 1e6))
-        ph = int(ptot * SPLIT["host"]); ps = int(ptot * SPLIT["stakers"]); pb = int(ptot * SPLIT["burn"]); pt = ptot - ph - ps - pb
-        if ph <= 0:
-            continue
-        addr = p["address"]
-        try:
-            if use_buyback:
-                # Accumulate the host share as USDC and buy ABA once it clears the dust floor.
-                with _lock:
-                    pend = int(_providers.get(addr, {}).get("pending_host_usdc", 0)) + int(pusd * SPLIT["host"] * 1e6)
-                if pend >= MIN_SWAP_USDC:
-                    txh, out_wei = buyback_swap(pend, bech32_to_evm(addr))
-                    with _lock:
-                        if addr in _providers:
-                            _providers[addr]["earned_aba"] = round(_providers[addr].get("earned_aba", 0.0) + out_wei / 1e18, 6)
-                            _providers[addr]["pending_host_usdc"] = 0
-                        _state["totals"]["host_aba"] = round(_state["totals"]["host_aba"] + out_wei / 1e18, 6)
-                        add_payout("buyback", int(out_wei / 1e12), txh, p.get("cpu_coin") or coin)
-                else:
-                    with _lock:
-                        if addr in _providers:
-                            _providers[addr]["pending_host_usdc"] = pend
-                with _lock:
-                    _state["totals"]["mined_usd"] = round(_state["totals"]["mined_usd"] + pusd, 6)
-                    _state["totals"]["aba_bought"] = round(_state["totals"]["aba_bought"] + ptot / 1e6, 6)
-                    _state["pending"]["stakers_uaba"] += ps
-                    _state["pending"]["treasury_uaba"] += pt
-                    _state["pending"]["burn_uaba"] += pb
-            else:
-                r = send(SOURCE_KEY, addr, ph)
-                with _lock:
-                    if addr in _providers:
-                        _providers[addr]["earned_aba"] = round(_providers[addr].get("earned_aba", 0.0) + ph / 1e6, 6)
-                    _state["totals"]["mined_usd"] = round(_state["totals"]["mined_usd"] + pusd, 6)
-                    _state["totals"]["aba_bought"] = round(_state["totals"]["aba_bought"] + ptot / 1e6, 6)
-                    _state["totals"]["host_aba"] = round(_state["totals"]["host_aba"] + ph / 1e6, 6)
-                    _state["pending"]["stakers_uaba"] += ps
-                    _state["pending"]["treasury_uaba"] += pt
-                    _state["pending"]["burn_uaba"] += pb
-                    add_payout("provider", ph, r["txhash"], p.get("cpu_coin") or coin)
-        except Exception as e:
-            with _lock:
-                _state["last_error"] = "provider payout: " + str(e)[:200]
+        _state["payout_basis"] = {
+            "source": attr_src, "proxy": PROXY_HTTP,
+            "window_total_shares": round(shares.get("total", 0.0), 2),
+            "providers_paid": len(attribution),
+        }
 
     # Flush staker + treasury + burn shares periodically (from real providers + optional sim).
     if epoch % FLUSH_EVERY == 0:
@@ -681,6 +761,8 @@ class Handler(BaseHTTPRequestHandler):
                     "address": p["address"], "cpu_hs": p.get("cpu_hs", 0), "gpu_hs": p.get("gpu_hs", 0),
                     "cpu_coin": p.get("cpu_coin"), "gpu_coin": p.get("gpu_coin"), "miner": p.get("miner"),
                     "os": p.get("os"), "earned_aba": p.get("earned_aba", 0.0),
+                    "share_hs": p.get("share_hs", 0.0), "window_shares": p.get("window_shares", 0.0),
+                    "share_fraction": p.get("share_fraction", 0.0),
                     "last_seen_s": int(now - p.get("last_report", 0)),
                     "active": (now - p.get("last_report", 0)) < 180,
                 } for p in _providers.values()]

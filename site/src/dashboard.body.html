@@ -19,7 +19,7 @@
     <div><span>01</span><p><b>Rent first.</b> Console rentals and jobs are served before anything else. Only genuinely idle GPU/CPU is used for mining.</p></div>
     <div><span>02</span><p><b>Mine the top-revenue coin.</b> A profitability oracle ranks coins by revenue per hashrate from live difficulty and price (the same method NiceHash / multipools use) and picks the best per device.</p></div>
     <div><span>03</span><p><b>Buy back ABA on the DEX.</b> Proceeds market-buy ABA through a real USDT&rarr;ABA swap on the on-chain AMM, delivered straight to the miner. No new ABA is minted.</p></div>
-    <div><span>04</span><p><b>Split 88 / 4 / 4 / 4.</b> 88% to the host (the DEX buyback), 4% to stakers, 4% to the treasury, 4% burned &mdash; all on-chain.</p></div>
+    <div><span>04</span><p><b>Split 88 / 4 / 4 / 4, paid by verified shares.</b> Each provider earns proportional to the accepted shares the proxy counted for its ABA address: 88% to the host (the DEX buyback), 4% to stakers, 4% to the treasury, 4% burned &mdash; all on-chain.</p></div>
   </div>
 </div></section>
 
@@ -49,6 +49,15 @@
     </table></div>
     <p class="source-note">Host wallet: <a id="d_hostlink" href="#" target="_blank" rel="noopener" class="mono">-</a>. The host share is a real USDT&rarr;ABA swap on the DEX; the staker share routes via the community pool. On mainnet the staker share would route via validator reward pools by a protocol module.</p>
   </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="section-label">Connected providers <span id="d_basis" class="pct"></span></div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Provider (ABA address)</th><th>Hashrate</th><th>Verified shares</th><th>Share</th><th>Earned ABA</th><th>Seen</th></tr></thead>
+    <tbody id="d_providers"><tr><td colspan="6" class="mut">loading...</td></tr></tbody>
+  </table></div>
+  <p class="source-note">Payouts are attributed by <b>verified accepted shares</b> that the Abakos stratum proxy counts per ABA address &mdash; self-reported hashrate cannot inflate a payout. Shares are difficulty-weighted over a rolling window.</p>
 </div></section>
 </div>
 
@@ -107,6 +116,15 @@ async function pull(){
     const txCell=(h)=>{ h=String(h||""); if(/^0x[0-9a-fA-F]{64}$/.test(h)){ return `<span class="mono" title="DEX swap tx (EVM)">${shortH(h)} \u21c4</span>`; } return `<a class="mono" href="${EX}#tx/${esc(h)}">${shortH(h)}</a>`; };
     const typeLabel=(ty)=>ty==="buyback"?"buyback (DEX)":esc(ty);
     dl("d_payouts").innerHTML=ps.length?ps.map((p)=>`<tr><td class="mut">${ago(p.time)}</td><td>${typeLabel(p.type)}</td><td>${esc(p.coin||"-")}</td><td>${n6(p.amount_aba)}</td><td>${txCell(p.txhash)}</td></tr>`).join(""):`<tr><td colspan="5" class="mut">no payouts yet (idle if no coin is profitable at the current electricity price)</td></tr>`;
+
+    const pv=d.providers||[], pb=d.payout_basis||{};
+    dl("d_basis").textContent=pb.source?("\u00b7 paid by "+(pb.source==="proxy-shares"?"verified shares":pb.source==="self-report"?"reported hashrate":pb.source)):"";
+    dl("d_providers").innerHTML=pv.length?pv.map((p)=>{
+      const hs=Number(p.share_hs||0)>0?p.share_hs:(Number(p.cpu_hs||0)+Number(p.gpu_hs||0));
+      const frac=Number(p.share_fraction||0)>0?(p.share_fraction*100).toFixed(1)+"%":"\u2013";
+      const seen=p.active?(p.last_seen_s+"s ago"):"idle";
+      return `<tr><td><a class="mono" href="${EX}#acct/${esc(p.address)}">${shortH(p.address,10)}</a></td><td>${hr(hs)}</td><td>${n2(p.window_shares)}</td><td class="pct">${frac}</td><td>${n6(p.earned_aba)}</td><td class="mut">${seen}</td></tr>`;
+    }).join(""):`<tr><td colspan="6" class="mut">no providers connected yet &mdash; point a miner at the stratum proxy with your abakos1 address as the login</td></tr>`;
 
     if(ad.host){ const a=dl("d_hostlink"); a.textContent=ad.host; a.href=EX+"#acct/"+ad.host; }
     if(bb.enabled){ const a=dl("d_srclink"); a.textContent=bb.wallet||"-"; a.removeAttribute("href"); a.style.cursor="default"; }
