@@ -11,7 +11,9 @@ Demonstrates the Abakos differentiator end-to-end against the live sandbox chain
      (simulated: a real miner earns nothing meaningful on a VPS and would only
      obscure the on-chain flow, which is the part that matters here).
   4. Buyback -> ABA         - convert proceeds to ABA at the live Uniswap-v2
-     WABA/USDC spot (eth_call token balances); falls back to ABA_PRICE_USD if RPC is down.
+     WABA/USDT spot (eth_call token balances); falls back to ABA_PRICE_USD if RPC is down.
+     D4: mined value auto-exchanges to USDT (Kryptex); on the sandbox the buyback
+     wallet is kept solvent in TEST-USDT (public drip faucet) so USDT->ABA clears.
   5. Split 88 / 4 / 4 / 4   - 88% host, 4% stakers (community/reward pool), 4%
      treasury, 4% burn (sent to an unspendable burn address). REAL on-chain
      transfers, visible in the explorer.
@@ -54,7 +56,7 @@ STATE_PATH = os.environ.get("ABA_AGENT_STATE", "/opt/abakos-agent/state.json")
 
 ABA_PRICE_USD = float(os.environ.get("ABA_PRICE_USD", "0.25"))  # fallback if DEX RPC down
 EVM_RPC = os.environ.get("ABA_EVM_RPC", "http://127.0.0.1:8545")
-# Same Uniswap-v2 WABA/USDC pool as site/src/dex.body.html
+# Same Uniswap-v2 WABA/USDT pool as site/src/dex.body.html (token var kept as USDC for the address)
 WABA = os.environ.get("ABA_WABA", "0x6F1212300a629A28cB87FDDa66a29B29A62af887")
 USDC = os.environ.get("ABA_USDC", "0x17Ecb8BcaDbe756c1bB0DDb3a6dbd169741C05F9")
 PAIR = os.environ.get("ABA_PAIR", "0x6C50f8b591f91Be81f7dC36B878427256850BA43")
@@ -114,7 +116,7 @@ _state = {
     "rent_first": {"active_rentals": 0, "idle_fraction": 1.0},
     "payout_basis": {"source": "shares", "proxy": PROXY_HTTP, "window_total_shares": 0.0, "providers_paid": 0},
     "oracle": {},
-    "totals": {"mined_usd": 0.0, "aba_bought": 0.0, "host_aba": 0.0, "stakers_aba": 0.0, "treasury_aba": 0.0, "burn_aba": 0.0},
+    "totals": {"mined_usd": 0.0, "aba_bought": 0.0, "host_aba": 0.0, "stakers_aba": 0.0, "treasury_aba": 0.0, "burn_aba": 0.0, "usdt_inflow_test": 0.0},
     "pending": {"stakers_uaba": 0, "treasury_uaba": 0, "burn_uaba": 0},
     "addresses": {},
     "host": {"address": None, "balance_aba": None},
@@ -235,8 +237,19 @@ _SEL_APPROVE = "0x095ea7b3"          # approve(address,uint256)
 _SEL_ALLOWANCE = "0xdd62ed3e"        # allowance(address,address)
 _SEL_SWAP_T4ETH = "0x18cbafe5"       # swapExactTokensForETH(uint256,uint256,address[],address,uint256)
 _SEL_GET_AMOUNTS_OUT = "0xd06ca61f"  # getAmountsOut(uint256,address[])
+_SEL_DRIP = "0x9f678cca"             # drip() -> mints 1000 test-USDT to the caller (sandbox faucet)
 _B32CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 _buyback = {"loaded": False, "acct": None, "address": None, "error": None}
+
+# D4 - USDT inflow (sandbox). Kryptex auto-exchanges mined value to USDT into our
+# treasury; on the sandbox we mirror that by keeping the buyback wallet solvent in
+# TEST-USDT so the USDT->ABA buyback swaps never dry up. The test-USDT token exposes
+# a public drip() faucet (1000 USDT), so no privileged owner key is needed. On
+# mainnet this is real bridged USDT and the drip is disabled (ABA_USDT_DRIP=0).
+USDT = USDC                                              # same 6-dec stablecoin token; standardized on USDT
+USDT_DRIP = os.environ.get("ABA_USDT_DRIP", "1") == "1"
+USDT_MIN_BAL = int(float(os.environ.get("ABA_USDT_MIN_BAL", "500")) * 1e6)   # top up below 500 USDT
+_usdt = {"balance": 0, "dripped_usdt": 0.0, "error": None}
 
 
 def _load_buyback():
@@ -368,6 +381,39 @@ def buyback_swap(usdc_in: int, to_evm: str):
     ).hex()
     txh, _ = _send_evm_tx(ROUTER, data, gas=SWAP_GAS)
     return txh, expected
+
+
+def usdt_balance_of(addr: str) -> int:
+    """Test-USDT (6-dec) balance of `addr`, or -1 on RPC failure."""
+    try:
+        return int(_eth_call(USDT, _balance_of_data(addr)), 16)
+    except Exception:
+        return -1
+
+
+def ensure_usdt_topped_up():
+    """Keep the buyback wallet holding TEST-USDT so USDT->ABA buyback swaps never
+    dry up (D4, sandbox). This stands in for the Kryptex USDT auto-exchange inflow.
+    Uses the token's public drip() faucet (1000 USDT) -> no privileged key. On
+    mainnet set ABA_USDT_DRIP=0 and fund the wallet with real bridged USDT instead."""
+    acct = _load_buyback()
+    if acct is None:
+        return
+    bal = usdt_balance_of(acct.address)
+    if bal >= 0:
+        with _lock:
+            _usdt["balance"] = bal
+            _state.setdefault("buyback", {})["usdt_balance"] = round(bal / 1e6, 6)
+    if not USDT_DRIP or bal < 0 or bal >= USDT_MIN_BAL:
+        return
+    try:
+        _send_evm_tx(USDT, _SEL_DRIP, gas=90000)
+        with _lock:
+            _usdt["dripped_usdt"] += 1000.0
+            _state["totals"]["usdt_inflow_test"] = round(_state["totals"].get("usdt_inflow_test", 0.0) + 1000.0, 6)
+    except Exception as e:
+        with _lock:
+            _usdt["error"] = str(e)[:160]
 
 
 def fetch_dex_aba_price() -> tuple[float, str]:
@@ -625,6 +671,10 @@ def step():
         coin = oracle.get("best_symbol") or "-"
 
     use_buyback = buyback_enabled()
+    if use_buyback:
+        # D4: keep the buyback wallet solvent in TEST-USDT (sandbox stand-in for the
+        # Kryptex USDT inflow) so USDT->ABA swaps always clear.
+        ensure_usdt_topped_up()
 
     # Optional simulated demo fleet -- OFF by default now that real providers mine.
     if SIM_FLEET:
@@ -807,7 +857,8 @@ def main():
     }
     _state["host"]["address"] = _state["addresses"]["host"]
     if buyback_enabled():
-        _state["buyback"] = {"enabled": True, "wallet": _buyback["address"], "mode": "dex-swap"}
+        _state["buyback"] = {"enabled": True, "wallet": _buyback["address"], "mode": "dex-swap",
+                             "stablecoin": "USDT", "usdt_drip": USDT_DRIP, "usdt_balance": None}
     else:
         _state["buyback"] = {"enabled": False, "wallet": None, "mode": "cosmos-transfer",
                              "error": _buyback.get("error")}
