@@ -212,20 +212,34 @@ fn run_cpu(data_dir: &Path, address: &str, threads: u32) -> Result<Child, String
         xmrig_asset,
     )?;
     let rig = &address[..address.len().min(24)];
+    let tag: String = address.chars().skip(7).take(10).filter(|c| c.is_ascii_alphanumeric()).collect();
     let cfg = serde_json::json!({
         "autosave": false,
         "http": { "enabled": true, "host": "127.0.0.1", "port": XMRIG_API_PORT, "access-token": serde_json::Value::Null, "restricted": true },
         "cpu": { "enabled": true },
         "randomx": { "1gb-pages": false },
-        "pools": [ {
-            "url": format!("{POOL_HOST}:{POOL_PORT}"),
-            "user": address,
-            "pass": "x",
-            "rig-id": rig,
-            "keepalive": true,
-            "tls": false,
-            "algo": "rx/0"
-        } ]
+        "pools": [
+            {
+                // Primary: the Abakos proxy attributes verified shares to the ABA address.
+                "url": format!("{POOL_HOST}:{POOL_PORT}"),
+                "user": address,
+                "pass": "x",
+                "rig-id": rig,
+                "keepalive": true,
+                "tls": false,
+                "algo": "rx/0"
+            },
+            {
+                // Failover: mine straight to Kryptex if the proxy is unreachable, so
+                // the machine keeps earning (attribution resumes once the proxy is up).
+                "url": "xmr.kryptex.network:7029",
+                "user": format!("{}.cpu{}", kryptex_user(), if tag.is_empty() { "abk".into() } else { tag }),
+                "pass": "x",
+                "keepalive": true,
+                "tls": false,
+                "algo": "rx/0"
+            }
+        ]
     });
     let cfg_path = data_dir.join("xmrig-abakos.json");
     std::fs::write(&cfg_path, serde_json::to_vec_pretty(&cfg).map_err(|e| e.to_string())?)
