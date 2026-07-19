@@ -91,6 +91,43 @@ export async function sendRawTx(rawHex: string): Promise<string> {
   return rpc<string>("eth_sendRawTransaction", [rawHex]);
 }
 
+/** Cosmos bank balance (uaba, 6-dec) as a decimal number, via REST. */
+export async function cosmosBalanceAba(aba: string): Promise<number> {
+  const text = await netGet(`${COSMOS_REST}/cosmos/bank/v1beta1/balances/${aba}`);
+  const j = JSON.parse(text);
+  const c = (j.balances || []).find((b: { denom: string }) => b.denom === "uaba");
+  return c ? Number(c.amount) / 1e6 : 0;
+}
+
+/** Request test ABA from the sandbox faucet. Returns the tx hash on success. */
+export async function faucetRequest(aba: string): Promise<string> {
+  const text = await netPost("https://explorer.abakos.ai/faucet", JSON.stringify({ address: aba }));
+  const j = JSON.parse(text);
+  if (j.ok) return j.txhash as string;
+  throw new Error(j.error || "faucet failed" + (j.retry_after_s ? ` (retry in ${j.retry_after_s}s)` : ""));
+}
+
+export interface TxRow {
+  hash: string;
+  height: string;
+  ts?: string;
+}
+/** Best-effort recent activity for an address via Cosmos REST tx search. */
+export async function recentTxs(aba: string): Promise<TxRow[]> {
+  try {
+    const q = encodeURIComponent(`message.sender='${aba}'`);
+    const text = await netGet(`${COSMOS_REST}/cosmos/tx/v1beta1/txs?query=${q}&order_by=2&limit=8`);
+    const j = JSON.parse(text);
+    return (j.tx_responses || []).map((t: { txhash: string; height: string; timestamp?: string }) => ({
+      hash: t.txhash,
+      height: t.height,
+      ts: t.timestamp,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export interface ProviderStat {
   address: string;
   cpu_hs: number;

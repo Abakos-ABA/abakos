@@ -133,3 +133,23 @@ input[type="range"] { accent-color: var(--abk-brand); padding: 0; }
 #qr { margin-top: 12px; border-radius: var(--abk-radius-md); overflow: hidden; width: 148px; height: 148px; background: white; padding: 8px; }
 #qr canvas, #qr img { width: 100%; height: 100%; display: block; }
 .fineprint { font-size: 12px; color: var(--abk-text-muted); margin-top: 10px; }
+
+/* App tabs */
+.apptabs { display: flex; gap: 6px; max-width: 980px; margin: 18px auto 0; padding: 0 22px; }
+.apptab { flex: 1; padding: 10px; border: 1px solid var(--abk-line); border-bottom: none; border-radius: var(--abk-radius-md) var(--abk-radius-md) 0 0; background: var(--abk-card); color: var(--abk-text-muted); font-weight: 700; font-size: 13px; cursor: pointer; }
+.apptab.on { color: var(--abk-text); border-color: var(--abk-brand); background: rgba(var(--abk-brand-rgb), 0.10); }
+#tabc { max-width: 980px; margin: 0 auto; padding: 16px 22px 40px; }
+#tabc .card + .card { margin-top: 16px; }
+
+/* address type chip */
+.atype { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--abk-brand-light); border: 1px solid rgba(var(--abk-brand-rgb), 0.4); border-radius: 999px; padding: 2px 8px; margin-right: 4px; white-space: nowrap; }
+.atype.evm { color: var(--abk-green); border-color: rgba(var(--abk-green-rgb), 0.4); }
+
+.rtabs { display: flex; gap: 8px; justify-content: center; margin: 8px 0 14px; }
+.contacts { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 12px; }
+.chip { font-size: 12px; border: 1px solid var(--abk-line); border-radius: 999px; padding: 4px 10px; background: var(--abk-bg); color: var(--abk-text-soft); cursor: pointer; }
+.chip:hover { border-color: var(--abk-brand-light); }
+.actrow { padding: 5px 0; border-bottom: 1px solid var(--abk-line); font-size: 12px; }
+.actrow:last-child { border-bottom: none; }
+.actrow a { color: var(--abk-brand-light); }
+.secretbox { background: var(--abk-bg); border: 1px solid var(--abk-red); border-radius: var(--abk-radius-md); padding: 12px; font-size: 12px; white-space: pre-wrap; word-break: break-all; color: var(--abk-text); margin-top: 8px; }

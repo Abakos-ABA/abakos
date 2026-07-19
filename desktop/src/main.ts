@@ -2,7 +2,9 @@ import QRCode from "qrcode";
 import * as wallet from "./wallet";
 import type { Addresses } from "./wallet";
 import * as mining from "./mining";
-import { EXPLORER, DEX, enableMining, kvGet, kvSet } from "./net";
+import { EXPLORER, DEX, enableMining, kvGet, kvSet, recentTxs } from "./net";
+
+const POOL = "https://pool.abakos.ai/";
 
 const app = document.getElementById("app") as HTMLElement;
 
@@ -18,6 +20,8 @@ const fmtAba = (n: number): string =>
 const short = (s: string, n = 10): string => (s.length > 2 * n ? s.slice(0, n) + "\u2026" + s.slice(-6) : s);
 
 let addresses: Addresses | null = null;
+let activeTab = "wallet";
+let receiveShowAba = true;
 let balanceTimer: number | undefined;
 let liveTimer: number | undefined;
 
@@ -169,103 +173,216 @@ function renderUnlock(): void {
   };
 }
 
-// ---------------------------------------------------------------- main app
+// ---------------------------------------------------------------- main app (tabbed)
+const TABS: [string, string][] = [
+  ["wallet", "Wallet"],
+  ["send", "Send"],
+  ["receive", "Receive"],
+  ["mining", "Mining"],
+  ["settings", "Settings"],
+];
+
 function renderApp(): void {
-  const a = addresses as Addresses;
   shell(`
-    <div class="topbar-inline"></div>
-    <div class="grid">
-      <div class="card" id="walletcard">
-        <div class="label">Wallet</div>
-        <div class="balance"><span id="bal">\u2026</span> <small>ABA</small></div>
-        <div class="addr" style="margin-top:12px"><code id="aba">${a.aba}</code><span class="copy" data-copy="${a.aba}">copy</span></div>
-        <div class="addr" style="margin-top:8px"><code id="evm">${a.evm}</code><span class="copy" data-copy="${a.evm}">copy</span></div>
-        <div class="actions" style="margin-top:12px">
-          <button class="btn" id="refresh">Refresh</button>
-          <button class="btn" id="lock">Lock</button>
-        </div>
-      </div>
-
-      <div class="card" id="receivecard">
-        <div class="label">Receive</div>
-        <h2>Your deposit address</h2>
-        <p class="soft">Same account on Cosmos (<span class="mono">abakos1\u2026</span>) and the EVM (<span class="mono">0x\u2026</span>).</p>
-        <div id="qr"></div>
-      </div>
+    <div class="apptabs">
+      ${TABS.map(([id, label]) => `<button class="apptab${id === activeTab ? " on" : ""}" data-t="${id}">${label}</button>`).join("")}
     </div>
-
-    <div class="card">
-      <div class="label">Send ABA</div>
-      <div class="row">
-        <label class="field"><span>Recipient (abakos1\u2026 or 0x\u2026)</span><input id="to" placeholder="abakos1\u2026 or 0x\u2026"></label>
-        <label class="field" style="max-width:200px"><span>Amount (ABA)</span><input id="amt" type="number" min="0" step="0.000001" placeholder="1.0"></label>
-      </div>
-      <button class="btn fill" id="send">Send</button>
-      <p class="msg" id="sendmsg"></p>
-    </div>
-
-    <div class="card" id="miningcard">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-        <div><div class="label">Mining</div><h2>Earn ABA from idle hardware</h2></div>
-        <span class="badge off" id="minerbadge"><span class="pulse"></span> stopped</span>
-      </div>
-      <p class="soft" id="hw">Detecting hardware\u2026</p>
-      <label class="field"><span>CPU threads: <b id="thlabel">\u2013</b></span><input type="range" id="threads" min="1" max="1" value="1"></label>
-      <label class="field"><span class="toggle"><input type="checkbox" id="gpu"> Use GPU \u2014 Pearl (PearlHash; NVIDIA / AMD / Intel Arc)</span></label>
-      <button class="btn fill big" id="mine">Start earning</button>
-      <div class="stat-grid" style="margin-top:14px">
-        <div class="stat"><b id="cpuhs">0 H/s</b><span>CPU \u00b7 Monero (RandomX)</span></div>
-        <div class="stat"><b id="gpuhs">0 H/s</b><span>GPU \u00b7 Pearl (PearlHash)</span></div>
-        <div class="stat"><b id="vshares">0</b><span>Verified shares (proxy)</span></div>
-        <div class="stat"><b id="earned">0</b><span>Earned ABA</span></div>
-      </div>
-      <p class="fineprint" id="poolline">Pool: \u2013</p>
-    </div>
-
-    <div class="card">
-      <div class="label">Network</div>
-      <div class="stat-grid">
-        <div class="stat"><b id="price">\u2013</b><span>ABA price (DEX)</span></div>
-        <div class="stat"><b id="basis">\u2013</b><span>Payout basis</span></div>
-      </div>
-      <p class="fineprint">Split 88% host / 4% stakers / 4% treasury / 4% burn, paid by verified shares.
-        <a href="${EXPLORER}" id="exlink">Explorer</a> \u00b7 <a href="${DEX}" id="dexlink">DEX</a></p>
-    </div>`);
-
-  // wallet actions
-  document.querySelectorAll(".copy").forEach((c) =>
-    ((c as HTMLElement).onclick = () => copy((c as HTMLElement).dataset.copy as string)),
+    <div id="tabc"></div>`);
+  document.querySelectorAll(".apptab").forEach((b) =>
+    ((b as HTMLElement).onclick = () => {
+      activeTab = (b as HTMLElement).dataset.t as string;
+      renderApp();
+    }),
   );
-  (document.getElementById("refresh") as HTMLButtonElement).onclick = refreshBalance;
-  (document.getElementById("lock") as HTMLButtonElement).onclick = () => {
-    wallet.lock();
-    boot();
-  };
-  (document.getElementById("send") as HTMLButtonElement).onclick = doSend;
-
-  // QR
-  const qr = document.getElementById("qr") as HTMLElement;
-  const canvas = document.createElement("canvas");
-  qr.appendChild(canvas);
-  QRCode.toCanvas(canvas, a.aba, { margin: 1, width: 132 }).catch(() => {
-    qr.textContent = a.aba;
-  });
-
-  setupMining();
+  renderTab();
   refreshBalance();
-  balanceTimer = window.setInterval(refreshBalance, 15000);
-  liveTimer = window.setInterval(refreshLive, 4000);
+  if (!balanceTimer) balanceTimer = window.setInterval(refreshBalance, 15000);
+  if (!liveTimer) liveTimer = window.setInterval(refreshLive, 4000);
   refreshLive();
+}
+
+function renderTab(): void {
+  const a = addresses as Addresses;
+  const c = document.getElementById("tabc") as HTMLElement;
+  if (activeTab === "wallet") {
+    c.innerHTML = `
+      <div class="card">
+        <div class="label">Balance</div>
+        <div class="balance"><span id="bal">\u2026</span> <small>ABA</small></div>
+        <p class="fineprint">Cosmos bank: <b id="cosbal">\u2026</b> ABA \u00b7 same account, two encodings.</p>
+        <div class="addr" style="margin-top:12px"><span class="atype">Cosmos</span><code>${a.aba}</code><span class="copy" data-copy="${a.aba}">copy</span></div>
+        <div class="addr" style="margin-top:8px"><span class="atype evm">EVM</span><code>${a.evm}</code><span class="copy" data-copy="${a.evm}">copy</span></div>
+        <div class="actions" style="margin-top:12px"><button class="btn" id="refresh">Refresh</button><button class="btn fill" id="faucet">Get test ABA</button></div>
+        <p class="msg" id="walletmsg"></p>
+      </div>
+      <div class="card">
+        <div class="label">Recent activity</div>
+        <div id="activity" class="fineprint">loading\u2026</div>
+        <p class="fineprint" style="margin-top:8px"><a href="${EXPLORER}#acct/${a.aba}">View account on Explorer \u2192</a></p>
+      </div>`;
+    wireCopy();
+    (document.getElementById("refresh") as HTMLButtonElement).onclick = refreshBalance;
+    (document.getElementById("faucet") as HTMLButtonElement).onclick = doFaucet;
+    loadActivity();
+  } else if (activeTab === "send") {
+    c.innerHTML = `
+      <div class="card">
+        <div class="label">Send ABA</div>
+        <label class="field"><span>Recipient (abakos1\u2026 or 0x\u2026)</span><input id="to" placeholder="abakos1\u2026 or 0x\u2026"></label>
+        <div id="contacts" class="contacts"></div>
+        <label class="field"><span>Amount (ABA)</span><input id="amt" type="number" min="0" step="0.000001" placeholder="1.0"></label>
+        <div class="actions"><button class="btn fill" id="send">Send</button><button class="btn" id="savec">Save recipient</button></div>
+        <p class="msg" id="sendmsg"></p>
+      </div>`;
+    (document.getElementById("send") as HTMLButtonElement).onclick = doSend;
+    (document.getElementById("savec") as HTMLButtonElement).onclick = saveContact;
+    loadContacts();
+  } else if (activeTab === "receive") {
+    c.innerHTML = `
+      <div class="card" style="text-align:center">
+        <div class="label" style="text-align:left">Receive</div>
+        <p class="soft" style="text-align:left">Same account, two encodings \u2014 share either. Cosmos wallets use <span class="mono">abakos1\u2026</span>, MetaMask/EVM uses <span class="mono">0x\u2026</span>.</p>
+        <div class="rtabs"><button class="btn${receiveShowAba ? " fill" : ""}" id="rc-aba">Cosmos (abakos1)</button><button class="btn${receiveShowAba ? "" : " fill"}" id="rc-evm">EVM (0x)</button></div>
+        <div id="qr"></div>
+        <div class="addr" style="margin-top:12px;text-align:left"><code id="raddr"></code><span class="copy" id="rcopy">copy</span></div>
+      </div>`;
+    (document.getElementById("rc-aba") as HTMLButtonElement).onclick = () => { receiveShowAba = true; renderTab(); };
+    (document.getElementById("rc-evm") as HTMLButtonElement).onclick = () => { receiveShowAba = false; renderTab(); };
+    const addr = receiveShowAba ? a.aba : a.evm;
+    (document.getElementById("raddr") as HTMLElement).textContent = addr;
+    (document.getElementById("rcopy") as HTMLElement).onclick = () => copy(addr);
+    const qr = document.getElementById("qr") as HTMLElement;
+    const canvas = document.createElement("canvas");
+    qr.appendChild(canvas);
+    QRCode.toCanvas(canvas, addr, { margin: 1, width: 148 }).catch(() => { qr.textContent = addr; });
+  } else if (activeTab === "mining") {
+    c.innerHTML = `
+      <div class="card" id="miningcard">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <div><div class="label">Mining</div><h2>Earn ABA from idle hardware</h2></div>
+          <span class="badge off" id="minerbadge"><span class="pulse"></span> stopped</span>
+        </div>
+        <p class="soft" id="hw">Detecting hardware\u2026</p>
+        <label class="field"><span>CPU threads: <b id="thlabel">\u2013</b></span><input type="range" id="threads" min="1" max="1" value="1"></label>
+        <label class="field"><span class="toggle"><input type="checkbox" id="gpu"> Use GPU \u2014 Pearl (PearlHash; NVIDIA / AMD / Intel Arc)</span></label>
+        <button class="btn fill big" id="mine">Start earning</button>
+        <div class="stat-grid" style="margin-top:14px">
+          <div class="stat"><b id="cpuhs">0 H/s</b><span>CPU \u00b7 Monero (RandomX)</span></div>
+          <div class="stat"><b id="gpuhs">0 H/s</b><span>GPU \u00b7 Pearl (PearlHash)</span></div>
+          <div class="stat"><b id="vshares">0</b><span>Verified shares (proxy)</span></div>
+          <div class="stat"><b id="earned">0</b><span>Earned ABA</span></div>
+        </div>
+        <p class="fineprint" id="poolline">Pool: \u2013</p>
+      </div>
+      <div class="card">
+        <div class="label">Network</div>
+        <div class="stat-grid">
+          <div class="stat"><b id="price">\u2013</b><span>ABA price (DEX)</span></div>
+          <div class="stat"><b id="basis">\u2013</b><span>Payout basis</span></div>
+        </div>
+        <p class="fineprint">Split 88% host / 4% stakers / 4% treasury / 4% burn, paid by verified shares.
+          <a href="${EXPLORER}">Explorer</a> \u00b7 <a href="${DEX}">DEX</a> \u00b7 <a href="${POOL}">Pool</a></p>
+      </div>`;
+    setupMining();
+    refreshLive();
+  } else if (activeTab === "settings") {
+    c.innerHTML = `
+      <div class="card">
+        <div class="label">Security</div>
+        <label class="field"><span>Password (to reveal secrets)</span><input id="spw" type="password" placeholder="password"></label>
+        <div class="actions"><button class="btn" id="showkey">Show private key</button><button class="btn" id="showmn">Show recovery phrase</button></div>
+        <pre class="mono secretbox" id="secret" style="display:none"></pre>
+        <p class="msg" id="setmsg"></p>
+        <div class="actions" style="margin-top:8px"><button class="btn" id="lock">Lock wallet</button></div>
+      </div>
+      <div class="card">
+        <div class="label">Address book</div>
+        <div id="booklist" class="fineprint">loading\u2026</div>
+      </div>
+      <div class="card warn">
+        <div class="label">Danger zone</div>
+        <p class="fineprint">Removes this wallet from this device. Make sure you have your recovery phrase or private key.</p>
+        <button class="btn danger" id="forget">Forget wallet</button>
+      </div>
+      <div class="card">
+        <div class="label">Network</div>
+        <p class="fineprint">Abakos sandbox \u00b7 EVM chain 9721 \u00b7 <a href="${EXPLORER}">Explorer</a> \u00b7 <a href="${DEX}">DEX</a> \u00b7 <a href="${POOL}">Pool</a></p>
+      </div>`;
+    wireSettings();
+  }
+}
+
+function wireCopy(): void {
+  document.querySelectorAll(".copy[data-copy]").forEach((el) =>
+    ((el as HTMLElement).onclick = () => copy((el as HTMLElement).dataset.copy as string)),
+  );
 }
 
 async function refreshBalance(): Promise<void> {
   const el = document.getElementById("bal");
-  if (!el) return;
-  try {
-    el.textContent = fmtAba(await wallet.balanceAba());
-  } catch {
-    el.textContent = "\u2013";
+  if (el) {
+    try {
+      el.textContent = fmtAba(await wallet.balanceAba());
+    } catch {
+      el.textContent = "\u2013";
+    }
   }
+  const cos = document.getElementById("cosbal");
+  if (cos) {
+    try {
+      cos.textContent = fmtAba(await wallet.balanceCosmos());
+    } catch {
+      cos.textContent = "\u2013";
+    }
+  }
+}
+
+async function doFaucet(): Promise<void> {
+  const msg = document.getElementById("walletmsg") as HTMLElement;
+  msg.className = "msg";
+  msg.textContent = "requesting test ABA\u2026";
+  try {
+    const tx = await wallet.faucet();
+    msg.className = "msg ok";
+    msg.innerHTML = `faucet sent \u00b7 <a href="${EXPLORER}#tx/${tx}">${short(tx)}</a>`;
+    setTimeout(refreshBalance, 4000);
+  } catch (e) {
+    msg.className = "msg err";
+    msg.textContent = (e as Error).message || String(e);
+  }
+}
+
+async function loadActivity(): Promise<void> {
+  const el = document.getElementById("activity");
+  if (!el || !addresses) return;
+  const rows = await recentTxs(addresses.aba);
+  el.innerHTML = rows.length
+    ? rows
+        .map((r) => `<div class="actrow"><a class="mono" href="${EXPLORER}#tx/${r.hash}">${short(r.hash, 8)}</a> <span class="mut">block ${r.height}${r.ts ? " \u00b7 " + new Date(r.ts).toLocaleString() : ""}</span></div>`)
+        .join("")
+    : "No recent sends found (or indexer unavailable). Use the Explorer link below.";
+}
+
+async function loadContacts(): Promise<void> {
+  const el = document.getElementById("contacts");
+  if (!el) return;
+  const book = await wallet.getContacts();
+  el.innerHTML = book.length
+    ? book.map((c) => `<button class="chip" data-addr="${c.addr}">${c.name || short(c.addr, 8)}</button>`).join("")
+    : "";
+  el.querySelectorAll(".chip").forEach((b) =>
+    ((b as HTMLElement).onclick = () => {
+      (document.getElementById("to") as HTMLInputElement).value = (b as HTMLElement).dataset.addr as string;
+    }),
+  );
+}
+
+async function saveContact(): Promise<void> {
+  const to = (document.getElementById("to") as HTMLInputElement).value.trim();
+  if (!to) return;
+  const name = prompt("Name for this address?", short(to, 8)) || "";
+  await wallet.addContact(name, to);
+  loadContacts();
 }
 
 async function doSend(): Promise<void> {
@@ -288,6 +405,56 @@ async function doSend(): Promise<void> {
     msg.className = "msg err";
     msg.textContent = (e as Error).message || String(e);
   }
+}
+
+function wireSettings(): void {
+  const setmsg = document.getElementById("setmsg") as HTMLElement;
+  const secret = document.getElementById("secret") as HTMLElement;
+  const pw = (): string => (document.getElementById("spw") as HTMLInputElement).value;
+  const reveal = async (fn: () => Promise<string>, label: string): Promise<void> => {
+    try {
+      const v = await fn();
+      secret.style.display = "block";
+      secret.textContent = `${label}:\n${v}`;
+      setmsg.textContent = "";
+    } catch (e) {
+      setmsg.className = "msg err";
+      setmsg.textContent = (e as Error).message || String(e);
+    }
+  };
+  (document.getElementById("showkey") as HTMLButtonElement).onclick = () =>
+    reveal(() => wallet.exportPrivateKey(pw()), "Private key (0x)");
+  (document.getElementById("showmn") as HTMLButtonElement).onclick = () =>
+    reveal(() => wallet.exportMnemonic(pw()), "Recovery phrase");
+  (document.getElementById("lock") as HTMLButtonElement).onclick = () => {
+    wallet.lock();
+    boot();
+  };
+  (document.getElementById("forget") as HTMLButtonElement).onclick = async () => {
+    if (confirm("Forget this wallet? Make sure you have your recovery phrase or private key.")) {
+      await wallet.forget();
+      boot();
+    }
+  };
+  loadBook();
+}
+
+async function loadBook(): Promise<void> {
+  const el = document.getElementById("booklist");
+  if (!el) return;
+  const book = await wallet.getContacts();
+  el.innerHTML = book.length
+    ? book
+        .map((c, i) => `<div class="actrow"><b>${c.name || "(unnamed)"}</b> <span class="mono">${short(c.addr, 10)}</span> <a href="#" data-rm="${i}">remove</a></div>`)
+        .join("")
+    : "No saved addresses yet. Save recipients from the Send tab.";
+  el.querySelectorAll("[data-rm]").forEach((a) =>
+    ((a as HTMLElement).onclick = async (e) => {
+      e.preventDefault();
+      await wallet.removeContact(Number((a as HTMLElement).dataset.rm));
+      loadBook();
+    }),
+  );
 }
 
 // ---------------------------------------------------------------- mining
