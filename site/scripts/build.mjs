@@ -245,6 +245,11 @@ for (const [slug, meta, bodyFile] of [
     { title: "Abakos DEX", description: "Swap ABA and test USDT on the Abakos EVM (chain 9721) - a real on-chain constant-product AMM.", eyebrow: "Sandbox EVM", status: ["LIVE", "live"], h1: "DEX", lede: "Real on-chain ABA/USDT swaps on the Abakos EVM via MetaMask. Constant-product AMM, 0.30% fee. Sandbox only - no value." },
     "dex.body.html",
   ],
+  [
+    "pool",
+    { title: "Abakos Mining Pool", description: "Mine Monero (CPU) and Pearl (GPU) via the Abakos pool; earn ABA by verified shares (88/4/4/4), auto-exchanged from USDT.", eyebrow: "Sandbox pool", status: ["LIVE", "live"], h1: "Mining Pool", lede: "Point your CPU (Monero/RandomX) and GPU (Pearl/PearlHash) at the Abakos pool. Accepted shares are counted per ABA address; the mined value auto-exchanges to USDT and buys back ABA, paid out 88 / 4 / 4 / 4." },
+    "pool.body.html",
+  ],
 ]) {
   const bodyHtml = await readFile(path.join(siteDir, "src", bodyFile), "utf8");
   await writeRoute(slug, renderAppPage(slug, meta, bodyHtml));
@@ -281,6 +286,7 @@ const routes = [
   "explorer",
   "dashboard",
   "dex",
+  "pool",
 ];
 await writeFile(
   path.join(outDir, "sitemap.xml"),

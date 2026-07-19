@@ -28,6 +28,7 @@ export const navGroups = [
       ["Status", "https://status.abakos.ai/"],
       ["Explorer", "https://abakos.ai/explorer/"],
       ["DEX", "https://abakos.ai/dex/"],
+      ["Mining Pool", "https://abakos.ai/pool/"],
       ["Provider Dashboard", "https://abakos.ai/dashboard/"],
     ],
   },
