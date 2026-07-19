@@ -48,6 +48,9 @@ export interface MinerStatus {
   shares_good: number;
   shares_total: number;
 }
+export function enableMining(): Promise<string> {
+  return invoke<string>("enable_mining");
+}
 export function startMiner(address: string, threads: number, cpu: boolean, gpu: boolean): Promise<void> {
   return invoke<void>("start_miner", { address, threads, cpu, gpu });
 }

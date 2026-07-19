@@ -142,6 +142,41 @@ fn kv_delete(app: tauri::AppHandle, key: String) -> Result<(), String> {
     .map_err(|e| e.to_string())
 }
 
+/// Allow mining on this PC: adds a Windows Defender exclusion for the app's data
+/// dir (where the miner binaries live) via one elevated (UAC) prompt the user
+/// accepts. Every mining binary is flagged as riskware by AVs; this is the
+/// standard, user-consented way to permit it. No-op on non-Windows.
+#[tauri::command]
+fn enable_mining(app: tauri::AppHandle) -> Result<String, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    #[cfg(windows)]
+    {
+        let dir_s = dir.to_string_lossy().replace('\'', "''");
+        let ps1 = dir.join("allow-mining.ps1");
+        std::fs::write(&ps1, format!("Add-MpPreference -ExclusionPath '{dir_s}'\r\n"))
+            .map_err(|e| e.to_string())?;
+        let file = ps1.to_string_lossy().replace('\'', "''");
+        let outer = format!(
+            "Start-Process powershell -Verb RunAs -WindowStyle Hidden -Wait -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','{file}'"
+        );
+        let status = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-WindowStyle", "Hidden", "-Command", &outer])
+            .status()
+            .map_err(|e| e.to_string())?;
+        if status.success() {
+            Ok("Mining allowed (Windows Defender exclusion added).".into())
+        } else {
+            Err("The Windows prompt was declined. Windows Defender may block the miner.".into())
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = dir;
+        Ok("No exclusion needed on this OS.".into())
+    }
+}
+
 #[tauri::command]
 fn start_miner(
     app: tauri::AppHandle,
@@ -174,6 +209,7 @@ fn main() {
             kv_get,
             kv_set,
             kv_delete,
+            enable_mining,
             start_miner,
             stop_miner,
             miner_status

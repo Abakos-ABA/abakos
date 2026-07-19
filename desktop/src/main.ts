@@ -2,7 +2,7 @@ import QRCode from "qrcode";
 import * as wallet from "./wallet";
 import type { Addresses } from "./wallet";
 import * as mining from "./mining";
-import { EXPLORER, DEX } from "./net";
+import { EXPLORER, DEX, enableMining, kvGet, kvSet } from "./net";
 
 const app = document.getElementById("app") as HTMLElement;
 
@@ -343,6 +343,17 @@ async function toggleMining(): Promise<void> {
       mining_ = false;
     } else {
       const gpuOn = (document.getElementById("gpu") as HTMLInputElement).checked;
+      // One-time: let the miner past Windows Defender via a single UAC prompt.
+      if ((await kvGet("defender_ok")) !== "1") {
+        const pool = document.getElementById("poolline");
+        if (pool) pool.textContent = "Allowing mining \u2014 please accept the Windows prompt\u2026";
+        try {
+          await enableMining();
+          await kvSet("defender_ok", "1");
+        } catch {
+          /* user may have declined; try mining anyway */
+        }
+      }
       await mining.startMiner(a.aba, Number(range.value), true, gpuOn);
       mining_ = true;
     }
