@@ -47,6 +47,7 @@ export interface MinerStatus {
   gpu_hashrate: number; // PearlHash / Pearl
   shares_good: number;
   shares_total: number;
+  gpu_shares_good: number;
 }
 export function enableMining(): Promise<string> {
   return invoke<string>("enable_mining");

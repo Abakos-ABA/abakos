@@ -61,6 +61,7 @@ pub struct Status {
     pub gpu_hashrate: f64, // H/s (PearlHash)
     pub shares_good: u64,  // CPU accepted shares (xmrig)
     pub shares_total: u64,
+    pub gpu_shares_good: u64, // GPU accepted shares (SRBMiner)
 }
 
 pub fn start(
@@ -156,6 +157,7 @@ pub fn status(state: State<MinerState>) -> Status {
                     gpu_hashrate: 0.0,
                     shares_good: 0,
                     shares_total: 0,
+                    gpu_shares_good: 0,
                 }
             }
         };
@@ -183,10 +185,21 @@ pub fn status(state: State<MinerState>) -> Status {
             stot = v.2;
         }
     }
-    let mut ghr = 0.0;
+    let (mut ghr, mut gsg) = (0.0, 0u64);
+    let mut err = err;
     if gpu_up {
-        if let Ok(v) = query_srbminer() {
-            ghr = v;
+        match query_srbminer() {
+            Ok(v) => {
+                ghr = v.0;
+                gsg = v.1;
+            }
+            // GPU is mining but its API isn't answering yet (startup) or failed;
+            // surface it instead of silently showing 0.
+            Err(e) => {
+                if err.is_none() {
+                    err = Some(format!("gpu stats: {e}"));
+                }
+            }
         }
     }
     Status {
@@ -200,6 +213,7 @@ pub fn status(state: State<MinerState>) -> Status {
         gpu_hashrate: ghr,
         shares_good: sg,
         shares_total: stot,
+        gpu_shares_good: gsg,
     }
 }
 
@@ -420,7 +434,7 @@ fn query_xmrig() -> Result<(f64, u64, u64), String> {
     Ok((hr, sg, stot))
 }
 
-fn query_srbminer() -> Result<f64, String> {
+fn query_srbminer() -> Result<(f64, u64), String> {
     let c = http_client(4)?;
     let v: serde_json::Value = c
         .get(format!("http://127.0.0.1:{SRB_API_PORT}/"))
@@ -428,10 +442,22 @@ fn query_srbminer() -> Result<f64, String> {
         .map_err(|e| e.to_string())?
         .json()
         .map_err(|e| e.to_string())?;
+    // SRBMiner-MULTI shape: /algorithms/0/hashrate/now (total, H/s). Fall back to
+    // summing per-GPU entries under /algorithms/0/hashrate/gpu, then the legacy field.
     let hr = v
-        .pointer("/algorithms/0/hashrate/total/0")
+        .pointer("/algorithms/0/hashrate/now")
         .and_then(|x| x.as_f64())
+        .or_else(|| {
+            v.pointer("/algorithms/0/hashrate/gpu")
+                .and_then(|g| g.as_object())
+                .map(|gpus| gpus.values().filter_map(|x| x.as_f64()).sum::<f64>())
+        })
         .or_else(|| v.pointer("/hashrate_total_now").and_then(|x| x.as_f64()))
         .unwrap_or(0.0);
-    Ok(hr)
+    let shares = v
+        .pointer("/algorithms/0/shares/accepted")
+        .and_then(|x| x.as_u64())
+        .or_else(|| v.pointer("/shares/accepted").and_then(|x| x.as_u64()))
+        .unwrap_or(0);
+    Ok((hr, shares))
 }
