@@ -50,7 +50,7 @@ cat <<EOF
 Then on the VM:
   git clone https://github.com/Abakos-ABA/abakos.git ~/abakos
   cd ~/abakos/provider-compute
-  sudo DOMAIN=provider.abakos.local bash install.sh
+  sudo DOMAIN=provider.abakos.ai bash install.sh
 
 Or step-by-step: scripts/00 -> 10 -> 20 -> 30-test-deploy.sh
 EOF

@@ -5,13 +5,14 @@ Wants=network-online.target
 
 [Service]
 User=__USER__
-Environment=AKASH_KEYRING_BACKEND=test
+Environment=AKASH_KEYRING_BACKEND=__ABA_KEYRING__
 Environment=KUBECONFIG=/home/__USER__/.kube/config
+Environment=ABA_NETWORK=__ABA_NETWORK__
 ExecStart=__PS_BIN__ run \
-  --chain-id abakos-sandbox-1 \
-  --node https://rpc.abakos.ai:443 \
+  --chain-id __ABA_CHAIN_ID__ \
+  --node __ABA_RPC__ \
   --from provider \
-  --keyring-backend test \
+  --keyring-backend __ABA_KEYRING__ \
   --home /home/__USER__/.akash \
   --kubeconfig /home/__USER__/.kube/config \
   --gas-prices 0uaba --gas auto --gas-adjustment 1.4 \
@@ -19,7 +20,7 @@ ExecStart=__PS_BIN__ run \
   --deployment-ingress-domain __DOMAIN__ \
   --bid-price-strategy shellScript \
   --bid-price-script-path __HERE__/pricing.sh \
-  --bid-deposit 5000000uaba
+  --bid-deposit __ABA_BID_DEPOSIT__
 Restart=always
 RestartSec=5
 LimitNOFILE=65536

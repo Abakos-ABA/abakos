@@ -1,12 +1,12 @@
-# Abakos compute-provider config (Akash provider.yaml format), abakos sandbox.
-# `from` is filled in by scripts/20-register-provider.sh with your provider address.
+# Abakos compute-provider config (daemon / provider-services run).
+# Filled by scripts/20-register-provider.sh — uses config/network.sh.
 from: "PROVIDER_ADDRESS"
-node: "https://rpc.abakos.ai:443"
-chainid: "abakos-sandbox-1"
+node: "ABA_RPC_PLACEHOLDER"
+chainid: "ABA_CHAIN_ID_PLACEHOLDER"
 gasprices: "0uaba"
-keyring-backend: "test"
-domain: "provider.abakos.local"   # tenant-reachable gateway hostname (set a real DNS/host for remote tenants)
-host_uri: "https://192.168.227.128:8443"   # absolute URI required by MsgCreateProvider
+keyring-backend: "ABA_KEYRING_PLACEHOLDER"
+domain: "ABA_PROVIDER_DOMAIN_PLACEHOLDER"
+host_uri: "ABA_HOST_URI_PLACEHOLDER"
 withdrawalperiod: 12h
 attributes:
   - key: host
@@ -15,6 +15,3 @@ attributes:
     value: community
   - key: capabilities/cpu/arch
     value: x86-64
-  # GPU (add in Phase 3 once the card is passed through and the NVIDIA operator is installed):
-  # - key: capabilities/gpu/vendor/nvidia/model/rtx4090
-  #   value: "true"

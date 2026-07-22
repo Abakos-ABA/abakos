@@ -1,5 +1,6 @@
-# Minimal CPU-only deployment (SDL v2) to validate the whole flow end-to-end:
-# deploy -> provider bids -> lease -> manifest -> nginx runs in k3s -> escrow pays ABA.
+# SDL v2.1 — mainnet-parity CPU example. Render with:
+#   envsubst < examples/hello-cpu.yaml.template > /tmp/hello-cpu.yaml
+# or use scripts/render-hello-cpu.sh (sets ABA_EXAMPLE_SERVICE_HOST from config/network.sh).
 ---
 version: "2.1"
 
@@ -10,7 +11,7 @@ services:
       - port: 80
         as: 80
         accept:
-          - hello.provider.abakos.ai
+          - ${ABA_EXAMPLE_SERVICE_HOST}
         to:
           - global: true
 
@@ -29,7 +30,7 @@ profiles:
       pricing:
         web:
           denom: uaba
-          amount: 100000   # max price (uaba/block)
+          amount: 100000
 
 deployment:
   web:

@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
-# Run on the sandbox validator (217.154.169.211) as root AFTER upgrading abakosd
-# to the ABA-only build. Switches deployment + market params to uaba.
+# Governance: set deployment + market params to mainnet-parity (uaba only).
+# Run on a validator as root. Works on sandbox now; same proposal shape for mainnet.
 set -euo pipefail
 
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=/dev/null
+source "$HERE/config/network.sh"
+
 HOME="${ABA_HOME:-/root/.abakos}"
-CHAIN_ID="${ABA_CHAIN_ID:-abakos-sandbox-1}"
 NODE="${ABA_NODE:-tcp://127.0.0.1:26657}"
-TX="--chain-id $CHAIN_ID --node $NODE --keyring-backend test --home $HOME --gas auto --gas-adjustment 1.4 --gas-prices 0uaba -y -o json"
+TX="--chain-id $ABA_CHAIN_ID --node $NODE --keyring-backend test --home $HOME --gas auto --gas-adjustment 1.4 --gas-prices $ABA_GAS_PRICES -y -o json"
 GOV_AUTH="abakos10d07y265gmmuvt4z0w9aw880jnsr700jaunrrs"
 PROP="/tmp/aba-only-proposal.json"
 
@@ -34,8 +37,8 @@ cat >"$PROP" <<EOF
   ],
   "metadata": "ipfs://CID",
   "deposit": "50000000uaba",
-  "title": "Sandbox: ABA-only compute market",
-  "summary": "Use native uaba for deployment escrow and provider bid deposits (no ACT/BME)",
+  "title": "Set ABA-only compute market params ($ABA_CHAIN_ID)",
+  "summary": "Mainnet-parity: native uaba for deployment escrow and provider bid deposits (no ACT/BME for tenants)",
   "expedited": true
 }
 EOF

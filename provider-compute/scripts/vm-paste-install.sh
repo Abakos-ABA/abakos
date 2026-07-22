@@ -55,7 +55,7 @@ fi
 echo "== [5/5] headless provider install =="
 cd "$HOME/abakos/provider-compute"
 export SKIP_PREFIX_PROMPT=1
-sudo DOMAIN=provider.abakos.local bash install.sh
+sudo DOMAIN=provider.abakos.ai bash install.sh
 
 echo
 echo "== Done. From Windows: ssh marlon@$IP =="

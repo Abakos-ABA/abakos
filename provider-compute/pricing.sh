@@ -1,28 +1,31 @@
 #!/usr/bin/env bash
-# Abakos provider bid-pricing script.
+# Abakos provider bid pricing — mainnet formula (uaba per block).
+# Same script on sandbox and mainnet; tune weights via env if needed.
 #
-# provider-services calls this once per order with the order's resources as a JSON
-# document on stdin, and expects a single number on stdout: the bid price as an
-# integer amount of uaba PER BLOCK. Keep it simple and cheap for the sandbox.
-#
-# Resources JSON (per group) looks like: { "resources": [ { "cpu": {"units": ...},
-# "memory": {"size": ...}, "storage": [ {"size": ...} ], "count": N } ], "price": {...} }
+# provider-services calls this once per order with resources JSON on stdin.
 set -euo pipefail
 
 data="$(cat)"
 
-# millicpu, memory bytes, storage bytes summed over the group (best-effort with jq).
-cpu_milli="$(echo "$data"  | jq '[.resources[]? | (.cpu.units.val // .cpu.units // 0 | tonumber) * (.count // 1)] | add // 0' 2>/dev/null || echo 0)"
-mem_bytes="$(echo "$data"  | jq '[.resources[]? | (.memory.size.val // .memory.quantity.val // 0 | tonumber) * (.count // 1)] | add // 0' 2>/dev/null || echo 0)"
+cpu_milli="$(echo "$data" | jq '[.resources[]? | (.cpu.units.val // .cpu.units // 0 | tonumber) * (.count // 1)] | add // 0' 2>/dev/null || echo 0)"
+mem_bytes="$(echo "$data" | jq '[.resources[]? | (.memory.size.val // .memory.quantity.val // 0 | tonumber) * (.count // 1)] | add // 0' 2>/dev/null || echo 0)"
+storage_bytes="$(echo "$data" | jq '[.resources[]? | (.storage[]?.size.val // .storage[]?.quantity.val // 0 | tonumber) * (.count // 1)] | add // 0' 2>/dev/null || echo 0)"
 
-# Price weights (uaba/block). Tune later; sandbox values.
-# ~0.5 uaba per cpu-milli-block + ~0.000001 uaba per MiB-block, min 1.
-price="$(python3 - "$cpu_milli" "$mem_bytes" <<'PY'
+# Weights (uaba/block) — mainnet defaults; override for competitive markets:
+#   PRICE_CPU_WEIGHT=0.5 PRICE_MEM_PER_MIB=0.001 PRICE_STORAGE_PER_GIB=0.01
+cpu_w="${PRICE_CPU_WEIGHT:-0.5}"
+mem_w="${PRICE_MEM_PER_MIB:-0.001}"
+stor_w="${PRICE_STORAGE_PER_GIB:-0.01}"
+
+price="$(python3 - "$cpu_milli" "$mem_bytes" "$storage_bytes" "$cpu_w" "$mem_w" "$stor_w" <<'PY'
 import sys
-cpu = float(sys.argv[1] or 0)          # millicpu
-mem = float(sys.argv[2] or 0)          # bytes
-mib = mem / (1024*1024)
-p = cpu * 0.5 + mib * 0.001
+cpu = float(sys.argv[1] or 0)
+mem = float(sys.argv[2] or 0)
+stor = float(sys.argv[3] or 0)
+cw, mw, sw = map(float, sys.argv[4:7])
+mib = mem / (1024 * 1024)
+gib = stor / (1024 ** 3)
+p = cpu * cw + mib * mw + gib * sw
 print(max(1, int(round(p))))
 PY
 )"

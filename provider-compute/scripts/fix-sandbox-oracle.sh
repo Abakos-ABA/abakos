@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 # Run on the sandbox validator (217.154.169.211) as root.
 # Adds the genesis `host` key as an authorized oracle feeder so BME can mint uact.
+# Optional for ABA-only tenants — see ABA-ONLY.md
 set -euo pipefail
 
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=/dev/null
+source "$HERE/config/network.sh"
+
 HOME="${ABA_HOME:-/root/.abakos}"
-CHAIN_ID="${ABA_CHAIN_ID:-abakos-sandbox-1}"
 NODE="${ABA_NODE:-tcp://127.0.0.1:26657}"
-TX="--chain-id $CHAIN_ID --node $NODE --keyring-backend test --home $HOME --gas auto --gas-adjustment 1.4 --gas-prices 0uaba -y -o json"
+TX="--chain-id $ABA_CHAIN_ID --node $NODE --keyring-backend test --home $HOME --gas auto --gas-adjustment 1.4 --gas-prices $ABA_GAS_PRICES -y -o json"
 
 HOST_ADDR="$(abakosd keys show host -a --keyring-backend test --home "$HOME")"
 GOV_AUTH="abakos10d07y265gmmuvt4z0w9aw880jnsr700jaunrrs"

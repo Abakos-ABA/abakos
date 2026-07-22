@@ -9,10 +9,15 @@
 #   (or) sudo bash provider-compute/install.sh
 #
 # Env:
-#   DOMAIN=provider.example.com   tenant-reachable gateway hostname (default provider.abakos.local)
-#   ALLOW_ON_NODE=1               override the safety guard (NOT recommended)
+#   ABA_NETWORK=sandbox|mainnet   (default sandbox)
+#   DOMAIN=provider.abakos.ai     tenant-reachable ingress base domain
+#   HOST_URI=https://x.x.x.x:8443 on-chain provider host (auto-detected if unset)
+#   PUBLIC_IP=...                 override auto-detect for HOST_URI
+#   ALLOW_ON_NODE=1               override safety guard (NOT recommended)
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=/dev/null
+source "$HERE/config/network.sh"
 
 echo "== Abakos Compute Provider - headless install =="
 
@@ -43,9 +48,17 @@ echo "== [2/4] build provider-services (abakos) =="; bash "$HERE/scripts/10-buil
 echo "== [3/4] register provider on-chain =="; bash "$HERE/scripts/20-register-provider.sh"
 
 echo "== [4/4] install systemd service =="
-DOMAIN="${DOMAIN:-provider.abakos.local}"
+DOMAIN="$ABA_PROVIDER_DOMAIN"
 PS_BIN="$(command -v provider-services)"
-sed -e "s|__PS_BIN__|$PS_BIN|g" -e "s|__DOMAIN__|$DOMAIN|g" -e "s|__HERE__|$HERE|g" -e "s|__USER__|${SUDO_USER:-$USER}|g" \
+sed -e "s|__PS_BIN__|$PS_BIN|g" \
+    -e "s|__DOMAIN__|$DOMAIN|g" \
+    -e "s|__HERE__|$HERE|g" \
+    -e "s|__USER__|${SUDO_USER:-$USER}|g" \
+    -e "s|__ABA_NETWORK__|$ABA_NETWORK|g" \
+    -e "s|__ABA_CHAIN_ID__|$ABA_CHAIN_ID|g" \
+    -e "s|__ABA_RPC__|$ABA_RPC|g" \
+    -e "s|__ABA_KEYRING__|$ABA_KEYRING_BACKEND|g" \
+    -e "s|__ABA_BID_DEPOSIT__|$ABA_BID_DEPOSIT|g" \
   "$HERE/systemd/provider-services.service" > /etc/systemd/system/abakos-provider.service
 systemctl daemon-reload
 systemctl enable abakos-provider

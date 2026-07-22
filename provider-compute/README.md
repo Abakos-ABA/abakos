@@ -4,18 +4,19 @@ Turn a Linux machine (local GPU PC, VMware VM, or bare metal) into an **Abakos c
 
 This is the off-chain half of the marketplace. The on-chain modules (deployment / market / provider / escrow / cert) live in [`../chain`](../chain). We run Akash's [`provider-services`](https://github.com/akash-network/provider) daemon patched for Abakos bech32 (`abakos`) and denom (`uaba`).
 
-> **Start here for the single-coin model:** [ABA-ONLY.md](ABA-ONLY.md) — faucet → deploy → lease with **no ACT/BME/oracle**.
+> **Start here:** [ABA-ONLY.md](ABA-ONLY.md) (single coin) · [MAINNET-PARITY.md](MAINNET-PARITY.md) (sandbox = mainnet architecture)
 
-## Chain parameters (abakos sandbox)
+## Chain parameters
 
-| Field         | Value                    |
-| ------------- | ------------------------ |
-| chain-id      | `abakos-sandbox-1`       |
-| RPC           | `https://rpc.abakos.ai`  |
-| REST          | `https://rest.abakos.ai` |
-| denom         | `uaba` (ABA, 6 decimals) |
-| bech32 prefix | `abakos` (`abakos1...`)  |
-| gas prices    | `0uaba` (zero-fee chain) |
+Configured via [`config/network.sh`](config/network.sh) (`ABA_NETWORK=sandbox|mainnet`).
+
+| Field         | Sandbox (`default`)      | Mainnet (`abakos-1`)   |
+| ------------- | ------------------------ | ---------------------- |
+| chain-id      | `abakos-sandbox-1`       | `abakos-1`             |
+| RPC           | `https://rpc.abakos.ai`  | same host at launch    |
+| denom         | `uaba`                   | `uaba`                 |
+| escrow        | `uaba` only              | `uaba` only            |
+| gas           | `0uaba`                  | `0uaba`                |
 
 Marketplace API versions (live on `rest.abakos.ai`): provider `v1beta4`, market `v1beta5`, deployment `v1beta4`. Build `provider-services` from upstream **v0.14.2** with the Abakos sdkutil patch (see `scripts/10-build-provider.sh`).
 
@@ -108,9 +109,10 @@ CPU-first validates the full flow without a GPU. For renting a 2nd card: Hyper-V
 | Tenant deploy escrow **uaba** | ✅ verified sandbox |
 | Provider bid **uaba** | ✅ verified sandbox |
 | Lease create | ✅ verified sandbox (dseq `362096`) |
-| Manifest + nginx pod | ✅ verified sandbox — SDL v2.1 + `hello.provider.abakos.local` + hostname operator |
+| Manifest + nginx pod | ✅ verified sandbox — SDL v2.1 + `hello.provider.abakos.ai` + hostname operator |
 
 ## Docs
 
+- **[MAINNET-PARITY.md](MAINNET-PARITY.md)** — sandbox vs mainnet, DNS, checklist
 - **[ABA-ONLY.md](ABA-ONLY.md)** — single-coin model, troubleshooting, ports, SDL
-- **[QUICKSTART.md](QUICKSTART.md)** — install.sh vs desktop build
+- **[QUICKSTART.md](QUICKSTART.md)** — install.sh vs desktop AppImage path

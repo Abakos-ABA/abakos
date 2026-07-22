@@ -2,6 +2,8 @@
 
 Abakos compute runs on **one tenant-facing coin: native `uaba` (ABA)**. Tenants fund deployments from the faucet, escrow `uaba` on-chain, and pay providers in `uaba` per block. There is **no ACT (`uact`), no BME mint, and no oracle price feed** required for the standard deploy → bid → lease → manifest flow.
 
+**Mainnet parity:** sandbox uses the same architecture as `abakos-1` — see [MAINNET-PARITY.md](MAINNET-PARITY.md).
+
 This document explains the model, what changed in chain/SDK, how to run provider-compute end-to-end, and how to fix common sandbox issues.
 
 ---
@@ -81,7 +83,7 @@ bash provider-compute/scripts/30-test-deploy.sh
 - Deployment create with `5000000uaba` escrow — e.g. tx `DF612637…` (dseq `362096`)
 - Provider bid at `1 uaba/block` with `5000000uaba` bid deposit escrow
 - Lease active — tx `0B7CAC39…`
-- Manifest **PASS** → nginx pod `Running` in `lease` namespace (URI `hello.provider.abakos.local`)
+- Manifest **PASS** → nginx pod `Running` in `lease` namespace (URI `hello.provider.abakos.ai`)
 - Lease **active** for tenant `abakos159lpq7…`, provider `abakos13ftax…`
 
 ---
@@ -138,7 +140,7 @@ services:
       - port: 80
         as: 80
         accept:
-          - hello.provider.abakos.local   # required
+          - hello.provider.abakos.ai   # required (mainnet-style domain)
         to:
           - global: true
 profiles:
