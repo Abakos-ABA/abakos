@@ -581,21 +581,32 @@ def add_payout(kind, uaba, txhash, coin):
 def fetch_proxy_shares():
     """Verified accepted shares per ABA address from the stratum proxy (/shares).
 
-    Returns {total, per_address, window_sec, source}. `total`/`per_address` are
-    difficulty-weighted (≈ hashes done), so they double as a fair payout basis and
-    an on-chain-independent hashrate estimate. Cached briefly; empty on failure."""
+    Returns {total, per_address, cpu, gpu, window_sec, source}. Weighted by pool
+    difficulty (≈ hashes done). `cpu`/`gpu` are {total, per_address} per device so CPU
+    (RandomX) and GPU (Pearl) are attributed and valued separately, both verified.
+    Cached briefly; empty on failure."""
     now = time.time()
     if _shares_cache["data"] and now - _shares_cache["ts"] < PROXY_TTL:
         return _shares_cache["data"]
-    out = {"total": 0.0, "per_address": {}, "window_sec": 3600, "source": "unavailable"}
+    empty_dev = {"total": 0.0, "per_address": {}}
+    out = {"total": 0.0, "per_address": {}, "cpu": dict(empty_dev), "gpu": dict(empty_dev),
+           "window_sec": 3600, "source": "unavailable"}
     try:
         req = urllib.request.Request(PROXY_HTTP + "/shares", headers={"User-Agent": "abakos-agent"})
         with urllib.request.urlopen(req, timeout=8) as r:
             d = json.load(r)
         win = d.get("window") or {}
-        per = {a: float(w) for a, w in (win.get("per_address") or {}).items()
-               if str(a).startswith("abakos1") and float(w) > 0}
-        out = {"total": float(win.get("total") or 0.0), "per_address": per,
+
+        def _per(m):
+            return {a: float(w) for a, w in (m or {}).items()
+                    if str(a).startswith("abakos1") and float(w) > 0}
+
+        def _dev(x):
+            x = x or {}
+            return {"total": float(x.get("total") or 0.0), "per_address": _per(x.get("per_address"))}
+
+        out = {"total": float(win.get("total") or 0.0), "per_address": _per(win.get("per_address")),
+               "cpu": _dev(win.get("cpu")), "gpu": _dev(win.get("gpu")),
                "window_sec": int(d.get("window_sec") or 3600), "source": "proxy"}
     except Exception as e:
         out["error"] = str(e)[:160]
@@ -762,21 +773,48 @@ def step():
         value_src = "proxy-shares"
 
     attr_src = "idle"
-    if shares.get("total", 0) > 0 and epoch_usd > 0:
-        # Pay EVERY address with shares, proportional to its share of the pot.
+    # Always reflect VERIFIED proxy shares (CPU + GPU, per device) into the provider
+    # table so the pool shows who is mining and their slice -- even before payouts.
+    if shares.get("total", 0) > 0:
         wsec = max(1, int(shares.get("window_sec", 3600)))
-        tot = shares["total"]
+        cpu_per = shares.get("cpu", {}).get("per_address", {})
+        gpu_per = shares.get("gpu", {}).get("per_address", {})
+        cpu_tot = float(shares.get("cpu", {}).get("total", 0.0))
+        gpu_tot = float(shares.get("gpu", {}).get("total", 0.0))
+        # Split the epoch pot between devices by oracle value x active miners, then
+        # within each device by verified weighted-share fraction. This keeps the
+        # (very different) CPU vs GPU difficulty units from distorting each other.
+        cpu_rev = float((oracle.get("cpu") or {}).get("revenue_usd_day") or 0.0)
+        gpu_rev = float((oracle.get("gpu") or {}).get("revenue_usd_day") or 0.0)
+        w_cpu = cpu_rev * len(cpu_per)
+        w_gpu = gpu_rev * len(gpu_per)
+        if w_cpu + w_gpu <= 0:
+            w_cpu, w_gpu = cpu_tot, gpu_tot
+        wsum = (w_cpu + w_gpu) or 1.0
+        cpu_pot_frac, gpu_pot_frac = w_cpu / wsum, w_gpu / wsum
+        gpu_tag = (oracle.get("gpu") or {}).get("tag") or "Pearl"
         with _lock:
-            for a, w in shares["per_address"].items():
-                attribution[a] = epoch_usd * (w / tot)
+            for a in (set(cpu_per) | set(gpu_per)):
+                cw = float(cpu_per.get(a, 0.0)); gw = float(gpu_per.get(a, 0.0))
+                vf = (cpu_pot_frac * (cw / cpu_tot) if cpu_tot > 0 else 0.0) \
+                    + (gpu_pot_frac * (gw / gpu_tot) if gpu_tot > 0 else 0.0)
                 p = _providers.setdefault(a, {"address": a, "earned_aba": 0.0})
-                p["share_hs"] = round(w / wsec, 2)
-                p["window_shares"] = round(w, 2)
-                p["share_fraction"] = round(w / tot, 6)
+                p["cpu_hs"] = round(cw / wsec, 2)
+                p["gpu_hs"] = round(gw / wsec, 2)
+                p["share_hs"] = round(cw / wsec, 2)
+                p["window_shares"] = round(cw + gw, 2)
+                p["share_fraction"] = round(vf, 6)
+                p["cpu_verified"] = cw > 0
+                p["gpu_verified"] = gw > 0
                 p["last_report"] = time.time()
                 p.setdefault("cpu_coin", mining_coin)
-        attr_src = value_src
-    elif USDT_SOURCE != "kryptex-bsc":
+                if gw > 0:
+                    p["gpu_coin"] = gpu_tag
+                # Pay EVERY address with shares, proportional to its value slice.
+                if epoch_usd > 0:
+                    attribution[a] = epoch_usd * vf
+        attr_src = value_src if epoch_usd > 0 else "shares-pending"
+    if not attribution and USDT_SOURCE != "kryptex-bsc":
         # Self-reported hashrate fallback (oracle mode only; real-USDT mode pays
         # strictly by verified proxy shares against real inflow).
         now = time.time()
@@ -786,7 +824,8 @@ def step():
             pusd = (p.get("cpu_hs", 0) * cpu_rate + p.get("gpu_hs", 0) * gpu_rate) * (EPOCH_SECONDS / 86400.0)
             if pusd > 0:
                 attribution[p["address"]] = pusd
-        attr_src = "self-report" if attribution else (shares.get("source") or "idle")
+        if attribution:
+            attr_src = "self-report"
 
     for addr, pusd in attribution.items():
         pay_provider(addr, pusd, mining_coin, use_buyback, aba_price)
@@ -862,15 +901,29 @@ class Handler(BaseHTTPRequestHandler):
             with _lock:
                 resp = dict(_state)
                 now = time.time()
-                resp["providers"] = [{
-                    "address": p["address"], "cpu_hs": p.get("cpu_hs", 0), "gpu_hs": p.get("gpu_hs", 0),
-                    "cpu_coin": p.get("cpu_coin"), "gpu_coin": p.get("gpu_coin"), "miner": p.get("miner"),
-                    "os": p.get("os"), "earned_aba": p.get("earned_aba", 0.0),
-                    "share_hs": p.get("share_hs", 0.0), "window_shares": p.get("window_shares", 0.0),
-                    "share_fraction": p.get("share_fraction", 0.0),
-                    "last_seen_s": int(now - p.get("last_report", 0)),
-                    "active": (now - p.get("last_report", 0)) < 180,
-                } for p in _providers.values()]
+                provs = []
+                for p in _providers.values():
+                    # CURRENT hashrate comes ONLY from a fresh app report (it drops to 0
+                    # the moment a device stops). The proxy's rolling window drives shares
+                    # /payout, NOT the live hashrate -- using it here made the pool show a
+                    # decaying hashrate + "active" for up to an hour after mining stopped.
+                    rep_recent = (now - p.get("rep_ts", 0)) < 90
+                    cpu_hs = float(p.get("rep_cpu_hs", 0.0)) if rep_recent else 0.0
+                    gpu_hs = float(p.get("rep_gpu_hs", 0.0)) if rep_recent else 0.0
+                    mining_now = rep_recent and (cpu_hs > 0 or gpu_hs > 0)
+                    provs.append({
+                        "address": p["address"],
+                        "cpu_hs": cpu_hs, "gpu_hs": gpu_hs,
+                        "cpu_verified": bool(p.get("cpu_verified")),
+                        "gpu_verified": bool(p.get("gpu_verified")) and gpu_hs > 0,
+                        "cpu_coin": p.get("cpu_coin"), "gpu_coin": p.get("gpu_coin"), "miner": p.get("miner"),
+                        "os": p.get("os"), "earned_aba": p.get("earned_aba", 0.0),
+                        "share_hs": p.get("share_hs", 0.0), "window_shares": p.get("window_shares", 0.0),
+                        "share_fraction": p.get("share_fraction", 0.0),
+                        "last_seen_s": int(now - p.get("rep_ts", 0)),
+                        "active": mining_now,
+                    })
+                resp["providers"] = provs
             self._send(200, resp)
         elif self.path.startswith("/health"):
             self._send(200, {"ok": True})
@@ -890,13 +943,16 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(400, {"error": "invalid address"})
         with _lock:
             p = _providers.setdefault(addr, {"address": addr, "earned_aba": 0.0})
-            p["cpu_hs"] = float(body.get("cpu_hashrate_hs") or 0)
-            p["gpu_hs"] = float(body.get("gpu_hashrate_hs") or 0)
-            p["cpu_coin"] = body.get("cpu_coin")
-            p["gpu_coin"] = body.get("gpu_coin")
+            # store self-reported hashrate separately; the proxy's VERIFIED values
+            # (set in step()) take precedence and must not be clobbered here.
+            p["rep_cpu_hs"] = float(body.get("cpu_hashrate_hs") or 0)
+            p["rep_gpu_hs"] = float(body.get("gpu_hashrate_hs") or 0)
+            p["cpu_coin"] = body.get("cpu_coin") or p.get("cpu_coin")
+            p["gpu_coin"] = body.get("gpu_coin") or p.get("gpu_coin")
             p["miner"] = body.get("miner")
             p["os"] = body.get("os")
             p["last_report"] = time.time()
+            p["rep_ts"] = time.time()   # marks a fresh APP report (vs proxy-share update)
         self._send(200, {"ok": True})
 
     def log_message(self, *a):
