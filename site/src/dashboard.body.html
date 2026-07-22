@@ -80,7 +80,8 @@ const n2=(x)=>Number(x||0).toLocaleString(undefined,{maximumFractionDigits:2});
 const n6=(x)=>Number(x||0).toLocaleString(undefined,{maximumFractionDigits:6});
 const usd=(x)=>"$"+Number(x||0).toLocaleString(undefined,{maximumFractionDigits:4});
 const ago=(t)=>{const s=Math.max(0,(Date.now()-new Date(t).getTime())/1000);return s<60?((s|0)+"s ago"):s<3600?(((s/60)|0)+"m ago"):(((s/3600)|0)+"h ago");};
-const hr=(h)=>{h=Number(h||0);return h>=1e9?(h/1e9).toFixed(2)+" GH/s":h>=1e6?(h/1e6).toFixed(1)+" MH/s":h>=1e3?(h/1e3).toFixed(1)+" kH/s":h+" H/s";};
+const HUNITS=["H/s","kH/s","MH/s","GH/s","TH/s","PH/s","EH/s","ZH/s","YH/s"];
+const hr=(h)=>{h=Number(h||0);let i=0;while(Math.abs(h)>=1000&&i<HUNITS.length-1){h/=1000;i++;}return (i?h.toFixed(2):Math.round(h))+" "+HUNITS[i];};
 
 async function pull(){
   try{

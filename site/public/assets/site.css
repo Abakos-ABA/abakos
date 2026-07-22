@@ -5,7 +5,8 @@ body.nav-open{overflow:hidden}
 a{color:inherit;text-decoration:none}
 button,input{font:inherit}
 button{cursor:pointer}
-img{max-width:100%}
+img,svg,video{max-width:100%;height:auto}
+canvas{max-width:100%}
 ::selection{background:var(--abk-brand);color:#fff}
 :focus-visible{outline:2px solid var(--abk-brand);outline-offset:3px;border-radius:var(--abk-radius-sm)}
 .wrap{width:min(100% - 32px,var(--abk-maxw));margin-inline:auto}
@@ -212,7 +213,7 @@ section{padding:clamp(72px,9vw,116px) 0;border-bottom:1px solid var(--abk-line)}
 .prose p code,.prose li code{padding:2px 5px;border:1px solid var(--abk-line);background:var(--abk-card)}
 .prose blockquote{padding:18px 20px;border-left:3px solid var(--abk-brand);background:var(--abk-card)}
 .prose hr{border:0;border-top:1px solid var(--abk-line);margin:46px 0}
-.tablewrap{overflow:auto;border:1px solid var(--abk-line);border-radius:var(--abk-radius-md)}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--abk-line);border-radius:var(--abk-radius-md)}
 table{width:100%;border-collapse:collapse;min-width:640px;font-size:14px}
 th,td{padding:13px 15px;text-align:left;border-bottom:1px solid var(--abk-line)}
 th{font-family:var(--abk-font-mono);font-size:11px;letter-spacing:.08em;color:var(--abk-text-soft);background:var(--abk-card)}
@@ -272,6 +273,23 @@ footer{padding:58px 0 34px;border-top:1px solid var(--abk-line)}
   .economics-panel{grid-template-columns:1fr}.economics-panel>div{border-right:0;border-bottom:1px solid var(--abk-line)}.economics-panel>p{grid-column:1}
   .wl{grid-template-columns:1fr}
   .footer-grid{grid-template-columns:1fr}.footer-brand{grid-column:auto}.footer-bottom{flex-direction:column}
+}
+/* Tablets / large phones: 4-up KPI + product bands would be cramped -> 2-up.
+   Scoped to 641-899 so the <=640 single-column rules below still win. */
+@media(min-width:641px) and (max-width:899px){
+  .proof-grid{grid-template-columns:1fr 1fr}
+  .proof-grid div:nth-child(2n){border-right:0}
+  .proof-grid div:nth-child(-n+2){border-bottom:1px solid var(--abk-line)}
+}
+/* Small phones: tighten type, spacing and stacks so nothing overflows. */
+@media(max-width:430px){
+  h1{font-size:clamp(30px,9vw,40px)}
+  h2{font-size:clamp(26px,7vw,34px)}
+  section{padding:clamp(44px,13vw,72px) 0}
+  .wrap{width:min(100% - 22px,var(--abk-maxw))}
+  .economics-panel>div b{font-size:34px}
+  .stat-grid{grid-template-columns:1fr}
+  .footer-bottom{align-items:flex-start}
 }
 @media(prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}

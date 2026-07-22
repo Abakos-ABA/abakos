@@ -150,8 +150,8 @@ const document = ({
   <meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
   <link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@700,800&f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/tokens.css?v=20260715">
-  <link rel="stylesheet" href="/assets/site.css?v=20260715">
+  <link rel="stylesheet" href="/assets/tokens.css?v=20260720">
+  <link rel="stylesheet" href="/assets/site.css?v=20260720">
   ${schema}
 </head>
 <body class="${esc(bodyClass)}">
@@ -161,7 +161,7 @@ const document = ({
   ${includeStatus ? statusStrip() : ""}
   <main id="main">${body.replaceAll('<div data-roadmap></div>', roadmap())}</main>
   ${footer()}
-  <script src="/assets/site.js?v=20260715" defer></script>
+  <script src="/assets/site.js?v=20260720" defer></script>
 </body>
 </html>`;
 
