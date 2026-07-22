@@ -6,6 +6,10 @@ dist/
 src-tauri/target/
 src-tauri/gen/
 
+# updater signing key (NEVER commit) -- keep a secure backup elsewhere
+.tauri/
+*.key
+
 # misc
 .DS_Store
 *.log

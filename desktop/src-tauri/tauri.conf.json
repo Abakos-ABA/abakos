@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Abakos Provider",
-  "version": "0.1.0",
+  "version": "0.1.9",
   "identifier": "ai.abakos.provider",
   "build": {
     "frontendDist": "../dist",
@@ -29,6 +29,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "category": "Utility",
     "shortDescription": "Earn ABA from your idle CPU/GPU.",
     "longDescription": "Abakos Provider: an integrated ABA wallet plus a one-click miner that points your idle CPU/GPU at the Abakos pool and earns ABA by verified shares.",
@@ -39,5 +40,13 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/Abakos-ABA/abakos/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDg3NUMzNkI4NUQzNDRBMzkKUldRNVNqUmR1RFpjaDJLUXVDNVdYQ2FCdW5iWjl1Vlo2QkVSbWgxdG51VndlZ0h4bG9Kdk5qd2YK"
+    }
   }
 }

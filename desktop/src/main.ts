@@ -2,18 +2,23 @@ import QRCode from "qrcode";
 import * as wallet from "./wallet";
 import type { Addresses } from "./wallet";
 import * as mining from "./mining";
-import { EXPLORER, DEX, enableMining, kvGet, kvSet, recentTxs } from "./net";
+import { EXPLORER, DEX, enableMining, kvGet, kvSet, recentTxs, reportStats } from "./net";
+import { checkForUpdate } from "./update";
+import { getVersion } from "@tauri-apps/api/app";
 
 const POOL = "https://pool.abakos.ai/";
 
 const app = document.getElementById("app") as HTMLElement;
 
+const HS_UNITS = ["H/s", "kH/s", "MH/s", "GH/s", "TH/s", "PH/s", "EH/s", "ZH/s", "YH/s"];
 const fmtHs = (h: number): string => {
   h = Number(h || 0);
-  if (h >= 1e9) return (h / 1e9).toFixed(2) + " GH/s";
-  if (h >= 1e6) return (h / 1e6).toFixed(2) + " MH/s";
-  if (h >= 1e3) return (h / 1e3).toFixed(2) + " kH/s";
-  return Math.round(h) + " H/s";
+  let i = 0;
+  while (Math.abs(h) >= 1000 && i < HS_UNITS.length - 1) {
+    h /= 1000;
+    i++;
+  }
+  return (i ? h.toFixed(2) : Math.round(h)) + " " + HS_UNITS[i];
 };
 const fmtAba = (n: number): string =>
   Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 6 });
@@ -254,7 +259,7 @@ function renderTab(): void {
     const qr = document.getElementById("qr") as HTMLElement;
     const canvas = document.createElement("canvas");
     qr.appendChild(canvas);
-    QRCode.toCanvas(canvas, addr, { margin: 1, width: 148 }).catch(() => { qr.textContent = addr; });
+    QRCode.toCanvas(canvas, addr, { margin: 1, width: 180 }).catch(() => { qr.textContent = addr; });
   } else if (activeTab === "mining") {
     c.innerHTML = `
       <div class="card" id="miningcard">
@@ -303,6 +308,11 @@ function renderTab(): void {
         <div class="label">Danger zone</div>
         <p class="fineprint">Removes this wallet from this device. Make sure you have your recovery phrase or private key.</p>
         <button class="btn danger" id="forget">Forget wallet</button>
+      </div>
+      <div class="card">
+        <div class="label">App</div>
+        <p class="fineprint">Version <b id="appver">\u2026</b> \u00b7 updates are downloaded and installed in-app.</p>
+        <div class="actions" style="margin-top:8px"><button class="btn" id="checkupd">Check for updates</button></div>
       </div>
       <div class="card">
         <div class="label">Network</div>
@@ -436,6 +446,10 @@ function wireSettings(): void {
       boot();
     }
   };
+  const ver = document.getElementById("appver");
+  if (ver) getVersion().then((v) => (ver.textContent = v)).catch(() => (ver.textContent = "\u2013"));
+  const cu = document.getElementById("checkupd") as HTMLButtonElement | null;
+  if (cu) cu.onclick = () => checkForUpdate({ silent: false });
   loadBook();
 }
 
@@ -460,27 +474,28 @@ async function loadBook(): Promise<void> {
 // ---------------------------------------------------------------- mining
 let mineHardwareThreads = 1;
 let mining_ = false;
+let hwOs = "";
+let lastReportMs = 0;
+let applyingChange = false;
 
 async function setupMining(): Promise<void> {
   const hw = document.getElementById("hw") as HTMLElement;
   const range = document.getElementById("threads") as HTMLInputElement;
   const thlabel = document.getElementById("thlabel") as HTMLElement;
   const gpu = document.getElementById("gpu") as HTMLInputElement;
-  try {
-    const info = await mining.hardwareInfo();
-    mineHardwareThreads = Math.max(1, info.cpu_threads);
-    hw.textContent = `${info.os}/${info.arch} \u00b7 ${info.cpu_threads} CPU threads \u00b7 GPU: ${info.has_nvidia ? "NVIDIA detected" : "detect on start"}`;
-    range.max = String(mineHardwareThreads);
-    range.value = String(Math.max(1, Math.floor(mineHardwareThreads / 2)));
-    gpu.disabled = false;
-    gpu.checked = info.has_nvidia;
-  } catch {
-    hw.textContent = "hardware detection unavailable";
-  }
-  thlabel.textContent = range.value;
-  range.oninput = () => (thlabel.textContent = range.value);
 
-  // reflect any already-running miner (e.g. after a UI reload)
+  // Wire the controls immediately so the tab is usable even while hardware is being
+  // detected. Changing threads/GPU while mining restarts with the new settings;
+  // while stopped it just updates what the next start will use. `touched` prevents a
+  // late-resolving detection from overwriting a value the user just set.
+  let touched = false;
+  thlabel.textContent = range.value;
+  range.oninput = () => { touched = true; thlabel.textContent = range.value; };
+  range.onchange = () => { touched = true; thlabel.textContent = range.value; applyMiningChange(); };
+  gpu.onchange = () => { touched = true; applyMiningChange(); };
+  (document.getElementById("mine") as HTMLButtonElement).onclick = toggleMining;
+
+  // Reflect an already-running miner (fast, no blocking).
   try {
     const st = await mining.minerStatus();
     mining_ = st.state === "running" || st.state === "starting";
@@ -489,7 +504,66 @@ async function setupMining(): Promise<void> {
     /* ignore */
   }
 
-  (document.getElementById("mine") as HTMLButtonElement).onclick = toggleMining;
+  // Last-used settings (persisted), so the tab shows real values whether or not the
+  // miner is currently running -- falling back to hardware-based defaults.
+  const savedThreadsRaw = await kvGet("mine_threads");
+  const savedThreads = Number(savedThreadsRaw || 0);
+  const savedGpu = (await kvGet("mine_gpu")) === "1";
+  const hasSaved = savedThreadsRaw !== null && savedThreads > 0;
+
+  // Hardware detection is async in the core (off the main thread) so this await does
+  // not freeze the app. Then populate the slider + GPU from saved prefs or defaults.
+  try {
+    const info = await mining.hardwareInfo();
+    mineHardwareThreads = Math.max(1, info.cpu_threads);
+    hwOs = `${info.os}/${info.arch}`;
+    hw.textContent = `${info.os}/${info.arch} \u00b7 ${info.cpu_threads} CPU threads \u00b7 GPU: ${info.has_nvidia ? "NVIDIA detected" : "detect on start"}`;
+    range.max = String(mineHardwareThreads);
+    if (!touched) {
+      const val = hasSaved ? Math.min(savedThreads, mineHardwareThreads) : Math.max(1, Math.floor(mineHardwareThreads / 2));
+      range.value = String(val);
+      thlabel.textContent = range.value;
+      gpu.checked = hasSaved ? savedGpu : info.has_nvidia;
+    }
+    gpu.disabled = false;
+  } catch {
+    hw.textContent = "hardware detection unavailable";
+    gpu.disabled = false;
+  }
+}
+
+// Remember the user's mining choices so the tab reloads them next time.
+async function savePrefs(threads: number, gpuOn: boolean): Promise<void> {
+  try {
+    await kvSet("mine_threads", String(threads));
+    await kvSet("mine_gpu", gpuOn ? "1" : "0");
+  } catch {
+    /* prefs are best-effort */
+  }
+}
+
+// Live-apply a threads/GPU change: if mining, restart the miner with the new
+// settings; if stopped, it simply takes effect on the next Start.
+async function applyMiningChange(): Promise<void> {
+  const range = document.getElementById("threads") as HTMLInputElement;
+  const gpuOn = (document.getElementById("gpu") as HTMLInputElement).checked;
+  savePrefs(Number(range.value), gpuOn); // remember even while stopped
+  if (!mining_ || applyingChange || !addresses) return;
+  applyingChange = true;
+  const pool = document.getElementById("poolline");
+  if (pool) pool.textContent = "Applying new settings\u2026";
+  try {
+    await mining.stopMiner();
+    await new Promise((r) => setTimeout(r, 400));
+    await mining.startMiner(addresses.aba, Number(range.value), true, gpuOn);
+    mining_ = true;
+    paintMineButton();
+  } catch (e) {
+    if (pool) pool.textContent = "error: " + ((e as Error).message || String(e));
+  } finally {
+    applyingChange = false;
+    refreshLive();
+  }
 }
 
 function paintMineButton(): void {
@@ -508,6 +582,8 @@ async function toggleMining(): Promise<void> {
     if (mining_) {
       await mining.stopMiner();
       mining_ = false;
+      // Tell the pool immediately that we stopped, so it doesn't show a stale hashrate.
+      reportStats({ address: a.aba, cpu_hashrate_hs: 0, gpu_hashrate_hs: 0, cpu_coin: "Monero", gpu_coin: "Pearl", miner: "abakos-app", os: hwOs });
     } else {
       const gpuOn = (document.getElementById("gpu") as HTMLInputElement).checked;
       // One-time: let the miner past Windows Defender via a single UAC prompt.
@@ -522,6 +598,7 @@ async function toggleMining(): Promise<void> {
         }
       }
       await mining.startMiner(a.aba, Number(range.value), true, gpuOn);
+      savePrefs(Number(range.value), gpuOn);
       mining_ = true;
     }
     paintMineButton();
@@ -530,6 +607,24 @@ async function toggleMining(): Promise<void> {
     const pool = document.getElementById("poolline");
     if (pool) pool.textContent = "error: " + ((e as Error).message || String(e));
   }
+}
+
+// Report live CPU+GPU hashrate to the agent (every ~25s while running) so the pool
+// page shows this rig's per-device stats. Display only; never affects payouts.
+async function maybeReport(miner: mining.MinerStatus): Promise<void> {
+  if (!addresses || miner.state !== "running") return;
+  const now = Date.now();
+  if (now - lastReportMs < 25000) return;
+  lastReportMs = now;
+  await reportStats({
+    address: addresses.aba,
+    cpu_hashrate_hs: miner.cpu_hashrate || 0,
+    gpu_hashrate_hs: miner.gpu_hashrate || 0,
+    cpu_coin: "Monero",
+    gpu_coin: "Pearl",
+    miner: "abakos-app",
+    os: hwOs,
+  });
 }
 
 async function refreshLive(): Promise<void> {
@@ -543,6 +638,7 @@ async function refreshLive(): Promise<void> {
   const { miner, agent, provider } = live;
   mining_ = miner.state === "running" || miner.state === "starting";
   paintMineButton();
+  maybeReport(miner);
 
   const badge = document.getElementById("minerbadge");
   if (badge) {
@@ -567,3 +663,5 @@ async function refreshLive(): Promise<void> {
 }
 
 boot();
+// Check for a newer signed release shortly after launch (silent if up to date).
+setTimeout(() => { checkForUpdate({ silent: true }).catch(() => {}); }, 1500);

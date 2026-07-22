@@ -8,11 +8,11 @@
 //! miner's local HTTP API.
 
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command};
+use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
-use tauri::{Manager, State};
+use tauri::Manager;
 
 const POOL_HOST: &str = "mine.abakos.ai";
 const POOL_PORT: u16 = 3355;
@@ -66,7 +66,7 @@ pub struct Status {
 
 pub fn start(
     app: tauri::AppHandle,
-    state: State<MinerState>,
+    inner: &Arc<Mutex<Inner>>,
     address: String,
     threads: u32,
     cpu: bool,
@@ -79,7 +79,7 @@ pub fn start(
         return Err("enable CPU and/or GPU".into());
     }
     {
-        let mut g = state.0.lock().map_err(|_| "lock poisoned")?;
+        let mut g = inner.lock().map_err(|_| "lock poisoned")?;
         if g.cpu.is_some() || g.gpu.is_some() {
             return Err("miner already running".into());
         }
@@ -88,7 +88,7 @@ pub fn start(
         g.address = Some(address.clone());
     }
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    let arc = state.0.clone();
+    let arc = inner.clone();
     std::thread::spawn(move || {
         let mut err: Option<String> = None;
         if cpu {
@@ -129,21 +129,30 @@ pub fn start(
     Ok(())
 }
 
-pub fn stop(state: State<MinerState>) -> Result<(), String> {
-    let mut g = state.0.lock().map_err(|_| "lock poisoned")?;
-    for child in [g.cpu.take(), g.gpu.take()].into_iter().flatten() {
-        let mut child = child;
-        let _ = child.kill();
-        let _ = child.wait();
+pub fn stop(inner: &Arc<Mutex<Inner>>) -> Result<(), String> {
+    {
+        let mut g = inner.lock().map_err(|_| "lock poisoned")?;
+        for child in [g.cpu.take(), g.gpu.take()].into_iter().flatten() {
+            let mut child = child;
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        g.status = "stopped".into();
+        g.error = None;
     }
-    g.status = "stopped".into();
-    g.error = None;
+    // Outside the lock (netstat/taskkill can be slow). Kill by API port AND by
+    // executable name so Stop always halts everything: duplicates, miners from a
+    // previous session, and any that never bound their API port.
+    kill_on_port(XMRIG_API_PORT);
+    kill_on_port(SRB_API_PORT);
+    kill_process_name(xmrig_proc());
+    kill_process_name(srbminer_proc());
     Ok(())
 }
 
-pub fn status(state: State<MinerState>) -> Status {
-    let (st, err, addr, pool, cpu_up, gpu_up) = {
-        let mut g = match state.0.lock() {
+pub fn status(inner: &Arc<Mutex<Inner>>) -> Status {
+    let (st, err, addr, pool, tracked_cpu, tracked_gpu) = {
+        let mut g = match inner.lock() {
             Ok(g) => g,
             Err(_) => {
                 return Status {
@@ -169,39 +178,53 @@ pub fn status(state: State<MinerState>) -> Status {
         if gpu_done {
             g.gpu = None;
         }
-        let cpu_up = g.cpu.is_some();
-        let gpu_up = g.gpu.is_some();
-        if !cpu_up && !gpu_up && g.status == "running" {
-            g.status = "stopped".into();
-        }
-        (g.status.clone(), g.error.clone(), g.address.clone(), g.pool.clone(), cpu_up, gpu_up)
+        (g.status.clone(), g.error.clone(), g.address.clone(), g.pool.clone(), g.cpu.is_some(), g.gpu.is_some())
     };
 
+    // Query the miner APIs regardless of whether *this* session spawned the miners.
+    // A miner can outlive the window (a UI reload) or the whole app (it keeps hashing
+    // after the window closes), leaving the child handle gone but the process alive.
+    // Trusting only the handle would show 0; querying the API surfaces the real stats.
     let (mut chr, mut sg, mut stot) = (0.0, 0u64, 0u64);
-    if cpu_up {
-        if let Ok(v) = query_xmrig() {
+    let cpu_api = match query_xmrig() {
+        Ok(v) => {
             chr = v.0;
             sg = v.1;
             stot = v.2;
+            true
         }
-    }
+        Err(_) => false,
+    };
     let (mut ghr, mut gsg) = (0.0, 0u64);
     let mut err = err;
-    if gpu_up {
-        match query_srbminer() {
-            Ok(v) => {
-                ghr = v.0;
-                gsg = v.1;
+    let gpu_api = match query_srbminer() {
+        Ok(v) => {
+            ghr = v.0;
+            gsg = v.1;
+            true
+        }
+        // Only surface a GPU error when a GPU miner is supposed to be up (we started
+        // one); otherwise a refused connection just means no GPU miner is running.
+        Err(e) => {
+            if tracked_gpu && err.is_none() {
+                err = Some(format!("gpu stats: {e}"));
             }
-            // GPU is mining but its API isn't answering yet (startup) or failed;
-            // surface it instead of silently showing 0.
-            Err(e) => {
-                if err.is_none() {
-                    err = Some(format!("gpu stats: {e}"));
-                }
-            }
+            false
+        }
+    };
+
+    let cpu_up = tracked_cpu || cpu_api;
+    let gpu_up = tracked_gpu || gpu_api;
+
+    // keep the stored status coherent with what's actually running
+    if let Ok(mut g) = inner.lock() {
+        if cpu_up || gpu_up {
+            g.status = "running".into();
+        } else if g.status == "running" {
+            g.status = "stopped".into();
         }
     }
+
     Status {
         state: if cpu_up || gpu_up { "running".into() } else { st },
         error: err,
@@ -258,6 +281,10 @@ fn run_cpu(data_dir: &Path, address: &str, threads: u32) -> Result<Child, String
     let cfg_path = data_dir.join("xmrig-abakos.json");
     std::fs::write(&cfg_path, serde_json::to_vec_pretty(&cfg).map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())?;
+    // clear any stray/duplicate xmrig (this session, a previous one, or a failed
+    // API-port bind) before starting fresh, so we never end up with two CPU miners
+    kill_process_name(xmrig_proc());
+    kill_on_port(XMRIG_API_PORT);
     let mut cmd = Command::new(&bin);
     cmd.arg("-c").arg(&cfg_path);
     if threads > 0 {
@@ -277,26 +304,146 @@ fn run_gpu(data_dir: &Path, address: &str) -> Result<Child, String> {
     )?;
     let tag: String = address.chars().skip(7).take(10).filter(|c| c.is_ascii_alphanumeric()).collect();
     let worker = format!("gpu{}", if tag.is_empty() { "abk".into() } else { tag });
+    // clear any stray/duplicate SRBMiner before starting fresh
+    kill_process_name(srbminer_proc());
+    kill_on_port(SRB_API_PORT);
+    // Primary: the Abakos proxy (same host/port as CPU; it auto-detects the Pearl
+    // dialect and attributes VERIFIED GPU shares to the ABA address). Failover: mine
+    // straight to Kryptex so the GPU keeps earning if the proxy is unreachable.
+    let proxy_pool = format!("{POOL_HOST}:{POOL_PORT}");
+    let kryptex_wallet = format!("{}.{}", kryptex_user(), worker);
     let mut cmd = Command::new(&bin);
     cmd.args([
         "--algorithm", "pearlhash",
-        "--pool", PRL_POOL,
-        "--wallet", &format!("{}.{}", kryptex_user(), worker),
-        "--password", "x",
+        // SRBMiner failover: comma-separated pools + matching wallets (positional).
+        "--pool", &format!("{proxy_pool},{PRL_POOL}"),
+        "--wallet", &format!("{address},{kryptex_wallet}"),
+        "--password", "x,x",
         "--disable-cpu",
         "--api-enable",
         "--api-port", &SRB_API_PORT.to_string(),
     ]);
-    hidden(&mut cmd);
-    cmd.spawn().map_err(|e| format!("failed to start SRBMiner: {e}"))
+    // Capture output to a log so we can explain a fast GPU failure (SRBMiner exits
+    // within ~1-2s on driver/OpenCL/no-GPU errors) instead of failing silently.
+    let log_path = data_dir.join("srbminer.log");
+    let (out, errout) = match std::fs::File::create(&log_path) {
+        Ok(f) => match f.try_clone() {
+            Ok(f2) => (Stdio::from(f), Stdio::from(f2)),
+            Err(_) => (Stdio::null(), Stdio::null()),
+        },
+        Err(_) => (Stdio::null(), Stdio::null()),
+    };
+    cmd.stdout(out).stderr(errout);
+    no_window(&mut cmd);
+    let mut child = cmd.spawn().map_err(|e| format!("failed to start SRBMiner: {e}"))?;
+    // If it dies almost immediately, surface WHY (GPU/driver problem) to the UI.
+    std::thread::sleep(std::time::Duration::from_millis(3500));
+    if let Ok(Some(code)) = child.try_wait() {
+        let logtxt = std::fs::read_to_string(&log_path).unwrap_or_default();
+        let low = logtxt.to_lowercase();
+        let hint = if low.contains("no gpu devices")
+            || low.contains("opencl")
+            || low.contains("cuda")
+            || low.contains("no compatible")
+        {
+            "no usable GPU detected \u{2014} update/repair GPU drivers and disable any old/broken secondary GPU (e.g. Fermi/Quadro)"
+        } else {
+            "SRBMiner exited on startup"
+        };
+        let tail = logtxt
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .collect::<Vec<_>>();
+        let tail = tail.iter().rev().take(3).rev().cloned().collect::<Vec<_>>().join(" | ");
+        return Err(format!("{hint} [{code}]: {tail}"));
+    }
+    Ok(child)
 }
 
 fn hidden(cmd: &mut Command) {
     cmd.stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+    no_window(cmd);
+}
+
+/// Suppress the console window on Windows without discarding stdout (so callers that
+/// need to read command output, e.g. netstat, still can).
+fn no_window(cmd: &mut Command) {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = cmd;
+    }
+}
+
+/// Best-effort: terminate whatever process is LISTENING on `port`. Used to clear a
+/// stray/orphaned miner (from a previous run) that still owns one of our fixed API
+/// ports, so a fresh start doesn't collide and Stop reliably halts everything. Only
+/// our own miners bind these uncommon ports, so this won't touch unrelated software.
+#[cfg(windows)]
+fn kill_on_port(port: u16) {
+    let mut ns = Command::new("netstat");
+    ns.args(["-ano", "-p", "tcp"]);
+    no_window(&mut ns);
+    let out = match ns.output() {
+        Ok(o) => o,
+        Err(_) => return,
+    };
+    let text = String::from_utf8_lossy(&out.stdout);
+    let needle = format!(":{port}");
+    let mut pids: Vec<String> = Vec::new();
+    for line in text.lines() {
+        if line.contains(&needle) && line.to_uppercase().contains("LISTENING") {
+            if let Some(pid) = line.split_whitespace().last() {
+                if pid != "0" && pid.chars().all(|c| c.is_ascii_digit()) && !pids.iter().any(|p| p == pid) {
+                    pids.push(pid.to_string());
+                }
+            }
+        }
+    }
+    for pid in pids {
+        let mut tk = Command::new("taskkill");
+        tk.args(["/F", "/PID", &pid]);
+        no_window(&mut tk);
+        let _ = tk.output();
+    }
+}
+
+#[cfg(not(windows))]
+fn kill_on_port(port: u16) {
+    if let Ok(out) = Command::new("lsof").args(["-ti", &format!("tcp:{port}")]).output() {
+        for pid in String::from_utf8_lossy(&out.stdout).split_whitespace() {
+            let _ = Command::new("kill").arg("-9").arg(pid).output();
+        }
+    }
+}
+
+/// Executable names of the miners we launch, so we can force-kill by image name.
+fn xmrig_proc() -> &'static str {
+    if cfg!(windows) { "xmrig.exe" } else { "xmrig" }
+}
+fn srbminer_proc() -> &'static str {
+    if cfg!(windows) { "SRBMiner-MULTI.exe" } else { "SRBMiner-MULTI" }
+}
+
+/// Force-kill EVERY process with this executable name (and its children). The app
+/// owns mining on this machine, so this reliably stops miners even when we no longer
+/// hold their child handle (a previous session) or a duplicate never bound its API
+/// port -- cases the handle/port cleanup alone missed, leaving miners running.
+fn kill_process_name(name: &str) {
+    #[cfg(windows)]
+    {
+        let mut c = Command::new("taskkill");
+        c.args(["/F", "/T", "/IM", name]);
+        no_window(&mut c);
+        let _ = c.output();
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = Command::new("pkill").arg("-x").arg(name).output();
     }
 }
 

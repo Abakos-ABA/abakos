@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Default capability: the app's own custom commands (wallet storage, networking, miner) run through the Rust core.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "updater:default", "process:default"]
 }

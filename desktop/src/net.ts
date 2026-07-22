@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 export const EVM_RPC = "https://evm-rpc.abakos.ai";
 export const COSMOS_REST = "https://rest.abakos.ai";
 export const AGENT_STATS = "https://explorer.abakos.ai/agent/stats";
+export const AGENT_REPORT = "https://explorer.abakos.ai/agent/report";
 export const EXPLORER = "https://abakos.ai/explorer/";
 export const DEX = "https://abakos.ai/dex/";
 export const EVM_CHAIN_ID = 9721;
@@ -153,6 +154,28 @@ export interface AgentStats {
 export async function agentStats(): Promise<AgentStats> {
   const text = await netGet(AGENT_STATS);
   return JSON.parse(text) as AgentStats;
+}
+
+export interface MinerReport {
+  address: string;
+  cpu_hashrate_hs: number;
+  gpu_hashrate_hs: number;
+  cpu_coin?: string;
+  gpu_coin?: string;
+  miner?: string;
+  os?: string;
+}
+/**
+ * Report this rig's live CPU+GPU hashrate to the agent so the pool page can show
+ * per-address device stats. Display only -- payouts stay by verified proxy shares,
+ * so a self-reported number here never affects real-USDT distribution. Best-effort.
+ */
+export async function reportStats(r: MinerReport): Promise<void> {
+  try {
+    await netPost(AGENT_REPORT, JSON.stringify(r));
+  } catch {
+    /* reporting is best-effort; ignore failures */
+  }
 }
 
 export function findProvider(stats: AgentStats, address: string): ProviderStat | undefined {

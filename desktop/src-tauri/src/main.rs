@@ -42,51 +42,83 @@ struct HardwareInfo {
 }
 
 #[tauri::command]
-fn hardware_info() -> HardwareInfo {
-    let cpu_threads = std::thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(1);
-    let has_nvidia = std::process::Command::new("nvidia-smi")
-        .arg("-L")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false);
-    HardwareInfo {
+async fn hardware_info() -> HardwareInfo {
+    // Detect off the main thread. A sync command runs on the main (UI) thread, so a
+    // slow/hanging nvidia-smi used to freeze the whole app while "Detecting hardware".
+    tauri::async_runtime::spawn_blocking(|| HardwareInfo {
         os: std::env::consts::OS.to_string(),
         arch: std::env::consts::ARCH.to_string(),
-        cpu_threads,
-        has_nvidia,
-    }
+        cpu_threads: std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1),
+        has_nvidia: detect_nvidia(),
+    })
+    .await
+    .unwrap_or(HardwareInfo {
+        os: std::env::consts::OS.to_string(),
+        arch: std::env::consts::ARCH.to_string(),
+        cpu_threads: 1,
+        has_nvidia: false,
+    })
+}
+
+/// Probe nvidia-smi for a GPU, but never wait longer than ~2s (some machines have a
+/// slow or hanging nvidia-smi). Returns false on timeout or absence.
+fn detect_nvidia() -> bool {
+    use std::sync::mpsc;
+    let (tx, rx) = mpsc::channel();
+    std::thread::spawn(move || {
+        let mut cmd = std::process::Command::new("nvidia-smi");
+        cmd.arg("-L");
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+        }
+        let ok = cmd
+            .output()
+            .map(|o| o.status.success() && !o.stdout.is_empty())
+            .unwrap_or(false);
+        let _ = tx.send(ok);
+    });
+    rx.recv_timeout(std::time::Duration::from_secs(2)).unwrap_or(false)
 }
 
 #[tauri::command]
-fn net_get(url: String) -> Result<String, String> {
+async fn net_get(url: String) -> Result<String, String> {
     if !host_allowed(&url) {
         return Err("host not allowed".into());
     }
-    http_client()?
-        .get(&url)
-        .header("User-Agent", "abakos-provider")
-        .send()
-        .map_err(|e| e.to_string())?
-        .text()
-        .map_err(|e| e.to_string())
+    // Run the blocking HTTP off the UI thread so frequent polling never freezes the app.
+    tauri::async_runtime::spawn_blocking(move || {
+        http_client()?
+            .get(&url)
+            .header("User-Agent", "abakos-provider")
+            .send()
+            .map_err(|e| e.to_string())?
+            .text()
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn net_post(url: String, body: String) -> Result<String, String> {
+async fn net_post(url: String, body: String) -> Result<String, String> {
     if !host_allowed(&url) {
         return Err("host not allowed".into());
     }
-    http_client()?
-        .post(&url)
-        .header("Content-Type", "application/json")
-        .header("User-Agent", "abakos-provider")
-        .body(body)
-        .send()
-        .map_err(|e| e.to_string())?
-        .text()
-        .map_err(|e| e.to_string())
+    tauri::async_runtime::spawn_blocking(move || {
+        http_client()?
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .header("User-Agent", "abakos-provider")
+            .body(body)
+            .send()
+            .map_err(|e| e.to_string())?
+            .text()
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 fn kv_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
@@ -147,34 +179,40 @@ fn kv_delete(app: tauri::AppHandle, key: String) -> Result<(), String> {
 /// accepts. Every mining binary is flagged as riskware by AVs; this is the
 /// standard, user-consented way to permit it. No-op on non-Windows.
 #[tauri::command]
-fn enable_mining(app: tauri::AppHandle) -> Result<String, String> {
-    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    #[cfg(windows)]
-    {
-        let dir_s = dir.to_string_lossy().replace('\'', "''");
-        let ps1 = dir.join("allow-mining.ps1");
-        std::fs::write(&ps1, format!("Add-MpPreference -ExclusionPath '{dir_s}'\r\n"))
-            .map_err(|e| e.to_string())?;
-        let file = ps1.to_string_lossy().replace('\'', "''");
-        let outer = format!(
-            "Start-Process powershell -Verb RunAs -WindowStyle Hidden -Wait -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','{file}'"
-        );
-        let status = std::process::Command::new("powershell")
-            .args(["-NoProfile", "-WindowStyle", "Hidden", "-Command", &outer])
-            .status()
-            .map_err(|e| e.to_string())?;
-        if status.success() {
-            Ok("Mining allowed (Windows Defender exclusion added).".into())
-        } else {
-            Err("The Windows prompt was declined. Windows Defender may block the miner.".into())
+async fn enable_mining(app: tauri::AppHandle) -> Result<String, String> {
+    // The elevated PowerShell runs with -Wait; do it off the UI thread so the app
+    // doesn't freeze while the UAC prompt is open.
+    tauri::async_runtime::spawn_blocking(move || {
+        let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        #[cfg(windows)]
+        {
+            let dir_s = dir.to_string_lossy().replace('\'', "''");
+            let ps1 = dir.join("allow-mining.ps1");
+            std::fs::write(&ps1, format!("Add-MpPreference -ExclusionPath '{dir_s}'\r\n"))
+                .map_err(|e| e.to_string())?;
+            let file = ps1.to_string_lossy().replace('\'', "''");
+            let outer = format!(
+                "Start-Process powershell -Verb RunAs -WindowStyle Hidden -Wait -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-File','{file}'"
+            );
+            let status = std::process::Command::new("powershell")
+                .args(["-NoProfile", "-WindowStyle", "Hidden", "-Command", &outer])
+                .status()
+                .map_err(|e| e.to_string())?;
+            if status.success() {
+                Ok("Mining allowed (Windows Defender exclusion added).".into())
+            } else {
+                Err("The Windows prompt was declined. Windows Defender may block the miner.".into())
+            }
         }
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = dir;
-        Ok("No exclusion needed on this OS.".into())
-    }
+        #[cfg(not(windows))]
+        {
+            let _ = dir;
+            Ok("No exclusion needed on this OS.".into())
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -186,21 +224,33 @@ fn start_miner(
     cpu: bool,
     gpu: bool,
 ) -> Result<(), String> {
-    miner::start(app, state, address, threads, cpu, gpu)
+    // start() spawns a worker thread and returns immediately, so it stays sync.
+    miner::start(app, &state.0, address, threads, cpu, gpu)
 }
 
 #[tauri::command]
-fn stop_miner(state: State<miner::MinerState>) -> Result<(), String> {
-    miner::stop(state)
+async fn stop_miner(state: State<'_, miner::MinerState>) -> Result<(), String> {
+    // stop() runs netstat/taskkill (slow) -> off the UI thread.
+    let arc = state.0.clone();
+    tauri::async_runtime::spawn_blocking(move || miner::stop(&arc))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
-fn miner_status(state: State<miner::MinerState>) -> miner::Status {
-    miner::status(state)
+async fn miner_status(state: State<'_, miner::MinerState>) -> Result<miner::Status, String> {
+    // status() probes the miner HTTP APIs (blocking) -> off the UI thread so the 4s
+    // poll never freezes the app.
+    let arc = state.0.clone();
+    tauri::async_runtime::spawn_blocking(move || miner::status(&arc))
+        .await
+        .map_err(|e| e.to_string())
 }
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(miner::MinerState::default())
         .invoke_handler(tauri::generate_handler![
             hardware_info,
