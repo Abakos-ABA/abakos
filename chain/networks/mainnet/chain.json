@@ -1,9 +1,11 @@
 {
-  "chainId": "abakos-sandbox-1",
-  "chainName": "Abakos Sandbox",
-  "networkType": "testnet",
+  "chainId": "abakos-1",
+  "chainName": "Abakos",
+  "networkType": "mainnet",
   "rpc": "https://rpc.abakos.ai",
   "rest": "https://rest.abakos.ai",
+  "evmRpc": "https://evm-rpc.abakos.ai",
+  "evmChainId": 9721,
   "bip44": { "coinType": 118 },
   "bech32Config": {
     "bech32PrefixAccAddr": "abakos",
@@ -33,5 +35,5 @@
     "sdlVersion": "2.1",
     "pricingDenom": "uaba"
   },
-  "_note": "Abakos sandbox — same marketplace model as mainnet (abakos-1). ABA has no value here."
+  "_note": "Template for abakos-1 mainnet launch. Genesis keys and validator set differ from sandbox. Architecture matches abakos-sandbox-1."
 }

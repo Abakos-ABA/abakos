@@ -118,14 +118,13 @@ func PrepareGenesis(clientCtx client.Context, appState map[string]json.RawMessag
 	// bank module genesis
 	bankGenState := banktypes.GetGenesisStateFromAppState(depCdc, appState)
 	bankGenState.DenomMetadata = genesisParams.NativeCoinMetadatas
+	// Abakos is single-coin (ABA / uaba). Unlike upstream Akash there is no
+	// second ACT (uact) coin in genesis: tenants escrow uaba directly and BME
+	// is not used, so shipping a dormant ACT token would only be a mainnet wart.
 	bankGenState.SendEnabled = []banktypes.SendEnabled{
 		{
-			sdkutil.DenomUakt,
+			sdkutil.DenomUakt, // == "uaba"
 			true,
-		},
-		{
-			sdkutil.DenomUact,
-			false,
 		},
 	}
 	bankGenStateBz, err := cdc.MarshalJSON(bankGenState)
@@ -219,8 +218,10 @@ type GenesisParams struct {
 func MainnetGenesisParams() GenesisParams {
 	genParams := GenesisParams{}
 
-	genParams.GenesisTime = time.Date(2021, 6, 18, 17, 0, 0, 0, time.UTC) // Jun 18, 2021 - 17:00 UTC
+	genParams.GenesisTime = time.Now() // set at launch by `prepare-genesis`; overridden by genesis ceremony
 
+	// Single native coin: ABA (base uaba, 6 decimals). No ACT/BME token in
+	// genesis — matches the ABA-only compute market (see provider-compute/ABA-ONLY.md).
 	genParams.NativeCoinMetadatas = []banktypes.Metadata{
 		{
 			Description: "The native token of Abakos",
@@ -241,27 +242,6 @@ func MainnetGenesisParams() GenesisParams {
 			Name:    "Abakos",
 			Symbol:  "ABA",
 		},
-		{
-			Description: "Akash Compute Token",
-			DenomUnits: []*banktypes.DenomUnit{
-				{
-					Denom:    sdkutil.DenomAct,
-					Exponent: 6,
-				},
-				{
-					Denom:    sdkutil.DenomMact,
-					Exponent: 3,
-				},
-				{
-					Denom:    sdkutil.DenomUact,
-					Exponent: 0,
-				},
-			},
-			Base:    sdkutil.DenomUact,
-			Display: sdkutil.DenomUact,
-			Name:    "Akash Compute Token",
-			Symbol:  "ACT",
-		},
 	}
 
 	genParams.StakingParams = stakingtypes.DefaultParams()
@@ -269,6 +249,12 @@ func MainnetGenesisParams() GenesisParams {
 	genParams.StakingParams.MaxValidators = 100
 	genParams.StakingParams.BondDenom = genParams.NativeCoinMetadatas[0].Base
 	genParams.StakingParams.MinCommissionRate = sdkmath.LegacyMustNewDecFromStr("0.05")
+
+	// Mint params must be set explicitly: PrepareGenesis overwrites the app
+	// default with this struct, so a zero value here yields "mint denom cannot
+	// be blank" during ValidateGenesis. Pin the mint denom to uaba.
+	genParams.MintParams = minttypes.DefaultParams()
+	genParams.MintParams.MintDenom = genParams.NativeCoinMetadatas[0].Base // uaba
 
 	genParams.DistributionParams = distributiontypes.DefaultParams()
 	genParams.DistributionParams.CommunityTax = sdkmath.LegacyMustNewDecFromStr("0")
@@ -307,10 +293,15 @@ func TestnetGenesisParams() GenesisParams {
 
 	genParams.GovParams.DepositParams.MinDeposit = sdk.NewCoins(sdk.NewCoin(
 		genParams.NativeCoinMetadatas[0].Base,
-		sdkmath.NewInt(1000000), // 1 AKT
+		sdkmath.NewInt(1000000), // 1 ABA
 	))
 	genParams.GovParams.TallyParams.Quorum = sdkmath.LegacyMustNewDecFromStr("0.0000000001") // 0.00000001%
-	genParams.GovParams.VotingParams.VotingPeriod = time.Second * 300                        // 300 seconds
+
+	// Sandbox governance is intentionally fast: a param change takes ~10min
+	// instead of a full genesis cycle. Trivially reverted later via a gov
+	// proposal (that is the whole point of a short voting period).
+	genParams.GovParams.DepositParams.MaxDepositPeriod = time.Minute * 10
+	genParams.GovParams.VotingParams.VotingPeriod = time.Minute * 10
 
 	return genParams
 }
