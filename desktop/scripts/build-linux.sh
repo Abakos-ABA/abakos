@@ -31,15 +31,20 @@ fi
 echo "== install js deps =="
 npm ci || npm install
 
-# Sign the update artifacts if the key is present (same key as Windows releases).
+# tauri.conf.json sets createUpdaterArtifacts:true + a pubkey, so `tauri build`
+# HARD-FAILS (exit 1, after the installers are already written) without a signing
+# key. If the key is present we build signed (updater artifacts + latest.json);
+# otherwise we disable updater artifacts so an unsigned installer build exits 0.
+echo "== build =="
 if [ -f .tauri/updater.key ]; then
   export TAURI_SIGNING_PRIVATE_KEY="$(cat .tauri/updater.key)"
-  export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
-  echo "== signing enabled =="
+  export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"
+  echo "== signing enabled: updater artifacts + latest.json will be produced =="
+  npm run tauri:build
+else
+  echo "== no .tauri/updater.key: building UNSIGNED installers (no auto-update artifacts) =="
+  npm run tauri:build -- --config '{"bundle":{"createUpdaterArtifacts":false}}'
 fi
-
-echo "== build =="
-npm run tauri:build
 
 echo
 echo "== done. Installers: =="
