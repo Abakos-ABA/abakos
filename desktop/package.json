@@ -1,6 +1,6 @@
 {
   "name": "abakos-provider",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "private": true,
   "type": "module",
   "description": "Abakos Provider desktop app: integrated ABA wallet + one-click miner (earns ABA by verified shares).",

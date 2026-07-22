@@ -1,6 +1,6 @@
 [package]
 name = "abakos-provider"
-version = "0.1.9"
+version = "0.1.10"
 description = "Abakos Provider: integrated wallet + one-click miner that earns ABA by verified shares."
 authors = ["Abakos"]
 edition = "2021"

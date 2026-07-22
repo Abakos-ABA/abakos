@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "abakos-provider"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "flate2",
  "reqwest 0.12.28",
