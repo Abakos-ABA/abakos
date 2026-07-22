@@ -1,9 +1,9 @@
 //! Dual-mining orchestration.
 //!   CPU = xmrig (RandomX / Monero) through the Abakos stratum proxy, login = the
 //!         user's ABA address, so the proxy attributes verified shares to it.
-//!   GPU = SRBMiner-MULTI (PearlHash / Pearl) to Kryptex. Pearl is GPU-only and not
-//!         relayed by the proxy yet, so it mines to the project Kryptex account
-//!         (auto-exchanged to USDT); per-address GPU attribution is a later step.
+//!   GPU = SRBMiner-MULTI (PearlHash / Pearl), primary pool = the same Abakos proxy
+//!         (it auto-detects the Pearl dialect and attributes VERIFIED per-address GPU
+//!         shares); failover = the project Kryptex account if the proxy is unreachable.
 //! Both run in parallel. Binaries are downloaded on first run. Stats come from each
 //! miner's local HTTP API.
 

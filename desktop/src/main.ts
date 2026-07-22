@@ -650,9 +650,9 @@ async function refreshLive(): Promise<void> {
     const el = document.getElementById(id);
     if (el) el.textContent = v;
   };
-  set("cpuhs", fmtHs(miner.cpu_hashrate));
+  set("cpuhs", fmtHs(miner.cpu_hashrate) + (miner.shares_good ? ` \u00b7 ${miner.shares_good} sh` : ""));
   set("gpuhs", fmtHs(miner.gpu_hashrate) + (miner.gpu_shares_good ? ` \u00b7 ${miner.gpu_shares_good} sh` : ""));
-  set("poolline", `CPU: ${miner.pool}${miner.cpu_running ? " \u25cf" : ""} \u00b7 GPU: prl.kryptex.network:7048${miner.gpu_running ? " \u25cf" : ""}${miner.error ? " \u00b7 " + miner.error : ""}`);
+  set("poolline", `CPU: ${miner.pool}${miner.cpu_running ? " \u25cf" : ""} \u00b7 GPU: ${miner.pool}${miner.gpu_running ? " \u25cf" : ""}${miner.error ? " \u00b7 " + miner.error : ""}`);
   set("vshares", provider ? fmtAba(provider.window_shares) : "0");
   set("earned", provider ? fmtAba(provider.earned_aba) + " ABA" : "0 ABA");
   if (agent) {
