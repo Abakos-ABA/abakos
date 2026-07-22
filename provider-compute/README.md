@@ -107,8 +107,8 @@ CPU-first validates the full flow without a GPU. For renting a 2nd card: Hyper-V
 | Provider register + daemon | ✅ |
 | Tenant deploy escrow **uaba** | ✅ verified sandbox |
 | Provider bid **uaba** | ✅ verified sandbox |
-| Lease create | ✅ verified sandbox |
-| Manifest + nginx pod | Requires SDL v2.1 + hostname operator — see [ABA-ONLY.md](ABA-ONLY.md) |
+| Lease create | ✅ verified sandbox (dseq `362096`) |
+| Manifest + nginx pod | ✅ verified sandbox — SDL v2.1 + `hello.provider.abakos.local` + hostname operator |
 
 ## Docs
 

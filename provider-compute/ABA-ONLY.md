@@ -78,8 +78,10 @@ bash provider-compute/scripts/30-test-deploy.sh
 
 **Verified on sandbox (2026-07-22):**
 
-- Deployment create with `5000000uaba` escrow — tx `48AB3502…` / `DF6CBD01…`
+- Deployment create with `5000000uaba` escrow — e.g. tx `DF612637…` (dseq `362096`)
 - Provider bid at `1 uaba/block` with `5000000uaba` bid deposit escrow
+- Lease active — tx `0B7CAC39…`
+- Manifest **PASS** → nginx pod `Running` in `lease` namespace (URI `hello.provider.abakos.local`)
 - Lease **active** for tenant `abakos159lpq7…`, provider `abakos13ftax…`
 
 ---
@@ -172,6 +174,10 @@ All escrow accounts show `denom: uaba` in `abakosd query deployment list` and bi
 ---
 
 ## Troubleshooting
+
+### Provider crashes / no bids after ABA-only upgrade
+
+`balance_checker.go` in upstream provider only watches `uact` escrow. Rebuild with `scripts/10-build-provider.sh` — it patches the checker to accept `uaba` (`DenomUakt`).
 
 ### `no uaba balance` but faucet succeeded
 
