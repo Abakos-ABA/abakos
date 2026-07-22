@@ -23,6 +23,7 @@ import (
 	dtypes "pkg.akt.dev/go/node/deployment/v1beta4"
 	mtypes "pkg.akt.dev/go/node/market/v1beta5"
 	deposit "pkg.akt.dev/go/node/types/deposit/v1"
+	"pkg.akt.dev/go/sdkutil"
 )
 
 func DetectDeploymentDeposit(ctx context.Context, flags *pflag.FlagSet, cl aclient.QueryClient) (sdk.Coin, error) {
@@ -36,16 +37,16 @@ func DetectDeploymentDeposit(ctx context.Context, flags *pflag.FlagSet, cl aclie
 			return sdk.Coin{}, err
 		}
 
-		// always default to ACT
+		// default to native ABA (uaba)
 		for _, sCoin := range resp.Params.MinDeposits {
-			if sCoin.Denom == "uact" {
+			if sCoin.Denom == sdkutil.DenomUakt {
 				depositStr = fmt.Sprintf("%s%s", sCoin.Amount, sCoin.Denom)
 				break
 			}
 		}
 
 		if depositStr == "" {
-			return sdk.Coin{}, fmt.Errorf("couldn't query default deposit amount for uAKT")
+			return sdk.Coin{}, fmt.Errorf("couldn't query default deposit amount for %s", sdkutil.DenomUakt)
 		}
 	} else {
 		depositStr, err = flags.GetString(cflags.FlagDeposit)

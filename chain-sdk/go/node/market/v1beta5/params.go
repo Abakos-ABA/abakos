@@ -9,13 +9,13 @@ import (
 	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
 
 	v1 "pkg.akt.dev/go/node/market/v1"
+	"pkg.akt.dev/go/sdkutil"
 )
 
 var _ paramtypes.ParamSet = (*Params)(nil)
 
 var (
-	DefaultBidMinDeposit           = sdk.NewCoin("uakt", sdkmath.NewInt(500000))
-	DefaultBidMinDepositACT        = sdk.NewCoin("uact", sdkmath.NewInt(500000))
+	DefaultBidMinDeposit = sdk.NewCoin(sdkutil.DenomUakt, sdkmath.NewInt(500000))
 	defaultOrderMaxBids     uint32 = 20
 	maxOrderMaxBids         uint32 = 500
 
@@ -47,7 +47,6 @@ func DefaultParams() Params {
 		OrderMaxBids:  defaultOrderMaxBids,
 		BidMinDeposits: sdk.NewCoins(
 			DefaultBidMinDeposit,
-			DefaultBidMinDepositACT,
 		),
 		MinReclamationWindow: DefaultMinReclamationWindow,
 		MaxReclamationWindow: DefaultMaxReclamationWindow,

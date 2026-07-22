@@ -12,6 +12,7 @@ import (
 	mv1 "pkg.akt.dev/go/node/market/v1"
 	mvbeta "pkg.akt.dev/go/node/market/v1beta5"
 	ptypes "pkg.akt.dev/go/node/provider/v1beta4"
+	"pkg.akt.dev/go/sdkutil"
 )
 
 type msgServer struct {
@@ -35,6 +36,9 @@ func (ms msgServer) CreateBid(goCtx context.Context, msg *mvbeta.MsgCreateBid) (
 	}
 
 	minDeposit := params.BidMinDeposits.AmountOf(msg.Deposit.Amount.Denom)
+	if minDeposit.IsZero() && msg.Deposit.Amount.Denom == sdkutil.DenomUakt {
+		minDeposit = params.BidMinDeposits.AmountOf("uakt")
+	}
 	if minDeposit.IsZero() {
 		return nil, fmt.Errorf("%w: unsupported denom %s", mv1.ErrInvalidDeposit, msg.Deposit.Amount.Denom)
 	}

@@ -1,0 +1,38 @@
+# Minimal CPU-only deployment (SDL v2) to validate the whole flow end-to-end:
+# deploy -> provider bids -> lease -> manifest -> nginx runs in k3s -> escrow pays ABA.
+---
+version: "2.1"
+
+services:
+  web:
+    image: nginx:1.27
+    expose:
+      - port: 80
+        as: 80
+        accept:
+          - hello.provider.abakos.local
+        to:
+          - global: true
+
+profiles:
+  compute:
+    web:
+      resources:
+        cpu:
+          units: 0.5
+        memory:
+          size: 512Mi
+        storage:
+          size: 512Mi
+  placement:
+    abakos:
+      pricing:
+        web:
+          denom: uaba
+          amount: 100000   # max price (uaba/block)
+
+deployment:
+  web:
+    abakos:
+      profile: web
+      count: 1

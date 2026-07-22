@@ -1,0 +1,28 @@
+[Unit]
+Description=Abakos Compute Provider (provider-services)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=__USER__
+Environment=AKASH_KEYRING_BACKEND=test
+Environment=KUBECONFIG=/home/__USER__/.kube/config
+ExecStart=__PS_BIN__ run \
+  --chain-id abakos-sandbox-1 \
+  --node https://rpc.abakos.ai:443 \
+  --from provider \
+  --keyring-backend test \
+  --home /home/__USER__/.akash \
+  --kubeconfig /home/__USER__/.kube/config \
+  --gas-prices 0uaba --gas auto --gas-adjustment 1.4 \
+  --cluster-k8s \
+  --deployment-ingress-domain __DOMAIN__ \
+  --bid-price-strategy shellScript \
+  --bid-price-script-path __HERE__/pricing.sh \
+  --bid-deposit 5000000uaba
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

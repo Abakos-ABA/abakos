@@ -56,8 +56,8 @@ func (ms msgServer) CreateDeployment(goCtx context.Context, msg *types.MsgCreate
 		return nil, err
 	}
 
-	// AKT deposits are only allowed via AccountDeposit (existing deployment)
-	if msg.Deposit.Amount.Denom == sdkutil.DenomUakt {
+	// New deployments escrow native ABA only (not ACT).
+	if msg.Deposit.Amount.Denom == sdkutil.DenomUact {
 		return nil, v1.ErrInvalidDeposit
 	}
 
@@ -90,7 +90,7 @@ func (ms msgServer) CreateDeployment(goCtx context.Context, msg *types.MsgCreate
 		return nil, v1.ErrInvalidGroups.Wrap(err.Error())
 	}
 
-	if msg.Groups[0].Price().Denom != sdkutil.DenomUact {
+	if msg.Groups[0].Price().Denom != sdkutil.DenomUakt {
 		return nil, v1.ErrInvalidPrice.Wrapf("unsupported denomination %s", msg.Groups[0].Price().Denom)
 	}
 

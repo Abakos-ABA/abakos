@@ -1,0 +1,12 @@
+# never commit keys, certs, or kubeconfig
+*.key
+*.pem
+*.pfx
+provider.pem
+kubeconfig
+.kube/
+keys/
+*.secret
+provider.local.yaml
+artifacts/
+*.exe

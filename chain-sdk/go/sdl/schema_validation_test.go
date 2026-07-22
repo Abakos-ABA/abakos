@@ -156,8 +156,7 @@ func TestSchemaValidation_Denom(t *testing.T) {
 		denom     string
 		shouldErr bool
 	}{
-		{"valid_uakt", "uakt", false},
-		{"valid_uact", "uact", false},
+		{"valid_uaba", "uaba", false},
 		{"invalid_akt", "akt", true},
 		{"invalid_ibc", "ibc/ABC123", true},
 		{"invalid_empty", "", true},

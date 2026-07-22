@@ -10,6 +10,7 @@ import (
 	paramtypes "github.com/cosmos/cosmos-sdk/x/params/types"
 
 	v1 "pkg.akt.dev/go/node/deployment/v1"
+	"pkg.akt.dev/go/sdkutil"
 )
 
 var _ paramtypes.ParamSet = (*Params)(nil)
@@ -31,8 +32,7 @@ func (p *Params) ParamSetPairs() paramtypes.ParamSetPairs {
 func DefaultParams() Params {
 	return Params{
 		MinDeposits: sdk.Coins{
-			sdk.NewCoin("uakt", sdkmath.NewInt(500000)),
-			sdk.NewCoin("uact", sdkmath.NewInt(500000)),
+			sdk.NewCoin(sdkutil.DenomUakt, sdkmath.NewInt(500000)),
 		},
 	}
 }
@@ -65,6 +65,15 @@ func (p Params) MinDepositFor(denom string) (sdk.Coin, error) {
 		}
 	}
 
+	// Legacy sandbox params may list uakt/uact while the bank module uses uaba.
+	if denom == sdkutil.DenomUakt {
+		for _, minDeposit := range p.MinDeposits {
+			if minDeposit.Denom == "uakt" {
+				return sdk.NewCoin(denom, minDeposit.Amount), nil
+			}
+		}
+	}
+
 	return sdk.NewInt64Coin(denom, math.MaxInt64), fmt.Errorf("%w: Invalid deposit denomination %v", v1.ErrInvalidDeposit, denom)
 }
 
@@ -88,8 +97,8 @@ func validateMinDeposits(i interface{}) error {
 		}
 	}
 
-	if _, exists := check["uact"]; !exists {
-		return fmt.Errorf("%w: Min Deposits - uact not given: %#v", v1.ErrInvalidParam, vals)
+	if _, exists := check[sdkutil.DenomUakt]; !exists {
+		return fmt.Errorf("%w: Min Deposits - %s not given: %#v", v1.ErrInvalidParam, sdkutil.DenomUakt, vals)
 	}
 
 	return nil

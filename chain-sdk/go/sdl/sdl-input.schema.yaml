@@ -50,7 +50,7 @@ definitions:
             minimum: 0
             description: Positive number
       denom:
-        enum: [uakt, uact]
+        enum: [uaba]
         type: string
     required:
       - denom
