@@ -314,7 +314,9 @@ fn run_gpu(data_dir: &Path, address: &str) -> Result<Child, String> {
     let kryptex_wallet = format!("{}.{}", kryptex_user(), worker);
     let mut cmd = Command::new(&bin);
     cmd.args([
-        "--algorithm", "pearlhash",
+        // pearlhash is a GPU algorithm: it MUST be passed via --algorithm-gpu.
+        // Using plain --algorithm (the CPU-algo switch) makes SRBMiner crash.
+        "--algorithm-gpu", "pearlhash",
         // SRBMiner failover: comma-separated pools + matching wallets (positional).
         "--pool", &format!("{proxy_pool},{PRL_POOL}"),
         "--wallet", &format!("{address},{kryptex_wallet}"),
@@ -341,11 +343,9 @@ fn run_gpu(data_dir: &Path, address: &str) -> Result<Child, String> {
     if let Ok(Some(code)) = child.try_wait() {
         let logtxt = std::fs::read_to_string(&log_path).unwrap_or_default();
         let low = logtxt.to_lowercase();
-        let hint = if low.contains("no gpu devices")
-            || low.contains("opencl")
-            || low.contains("cuda")
-            || low.contains("no compatible")
-        {
+        let hint = if logtxt.trim().is_empty() {
+            "GPU miner crashed on launch with no output (access violation). This is almost always a GPU-driver incompatibility \u{2014} e.g. a very new NVIDIA/AMD driver the miner doesn't support yet. Roll back to a stable driver (or wait for a miner update). CPU mining is unaffected."
+        } else if low.contains("no gpu") || low.contains("no compatible") || low.contains("no opencl") || low.contains("no cuda") {
             "no usable GPU detected \u{2014} update/repair GPU drivers and disable any old/broken secondary GPU (e.g. Fermi/Quadro)"
         } else {
             "SRBMiner exited on startup"
