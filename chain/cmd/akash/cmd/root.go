@@ -13,13 +13,16 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/pruning"
 	"github.com/cosmos/cosmos-sdk/client/snapshot"
 	sdkserver "github.com/cosmos/cosmos-sdk/server"
+	"github.com/cosmos/cosmos-sdk/x/auth/migrations/legacytx"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/cosmos/evm/ethereum/eip712"
 	rosettaCmd "github.com/cosmos/rosetta/cmd"
 
 	"pkg.akt.dev/go/cli"
 	"pkg.akt.dev/go/sdkutil"
 
 	"pkg.akt.dev/node/v2/app"
+	apptypes "pkg.akt.dev/node/v2/app/types"
 	"pkg.akt.dev/node/v2/cmd/akash/cmd/testnetify"
 )
 
@@ -27,9 +30,15 @@ import (
 // main function.
 func NewRootCmd() (*cobra.Command, sdkutil.EncodingConfig) {
 	encodingConfig := sdkutil.MakeEncodingConfig()
+	app.ModuleBasics().RegisterLegacyAminoCodec(encodingConfig.Amino)
 	app.ModuleBasics().RegisterInterfaces(encodingConfig.InterfaceRegistry)
 	// Register eth_secp256k1 key types so the node can decode/verify Ethereum txs.
 	app.RegisterEVMCryptoInterfaces(encodingConfig.InterfaceRegistry)
+	// Enable cosmos/evm EIP-712 verification (MetaMask eth_signTypedData_v4).
+	// Only SetEncodingConfig + RegisterInterfaces; do not re-register amino SDK types.
+	eip712.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+	eip712.SetEncodingConfig(encodingConfig.Amino, encodingConfig.InterfaceRegistry, apptypes.AbakosEVMChainID)
+	legacytx.RegressionTestingAminoCodec = encodingConfig.Amino
 
 	rootCmd := &cobra.Command{
 		Use:   "akash",

@@ -89,3 +89,7 @@ hello.provider.abakos.ai    → lease ingress (from SDL accept + hostname operat
 ```
 
 For local VMs without public DNS, set `DOMAIN=provider.abakos.ai` and add `/etc/hosts` entries for lease hostnames, or use a dev subdomain you control.
+
+Sandbox can use `https://<public-ip>:8443` via an SSH reverse tunnel to the validator until the IONOS A record `provider.abakos.ai` points at that IP. Install with `scripts/tunnel-remote.sh` (TLS passthrough; no Caddy in front of :8443), then set on-chain host with `HOST_URI=https://<public-ip>:8443 bash scripts/40-update-host-uri.sh`. When DNS exists, re-run the update script with `HOST_URI=https://provider.abakos.ai:8443`.
+
+Manual IONOS step (no API): add A record `provider.abakos.ai` → `217.154.169.211` (and open inbound TCP 8443 on that host's cloud firewall).

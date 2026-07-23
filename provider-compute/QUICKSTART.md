@@ -37,14 +37,15 @@ sudo systemctl enable --now abakos-provider
 bash provider-compute/scripts/30-test-deploy.sh
 ```
 
-## B) Desktop app (later)
+## B) Desktop app (Host tab)
 
 ```bash
 bash desktop/scripts/build-linux.sh
 # AppImage / .deb in desktop/src-tauri/target/release/bundle/
 ```
 
-Provider tab wires in after Phase 1 E2E is stable on your VM.
+The **Host** tab starts/stops the local `abakos-provider` systemd unit and shows on-chain `host_uri`.
+Install provider-compute on the Linux VM first (Phase 1). Public reachability still needs a tunnel or public IP — see `scripts/tunnel-remote.sh`.
 
 ## Tenant flow (30-test-deploy.sh)
 

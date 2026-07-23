@@ -113,9 +113,10 @@ abakos/
 **Live:** [abakos.ai](https://abakos.ai) (site, waitlist) + `console.` / `chat.` / `status.` subdomains. The public sandbox **`abakos-sandbox-1`** is live: `abakosd` PoS chain (10B ABA, 0% inflation, ~1s blocks, **zero-fee**), Cosmos `rpc.`/`rest.`, a native **EVM** (`cosmos/evm`, EIP-155 chain id **9721**) with Ethereum JSON-RPC at `evm-rpc.abakos.ai` and MetaMask support, a web wallet, explorer, faucet, an on-chain **ABA/USDT DEX**, and the **Provider Agent** (real CPU/GPU mining → ABA payouts with the 88 / 4 / 4 / 4 split).
 
 - [`docs/litepaper.md`](docs/litepaper.md), [`docs/whitepaper.md`](docs/whitepaper.md), and [`docs/fee-model.md`](docs/fee-model.md) are the canonical public docs.
+- **Sandbox handoff (what is live vs what is blocked):** [`docs/18-sandbox-status-and-next-steps.md`](docs/18-sandbox-status-and-next-steps.md). Start there before Console / MetaMask / provider work.
 - Earlier PoUW/Pearl-era planning notes are archived under [`legacy/`](legacy/) and are **not** the product.
 
-**Next:** desktop app (wallet + miner + live stats), Console + buyback, on-chain supply-reducing burn (module/precompile), EVM + AMM security audit, fiat onramp, mainnet.
+**Next:** see the sandbox status doc (Console wallet Connected bug is the current P0). Then buyback / burn, EVM + AMM audit, fiat onramp, mainnet.
 
 ## Build (chain)
 
