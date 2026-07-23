@@ -2,6 +2,7 @@ import QRCode from "qrcode";
 import * as wallet from "./wallet";
 import type { Addresses } from "./wallet";
 import * as mining from "./mining";
+import * as host from "./host";
 import { EXPLORER, DEX, enableMining, kvGet, kvSet, recentTxs, reportStats } from "./net";
 import { checkForUpdate } from "./update";
 import { getVersion } from "@tauri-apps/api/app";
@@ -184,6 +185,7 @@ const TABS: [string, string][] = [
   ["send", "Send"],
   ["receive", "Receive"],
   ["mining", "Mining"],
+  ["host", "Host"],
   ["settings", "Settings"],
 ];
 
@@ -290,6 +292,27 @@ function renderTab(): void {
       </div>`;
     setupMining();
     refreshLive();
+  } else if (activeTab === "host") {
+    c.innerHTML = `
+      <div class="card" id="hostcard">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <div><div class="label">Host</div><h2>Rent out this machine</h2></div>
+          <span class="badge off" id="hostbadge"><span class="pulse"></span> \u2026</span>
+        </div>
+        <p class="soft" id="hosthint">Checks the local <span class="mono">abakos-provider</span> service (Linux / k3s).</p>
+        <div class="addr" style="margin-top:12px"><span class="atype">host_uri</span><code id="hosturi">\u2013</code><span class="copy" id="hosturicopy">copy</span></div>
+        <div class="actions" style="margin-top:14px">
+          <button class="btn fill big" id="hostbtn">Start hosting</button>
+        </div>
+        <p class="msg" id="hostmsg"></p>
+        <p class="fineprint" id="hostline">Unit: abakos-provider</p>
+      </div>
+      <div class="card">
+        <div class="label">How hosting works</div>
+        <p class="fineprint">Tenants deploy via <a href="https://console.abakos.ai">console.abakos.ai</a>. Your gateway must be publicly reachable (tunnel or public IP on :8443). Compute hosting runs on k3s (Linux containers), so it needs Linux. On Windows, run the provider inside <b>WSL2</b> (Ubuntu) or a Linux VM, then open this tab there to start/stop. Mining (CPU/GPU) works natively on Windows and is independent of hosting.</p>
+      </div>`;
+    setupHost();
+    refreshHost();
   } else if (activeTab === "settings") {
     c.innerHTML = `
       <div class="card">
@@ -659,6 +682,114 @@ async function refreshLive(): Promise<void> {
     set("price", "$" + Number(agent.aba_price_usd || 0).toLocaleString(undefined, { maximumFractionDigits: 6 }));
     const b = agent.payout_basis?.source;
     set("basis", b === "proxy-shares" ? "verified shares" : b || "\u2013");
+  }
+  if (activeTab === "host") refreshHost();
+}
+
+// ---------------------------------------------------------------- host (compute provider)
+let hosting_ = false;
+
+async function setupHost(): Promise<void> {
+  (document.getElementById("hostbtn") as HTMLButtonElement).onclick = toggleHost;
+  const uriCopy = document.getElementById("hosturicopy");
+  if (uriCopy) {
+    uriCopy.onclick = () => {
+      const u = (document.getElementById("hosturi") as HTMLElement)?.textContent || "";
+      if (u && u !== "\u2013") void copy(u);
+    };
+  }
+  try {
+    const st = await host.providerDaemonStatus();
+    hosting_ = st.state === "running" || st.state === "starting";
+    paintHostButton();
+  } catch {
+    /* ignore */
+  }
+}
+
+function paintHostButton(): void {
+  const btn = document.getElementById("hostbtn") as HTMLButtonElement | null;
+  if (!btn) return;
+  btn.textContent = hosting_ ? "Stop hosting" : "Start hosting";
+  btn.classList.toggle("fill", !hosting_);
+  btn.classList.toggle("danger", hosting_);
+  btn.disabled = false;
+}
+
+async function toggleHost(): Promise<void> {
+  const msg = document.getElementById("hostmsg") as HTMLElement | null;
+  try {
+    if (hosting_) {
+      await host.stopProvider();
+      hosting_ = false;
+    } else {
+      await host.startProvider();
+      hosting_ = true;
+    }
+    paintHostButton();
+    if (msg) {
+      msg.className = "msg ok";
+      msg.textContent = hosting_ ? "provider starting\u2026" : "provider stopped";
+    }
+    refreshHost();
+  } catch (e) {
+    if (msg) {
+      msg.className = "msg err";
+      msg.textContent = (e as Error).message || String(e);
+    }
+  }
+}
+
+async function refreshHost(): Promise<void> {
+  if (!addresses) return;
+  let live;
+  try {
+    live = await host.fetchHostLive(addresses.aba);
+  } catch {
+    return;
+  }
+  const { daemon, chainHostUri } = live;
+  hosting_ = daemon.state === "running" || daemon.state === "starting";
+  paintHostButton();
+
+  const badge = document.getElementById("hostbadge");
+  if (badge) {
+    const liveState = daemon.state === "running";
+    badge.className = "badge " + (liveState ? "live" : "off");
+    badge.innerHTML = `<span class="pulse"></span> ${daemon.state}`;
+  }
+  const uri = chainHostUri || daemon.host_uri || "\u2013";
+  const uriEl = document.getElementById("hosturi");
+  if (uriEl) uriEl.textContent = uri;
+
+  const hint = document.getElementById("hosthint");
+  if (hint) {
+    if (!daemon.platform_ok) {
+      hint.textContent =
+        "This PC cannot run the provider daemon. Open Abakos on your Linux provider VM to start/stop hosting.";
+    } else if (daemon.error) {
+      hint.textContent = daemon.error;
+    } else {
+      hint.innerHTML =
+        "Local unit <span class=\"mono\">" +
+        (daemon.unit || "abakos-provider") +
+        "</span> \u00b7 tenants reach you via the on-chain host_uri.";
+    }
+  }
+  const line = document.getElementById("hostline");
+  if (line) {
+    const parts = [
+      `Unit: ${daemon.unit || "abakos-provider"}`,
+      chainHostUri ? "on-chain registered" : "not registered on-chain for this wallet",
+    ];
+    if (daemon.error) parts.push(daemon.error);
+    line.textContent = parts.join(" \u00b7 ");
+  }
+  const btn = document.getElementById("hostbtn") as HTMLButtonElement | null;
+  if (btn && !daemon.platform_ok) {
+    btn.disabled = true;
+    btn.textContent = "Hosting needs Linux VM";
+    btn.classList.remove("fill", "danger");
   }
 }
 

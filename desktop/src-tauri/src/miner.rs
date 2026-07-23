@@ -88,6 +88,14 @@ pub fn start(
         g.address = Some(address.clone());
     }
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    // Keep the machine awake for the whole mining session and re-assert it from a
+    // long-lived thread (the request is tied to the calling thread). Cleared when
+    // mining stops. Prevents idle sleep from interrupting unattended GPU mining.
+    #[cfg(windows)]
+    {
+        let awake_arc = inner.clone();
+        std::thread::spawn(move || win_power::keep_awake_loop(awake_arc));
+    }
     let arc = inner.clone();
     std::thread::spawn(move || {
         let mut err: Option<String> = None;
@@ -291,7 +299,10 @@ fn run_cpu(data_dir: &Path, address: &str, threads: u32) -> Result<Child, String
         cmd.arg("-t").arg(threads.to_string());
     }
     hidden(&mut cmd);
-    cmd.spawn().map_err(|e| format!("failed to start xmrig: {e}"))
+    let child = cmd.spawn().map_err(|e| format!("failed to start xmrig: {e}"))?;
+    // Keep hashing at full speed even when the app window is minimized/background.
+    win_power::set_process_full_speed(child.id());
+    Ok(child)
 }
 
 // ------------------------------------------------------------------ GPU (SRBMiner)
@@ -338,6 +349,10 @@ fn run_gpu(data_dir: &Path, address: &str) -> Result<Child, String> {
     cmd.stdout(out).stderr(errout);
     no_window(&mut cmd);
     let mut child = cmd.spawn().map_err(|e| format!("failed to start SRBMiner: {e}"))?;
+    // Opt the GPU miner out of Windows power throttling immediately, so a minimized/
+    // background window never drops it to low CPU frequency (which starves the GPU
+    // feeder threads and makes hashrate stall or oscillate).
+    win_power::set_process_full_speed(child.id());
     // If it dies almost immediately, surface WHY (GPU/driver problem) to the UI.
     std::thread::sleep(std::time::Duration::from_millis(3500));
     if let Ok(Some(code)) = child.try_wait() {
@@ -607,4 +622,121 @@ fn query_srbminer() -> Result<(f64, u64), String> {
         .or_else(|| v.pointer("/shares/accepted").and_then(|x| x.as_u64()))
         .unwrap_or(0);
     Ok((hr, shares))
+}
+
+// -------------------------------------------------- Windows power / QoS (stability)
+// When the app window is minimized or in the background, Windows applies "Power
+// Throttling" (EcoQoS) to the process tree, dropping it to low CPU frequency. For a
+// miner that means the GPU miner's feeder threads stall and hashrate becomes
+// unstable. We explicitly opt each miner process out of throttling and keep the
+// machine awake for the mining session. No-ops on non-Windows.
+#[cfg(windows)]
+mod win_power {
+    use std::os::raw::c_void;
+    use std::sync::{Arc, Mutex};
+
+    type Bool = i32;
+    type Dword = u32;
+    type Handle = *mut c_void;
+
+    const PROCESS_SET_INFORMATION: Dword = 0x0200;
+    const PROCESS_POWER_THROTTLING_CURRENT_VERSION: Dword = 1;
+    const PROCESS_POWER_THROTTLING_EXECUTION_SPEED: Dword = 0x1;
+    // ProcessPowerThrottling in PROCESS_INFORMATION_CLASS
+    const PROCESS_POWER_THROTTLING_CLASS: i32 = 4;
+
+    const ES_CONTINUOUS: Dword = 0x8000_0000;
+    const ES_SYSTEM_REQUIRED: Dword = 0x0000_0001;
+
+    #[repr(C)]
+    struct ProcessPowerThrottlingState {
+        version: Dword,
+        control_mask: Dword,
+        state_mask: Dword,
+    }
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn OpenProcess(access: Dword, inherit: Bool, pid: Dword) -> Handle;
+        fn CloseHandle(h: Handle) -> Bool;
+        fn SetProcessInformation(h: Handle, class: i32, info: *mut c_void, size: Dword) -> Bool;
+        fn SetThreadExecutionState(flags: Dword) -> Dword;
+    }
+
+    /// Opt a running miner process out of power throttling: it runs at full CPU speed
+    /// regardless of whether the app window is focused, minimized, or hidden.
+    pub fn set_process_full_speed(pid: u32) {
+        unsafe {
+            let h = OpenProcess(PROCESS_SET_INFORMATION, 0, pid);
+            if h.is_null() {
+                return;
+            }
+            let mut st = ProcessPowerThrottlingState {
+                version: PROCESS_POWER_THROTTLING_CURRENT_VERSION,
+                control_mask: PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
+                state_mask: 0, // 0 with EXECUTION_SPEED control => throttling disabled
+            };
+            let _ = SetProcessInformation(
+                h,
+                PROCESS_POWER_THROTTLING_CLASS,
+                &mut st as *mut _ as *mut c_void,
+                std::mem::size_of::<ProcessPowerThrottlingState>() as Dword,
+            );
+            CloseHandle(h);
+        }
+    }
+
+    fn set_exec_state(keep_awake: bool) {
+        unsafe {
+            if keep_awake {
+                SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED);
+            } else {
+                SetThreadExecutionState(ES_CONTINUOUS);
+            }
+        }
+    }
+
+    /// Long-lived per-session thread: re-asserts "keep the system awake" every 30s
+    /// (the request is bound to the calling thread) and clears it once no miner
+    /// process remains. Also reaps dead child handles so it self-terminates if a
+    /// miner exits while the window is minimized and nothing is polling status().
+    pub fn keep_awake_loop(inner: Arc<Mutex<super::Inner>>) {
+        loop {
+            let running = match inner.lock() {
+                Ok(mut g) => {
+                    let cpu_dead = g
+                        .cpu
+                        .as_mut()
+                        .map(|c| matches!(c.try_wait(), Ok(Some(_))))
+                        .unwrap_or(false);
+                    if cpu_dead {
+                        g.cpu = None;
+                    }
+                    let gpu_dead = g
+                        .gpu
+                        .as_mut()
+                        .map(|c| matches!(c.try_wait(), Ok(Some(_))))
+                        .unwrap_or(false);
+                    if gpu_dead {
+                        g.gpu = None;
+                    }
+                    g.cpu.is_some() || g.gpu.is_some() || g.status == "starting"
+                }
+                Err(_) => false,
+            };
+            if !running {
+                break;
+            }
+            set_exec_state(true);
+            std::thread::sleep(std::time::Duration::from_secs(30));
+        }
+        set_exec_state(false);
+    }
+}
+
+#[cfg(not(windows))]
+mod win_power {
+    /// No-op on non-Windows: Linux providers run headless under systemd and macOS
+    /// does not apply the same window-state CPU throttling to child processes.
+    pub fn set_process_full_speed(_pid: u32) {}
 }

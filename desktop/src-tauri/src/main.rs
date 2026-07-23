@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod miner;
+mod provider;
 
 use serde::Serialize;
 use tauri::{Manager, State};
@@ -247,11 +248,38 @@ async fn miner_status(state: State<'_, miner::MinerState>) -> Result<miner::Stat
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn start_provider(state: State<'_, provider::ProviderState>) -> Result<(), String> {
+    let arc = state.0.clone();
+    tauri::async_runtime::spawn_blocking(move || provider::start(&arc))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn stop_provider(state: State<'_, provider::ProviderState>) -> Result<(), String> {
+    let arc = state.0.clone();
+    tauri::async_runtime::spawn_blocking(move || provider::stop(&arc))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn provider_status(
+    state: State<'_, provider::ProviderState>,
+) -> Result<provider::Status, String> {
+    let arc = state.0.clone();
+    tauri::async_runtime::spawn_blocking(move || provider::status(&arc))
+        .await
+        .map_err(|e| e.to_string())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .manage(miner::MinerState::default())
+        .manage(provider::ProviderState::default())
         .invoke_handler(tauri::generate_handler![
             hardware_info,
             net_get,
@@ -262,7 +290,10 @@ fn main() {
             enable_mining,
             start_miner,
             stop_miner,
-            miner_status
+            miner_status,
+            start_provider,
+            stop_provider,
+            provider_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running Abakos Provider");

@@ -63,6 +63,36 @@ export function minerStatus(): Promise<MinerStatus> {
   return invoke<MinerStatus>("miner_status");
 }
 
+export interface HostProviderStatus {
+  state: "stopped" | "starting" | "running" | "error" | "unavailable" | string;
+  error: string | null;
+  host_uri: string | null;
+  unit: string;
+  platform_ok: boolean;
+}
+export function startProvider(): Promise<void> {
+  return invoke<void>("start_provider");
+}
+export function stopProvider(): Promise<void> {
+  return invoke<void>("stop_provider");
+}
+export function providerDaemonStatus(): Promise<HostProviderStatus> {
+  return invoke<HostProviderStatus>("provider_status");
+}
+
+/** On-chain provider registration (host_uri + attributes). */
+export async function chainProvider(owner: string): Promise<{ host_uri: string; owner: string } | null> {
+  try {
+    const text = await netGet(`${COSMOS_REST}/akash/provider/v1beta4/providers/${owner}`);
+    const j = JSON.parse(text);
+    const p = j.provider;
+    if (!p?.host_uri) return null;
+    return { host_uri: String(p.host_uri), owner: String(p.owner || owner) };
+  } catch {
+    return null;
+  }
+}
+
 let rpcId = 1;
 export async function rpc<T = unknown>(method: string, params: unknown[]): Promise<T> {
   const body = JSON.stringify({ jsonrpc: "2.0", id: rpcId++, method, params });
