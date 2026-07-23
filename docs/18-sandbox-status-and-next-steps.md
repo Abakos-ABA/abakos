@@ -131,26 +131,26 @@ This is **not** an EVM RPC misconfig (`eth_chainId` returns `0x25f9`). It is als
 2. End-to-end smoke from Console: connect → fund (`uaba` spendable) → cert → deployment → bid → lease → manifest.
 3. Redeploy console from git after the fix (today some patches may exist only on the VPS; treat GitHub as source of truth going forward).
 
-### P1 — provider / hosting UX
+### P1: provider / hosting UX
 
 1. Confirm tunnel systemd unit stays up across reboot on the provider VM (`tunnel-remote.sh`).
 2. IONOS: A record `provider.abakos.ai` → `217.154.169.211`, firewall TCP 8443 open; then `HOST_URI=https://provider.abakos.ai:8443 bash scripts/40-update-host-uri.sh`.
 3. Document / implement **WSL2** path for Windows users who want Host tab compute (k3s inside WSL2 + tunnel). Native Windows mining stays as-is.
 4. Optional: second provider VM (not on the validator) for production-like separation.
 
-### P1 — MetaMask polish (after connect works)
+### P1: MetaMask polish (after connect works)
 
 1. Clear UX if MetaMask Snap is selected by mistake (already labeled “Not for Abakos”).
 2. Ensure typed-data domain / types stay aligned with on-chain `eip712.SetEncodingConfig` if cosmos/evm upgrades.
 3. Regression test script (Node) for EIP-712 MsgSend against sandbox (keep out of prod bundles; do not commit throwaway `tmp-eip712/` junk).
 
-### P2 — product / site consistency
+### P2: product / site consistency
 
 1. Marketing site lives in a **separate private repo** (removed from this monorepo). Keep Console CTAs and coinType messaging consistent with coinType **60** (avoid suggesting Cosmos 118 anywhere Abakos keys are involved).
 2. Chat / API product surfaces (`chat.abakos.ai`, `api.abakos.ai`) are product goals; treat as separate from Console wallet P0.
 3. Public testnet / mainnet genesis and validator set: not this sandbox handoff.
 
-### P2 — ops hygiene
+### P2: ops hygiene
 
 1. Prefer SSH keys; rotate any passwords that were ever pasted in chat.
 2. Do not put secrets in git (`*.local.yaml` with keys, faucet mnemonics, private keys).

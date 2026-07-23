@@ -1,0 +1,10 @@
+# Used by: abakosd tx provider create (NOT provider-services run).
+# The CLI reads `host` (not host_uri); see chain-sdk/go/cli/provider_tx.go.
+host: "https://provider.abakos.ai:8443"
+attributes:
+  - key: host
+    value: abakos
+  - key: tier
+    value: community
+  - key: capabilities/cpu/arch
+    value: x86-64
