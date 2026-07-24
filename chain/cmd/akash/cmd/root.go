@@ -13,8 +13,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/pruning"
 	"github.com/cosmos/cosmos-sdk/client/snapshot"
 	sdkserver "github.com/cosmos/cosmos-sdk/server"
+	"github.com/cosmos/cosmos-sdk/codec/legacy"
 	"github.com/cosmos/cosmos-sdk/x/auth/migrations/legacytx"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/cosmos/evm/crypto/ethsecp256k1"
 	"github.com/cosmos/evm/ethereum/eip712"
 	rosettaCmd "github.com/cosmos/rosetta/cmd"
 
@@ -38,6 +40,16 @@ func NewRootCmd() (*cobra.Command, sdkutil.EncodingConfig) {
 	// Only SetEncodingConfig + RegisterInterfaces; do not re-register amino SDK types.
 	eip712.RegisterInterfaces(encodingConfig.InterfaceRegistry)
 	eip712.SetEncodingConfig(encodingConfig.Amino, encodingConfig.InterfaceRegistry, apptypes.AbakosEVMChainID)
+	// Register the eth key types as amino concretes. The tx-size gas simulation in the auth ante
+	// amino-marshals the account's *stored* pubkey with the global legacy.Cdc; accounts here hold
+	// ethsecp keys after their first tx, and an unregistered type makes every fee simulation for
+	// such an account panic ("Cannot encode unregistered concrete type ethsecp256k1.PubKey").
+	// Only the two eth concretes — the evm RegisterCrypto helper would re-register sdk types that
+	// these codecs already carry and panic on the duplicate.
+	encodingConfig.Amino.RegisterConcrete(&ethsecp256k1.PubKey{}, ethsecp256k1.PubKeyName, nil)
+	encodingConfig.Amino.RegisterConcrete(&ethsecp256k1.PrivKey{}, ethsecp256k1.PrivKeyName, nil)
+	legacy.Cdc.RegisterConcrete(&ethsecp256k1.PubKey{}, ethsecp256k1.PubKeyName, nil)
+	legacy.Cdc.RegisterConcrete(&ethsecp256k1.PrivKey{}, ethsecp256k1.PrivKeyName, nil)
 	legacytx.RegressionTestingAminoCodec = encodingConfig.Amino
 
 	rootCmd := &cobra.Command{
