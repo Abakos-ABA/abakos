@@ -297,7 +297,9 @@ body::before {
   --abk-accent: #FFD24D; --abk-accent-rgb: 255, 210, 77; --abk-bg: #0E0A06;
 }
 :root[data-theme="matrix"] {
-  --abk-brand: #3DFF9A; --abk-brand-rgb: 61, 255, 154; --abk-brand-light: #97FFC8; --abk-brand-dark: #17C86A;
+  /* deeper emerald for fills/buttons (white text stays readable, not glaring);
+     the neon green lives on --abk-brand-light for accents + glows. */
+  --abk-brand: #1FD983; --abk-brand-rgb: 31, 217, 131; --abk-brand-light: #6BFFB4; --abk-brand-dark: #12A862;
   --abk-accent: #00CFFF; --abk-accent-rgb: 0, 207, 255; --abk-bg: #050E0A;
 }
 :root[data-theme="daylight"] {
