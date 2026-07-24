@@ -7,6 +7,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/std"
 	"github.com/cosmos/cosmos-sdk/types/module"
+	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/cosmos/cosmos-sdk/x/auth/tx"
 
 	offchain "pkg.akt.dev/go/node/types/offchain/sign"
@@ -47,8 +48,18 @@ func MakeEncodingConfig(modules ...module.AppModuleBasic) EncodingConfig {
 		panic(err)
 	}
 
+	// Amino json is handled by our own codec-based handler rather than the descriptor-driven
+	// default, which loses the contents of akash messages. See aminojson.go.
+	enabledSignModes := make([]signingtypes.SignMode, 0, len(tx.DefaultSignModes))
+	for _, mode := range tx.DefaultSignModes {
+		if mode != signingtypes.SignMode_SIGN_MODE_LEGACY_AMINO_JSON {
+			enabledSignModes = append(enabledSignModes, mode)
+		}
+	}
+
 	txConfig, err := tx.NewTxConfigWithOptions(cdc, tx.ConfigOptions{
-		EnabledSignModes: tx.DefaultSignModes,
+		EnabledSignModes: enabledSignModes,
+		CustomSignModes:  []signing.SignModeHandler{NewLegacyAminoJSONHandler(aminoCodec, interfaceRegistry)},
 		SigningOptions:   &co.Options,
 		SigningContext:   signingCtx,
 	})
