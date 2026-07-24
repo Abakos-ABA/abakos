@@ -110,7 +110,21 @@ export async function checkForUpdate(opts: { silent?: boolean } = {}): Promise<v
   if (checking) return;
   checking = true;
   try {
-    const update = await check();
+    // GitHub's releases/latest redirect intermittently 504s; retry before
+    // surfacing an error to the user.
+    let update: Update | null = null;
+    let lastErr: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        update = await check();
+        lastErr = undefined;
+        break;
+      } catch (e) {
+        lastErr = e;
+        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+      }
+    }
+    if (lastErr) throw lastErr;
     if (update) showModal(update);
     else if (!opts.silent) toast("You're on the latest version.");
   } catch (e) {
