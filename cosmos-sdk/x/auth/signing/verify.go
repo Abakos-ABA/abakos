@@ -78,7 +78,11 @@ func VerifySignature(
 			return err
 		}
 		if !pubKey.VerifySignature(signBytes, data.Signature) {
-			return fmt.Errorf("unable to verify single signer signature")
+			// Abakos: EIP-712 cannot represent every message shape; accept an EIP-191
+			// personal_sign signature over the same sign bytes. See verify_eth_personal.go.
+			if !verifyEthPersonalSign(pubKey, signBytes, data.Signature) {
+				return fmt.Errorf("unable to verify single signer signature")
+			}
 		}
 		return nil
 
