@@ -333,3 +333,18 @@ Ground truth comes from a small Go program that runs the node's own encoder over
 the app sends (`go run . akash.deployment.v1beta4.MsgCreateDeployment <base64>`); rebuild it after
 any chain-sdk or cosmos-sdk bump and re-record the shapes in
 `apps/deploy-web/src/utils/customAminoTypes.spec.ts`.
+
+### Update 2026-07-24: EIP-712 replaced by personal_sign for MetaMask
+
+The last blocker was structural: EIP-712 derives an array's element type from its FIRST element,
+so a deployment with a persistent volume (attributes) next to an ephemeral one (none) cannot be
+signed — go-ethereum rejects the extra keys ("extra data provided in the message") while MetaMask
+signs a digest that does not even cover them. Proven by local digest diff and on-chain probe
+(het-deploy/eip712 = code 4 forever).
+
+Fix, live on sandbox: the node accepts an EIP-191 personal_sign signature over the exact amino
+sign bytes as a fallback (cosmos-sdk x/auth/signing/verify_eth_personal.go, tried only after
+keccak and EIP-712 fail), and the console's MetaMask adapter signs with personal_sign. MetaMask
+now shows the complete sign-doc json — every byte the signature covers. Keplr unchanged.
+
+Probe result on the live chain: het-deploy/personal = code 0; all prior paths still green.
