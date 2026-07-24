@@ -303,15 +303,22 @@ type names containing dots. Proven: the same message with the same, correct json
 keccak(amino) and is rejected through EIP-712. **Keplr works today; MetaMask cannot until the
 chain changes.**
 
-### The fix worth making
+### The fix (written, not yet deployed)
 
-Give the node a sign-mode handler for `SIGN_MODE_LEGACY_AMINO_JSON` that uses the legacy amino
-codec (the names already registered via `RegisterConcrete`, e.g.
-`akash-sdk/x/deployment/MsgCreateDeployment`). That closes both defects at once: the names lose
-their dots so EIP-712 works, and the codec marshals the full Go structs so the signature covers
-the whole message. The console converter then has to move back to the gogo json-tag shapes.
+`chain-sdk/go/sdkutil/aminojson.go` gives the node a `SIGN_MODE_LEGACY_AMINO_JSON` handler backed
+by the legacy amino codec, wired in through `CustomSignModes` in `MakeEncodingConfig`. It closes
+both defects at once: the names lose their dots so EIP-712 works, and the codec marshals the full
+Go structs so the signature covers the whole message. `aminojson_test.go` records the output.
 
-Adding `option (amino.name)` to the akash Msg protos fixes only defect 2.
+The matching console converter is on `abakos-console` (`46a4471`). **The two have to ship
+together** — the encodings are not compatible, so deploying either alone breaks deployments.
+
+Building `abakosd` needs a Linux toolchain: cgo rules out cross-compiling from Windows, and the
+validator has no Go installed. Take the portable tarball, build on the validator, install, then
+smoke a deployment from the console.
+
+Adding `option (amino.name)` to the akash Msg protos would fix only defect 2, and is unnecessary
+once this handler is in place.
 
 ### Tooling
 
