@@ -1,0 +1,14 @@
+[Unit]
+Description=Abakos bridge forwarder (POL -> USDC Noble -> IBC buyback)
+After=network-online.target abakos-hermes.service
+Wants=network-online.target
+
+[Service]
+User=root
+WorkingDirectory=/opt/abakos-forwarder
+ExecStart=/usr/bin/node /opt/abakos-forwarder/forwarder.mjs
+Restart=always
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target

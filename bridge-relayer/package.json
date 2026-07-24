@@ -1,0 +1,11 @@
+{
+  "name": "abakos-bridge-forwarder",
+  "private": true,
+  "type": "module",
+  "description": "POL (Polygon) -> USDC (Noble) -> IBC forwarder for Abakos mining payouts",
+  "dependencies": {
+    "@cosmjs/proto-signing": "^0.34.0",
+    "@cosmjs/stargate": "^0.34.0",
+    "ethers": "^6.13.0"
+  }
+}

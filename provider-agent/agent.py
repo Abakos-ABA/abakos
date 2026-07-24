@@ -121,6 +121,9 @@ _state = {
     "oracle": {},
     "totals": {"mined_usd": 0.0, "aba_bought": 0.0, "host_aba": 0.0, "stakers_aba": 0.0, "treasury_aba": 0.0, "burn_aba": 0.0, "usdt_inflow_test": 0.0, "real_usdt_distributed": 0.0},
     "pending": {"stakers_uaba": 0, "treasury_uaba": 0, "burn_uaba": 0},
+    # BSC treasury inflow watch (kryptex-bsc mode). Persisted via save_state so
+    # undistributed inflow survives restarts (the old in-RAM baseline did not).
+    "bsc_watch": {"last_block": 0, "pending6": 0, "seen": []},
     "addresses": {},
     "host": {"address": None, "balance_aba": None},
     "recent_payouts": [],
@@ -262,7 +265,7 @@ USDT_SOURCE = os.environ.get("ABA_USDT_SOURCE", "kryptex-bsc")   # "kryptex-bsc"
 BSC_RPC = os.environ.get("ABA_BSC_RPC", "https://bsc-dataseed.binance.org")
 BSC_USDT = os.environ.get("ABA_BSC_USDT", "0x55d398326f99059fF775485246999027B3197955")  # BEP20 USDT (18-dec)
 TREASURY_BSC = os.environ.get("ABA_TREASURY_BSC", "0x0BfFbd3F4cB218f0926218915adD810C6Be72dcB")
-_usdt = {"balance": 0, "dripped_usdt": 0.0, "error": None, "bsc_base6": None, "bsc_target6": None}
+_usdt = {"balance": 0, "dripped_usdt": 0.0, "error": None}
 
 
 def _load_buyback():
@@ -429,16 +432,28 @@ def ensure_usdt_topped_up():
             _usdt["error"] = str(e)[:160]
 
 
+_TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"  # keccak256("Transfer(address,address,uint256)")
+BSC_CONFIRMATIONS = int(os.environ.get("ABA_BSC_CONFIRMATIONS", "15"))
+BSC_SCAN_CHUNK = int(os.environ.get("ABA_BSC_SCAN_CHUNK", "2000"))  # max blocks per getLogs (public RPC limits)
+BSC_SEEN_MAX = 500  # ring buffer of booked txHash|logIndex keys
+
+
+def _bsc_rpc(method: str, params: list, timeout: int = 10):
+    body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode()
+    req = urllib.request.Request(BSC_RPC, data=body,
+                                 headers={"Content-Type": "application/json", "User-Agent": "abakos-agent"},
+                                 method="POST")
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        out = json.load(r)
+    if out.get("error"):
+        raise RuntimeError(str(out["error"])[:120])
+    return out.get("result")
+
+
 def bsc_treasury_usdt6():
     """Real treasury USDT on BSC (BEP20 USDT, 18-dec) normalized to 6-dec int, or None."""
     try:
-        body = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "eth_call",
-                           "params": [{"to": BSC_USDT, "data": _balance_of_data(TREASURY_BSC)}, "latest"]}).encode()
-        req = urllib.request.Request(BSC_RPC, data=body,
-                                     headers={"Content-Type": "application/json", "User-Agent": "abakos-agent"},
-                                     method="POST")
-        with urllib.request.urlopen(req, timeout=10) as r:
-            raw = json.load(r).get("result")
+        raw = _bsc_rpc("eth_call", [{"to": BSC_USDT, "data": _balance_of_data(TREASURY_BSC)}, "latest"])
         if not raw or raw == "0x":
             return 0
         return int(raw, 16) // 10**12   # 18-dec BEP20 USDT -> 6-dec
@@ -448,26 +463,70 @@ def bsc_treasury_usdt6():
         return None
 
 
-def real_usdt_epoch_value():
-    """USD (float) of NEW real Kryptex USDT to distribute this epoch (kryptex-bsc mode).
+def bsc_scan_inflows():
+    """Book NEW treasury inflows from USDT Transfer events (kryptex-bsc mode).
 
-    Watches the treasury's BEP20-USDT balance on BSC. The first read sets a baseline
-    (pre-existing balance is not paid out). The undistributed delta is then returned
-    so step() can attribute it to current proxy shares; the baseline is only advanced
-    once it is actually distributed, so inflow arriving while nobody has shares is held,
-    not lost."""
-    real6 = bsc_treasury_usdt6()
-    if real6 is None:
-        return 0.0
+    Event-based (eth_getLogs with `to == treasury`), idempotent per txHash|logIndex,
+    and only blocks with >= BSC_CONFIRMATIONS confirmations. Unlike the old
+    balance-delta approach, outflows from the treasury do not disturb the
+    accounting. Watch state lives in _state["bsc_watch"] and is persisted by
+    save_state(). First run only records the start block: pre-existing history is
+    not paid out (same semantics as the old baseline)."""
+    try:
+        latest = int(_bsc_rpc("eth_blockNumber", []), 16)
+    except Exception as e:
+        with _lock:
+            _usdt["error"] = "bsc: " + str(e)[:120]
+        return
+    safe_to = latest - BSC_CONFIRMATIONS
     with _lock:
-        _state.setdefault("buyback", {})["treasury_usdt"] = round(real6 / 1e6, 6)
-        _usdt["bsc_target6"] = real6
-        base = _usdt.get("bsc_base6")
-        if base is None:
-            _usdt["bsc_base6"] = real6
-            return 0.0
-        delta6 = real6 - base
-    return delta6 / 1e6 if delta6 > 0 else 0.0
+        last = int(_state["bsc_watch"].get("last_block") or 0)
+    if last <= 0:
+        with _lock:
+            _state["bsc_watch"]["last_block"] = safe_to
+        return
+    frm = last + 1
+    if frm > safe_to:
+        return
+    to = min(safe_to, frm + BSC_SCAN_CHUNK - 1)
+    try:
+        logs = _bsc_rpc("eth_getLogs", [{
+            "address": BSC_USDT, "fromBlock": hex(frm), "toBlock": hex(to),
+            "topics": [_TRANSFER_TOPIC, None, "0x" + _addr32(TREASURY_BSC)],
+        }], timeout=20) or []
+    except Exception as e:
+        with _lock:
+            _usdt["error"] = "bsc logs: " + str(e)[:120]
+        return  # window is retried next epoch; seen-keys make that safe
+    with _lock:
+        w = _state["bsc_watch"]
+        seen = w.setdefault("seen", [])
+        for lg in logs:
+            key = "%s|%s" % (lg.get("transactionHash"), lg.get("logIndex"))
+            if key in seen:
+                continue
+            amt6 = int(lg.get("data", "0x0"), 16) // 10**12  # 18-dec -> 6-dec
+            if amt6 <= 0:
+                continue
+            w["pending6"] = int(w.get("pending6") or 0) + amt6
+            seen.append(key)
+        del seen[:-BSC_SEEN_MAX]
+        w["last_block"] = to
+
+
+def real_usdt_epoch_value():
+    """USD (float) of undistributed real Kryptex USDT (kryptex-bsc mode).
+
+    Returns the persistent pending pot booked by bsc_scan_inflows(); step() reduces
+    it only after the value was actually attributed, so inflow arriving while nobody
+    has shares is held, not lost -- across restarts too."""
+    bal6 = bsc_treasury_usdt6()
+    if bal6 is not None:
+        with _lock:
+            _state.setdefault("buyback", {})["treasury_usdt"] = round(bal6 / 1e6, 6)
+    bsc_scan_inflows()
+    with _lock:
+        return int(_state["bsc_watch"].get("pending6") or 0) / 1e6
 
 
 def fetch_dex_aba_price() -> tuple[float, str]:
@@ -685,7 +744,7 @@ def load_state():
             if k in saved:
                 _state[k] = saved[k]
         # Merge (don't replace) so newly added keys like burn_aba/burn_uaba keep defaults.
-        for k in ("totals", "pending"):
+        for k in ("totals", "pending", "bsc_watch"):
             if isinstance(saved.get(k), dict):
                 _state[k].update(saved[k])
     except Exception:
@@ -830,11 +889,11 @@ def step():
     for addr, pusd in attribution.items():
         pay_provider(addr, pusd, mining_coin, use_buyback, aba_price)
 
-    # Real-USDT mode: advance the treasury baseline only once the inflow was paid out.
+    # Real-USDT mode: reduce the pending pot only once the inflow was paid out.
     if USDT_SOURCE == "kryptex-bsc" and attribution and epoch_usd > 0:
         with _lock:
-            if _usdt.get("bsc_target6") is not None:
-                _usdt["bsc_base6"] = _usdt["bsc_target6"]
+            w = _state["bsc_watch"]
+            w["pending6"] = max(0, int(w.get("pending6") or 0) - int(round(epoch_usd * 1e6)))
             _state["totals"]["real_usdt_distributed"] = round(
                 _state["totals"].get("real_usdt_distributed", 0.0) + epoch_usd, 6)
 
