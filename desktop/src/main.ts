@@ -448,10 +448,8 @@ function nameFor(addr?: string): string {
 function txRowHtml(t: TxInfo, compact = false): string {
   const dirCls = t.direction === "in" ? "in" : t.direction === "out" ? "out" : "none";
   const arrow = t.direction === "in" ? "\u2193" : t.direction === "out" ? "\u2191" : "\u00b7";
-  const amt =
-    t.amountAba > 0
-      ? `${t.direction === "in" ? "+" : t.direction === "out" ? "\u2212" : ""}${fmtAba(t.amountAba)} ABA`
-      : "";
+  const sign = t.direction === "in" ? "+" : t.direction === "out" ? "\u2212" : "";
+  const amt = t.amountText ? `${sign}${t.amountText}` : t.amountAba > 0 ? `${sign}${fmtAba(t.amountAba)} ABA` : "";
   const cp = t.counterparty ? `${t.direction === "in" ? "from" : "to"} ${nameFor(t.counterparty)}` : "";
   const when = t.ts ? new Date(t.ts).toLocaleString() : `block ${t.height}`;
   const meta = [cp, when, t.ok ? "" : "FAILED"].filter(Boolean).join(" \u00b7 ");

@@ -146,14 +146,50 @@ export interface TxInfo {
   label: string;
   direction: "in" | "out" | "none";
   amountAba: number;
+  /** Pre-formatted amount for non-ABA flows (e.g. "0.2 USDC (IBC)"). Wins over amountAba. */
+  amountText?: string;
   counterparty?: string;
 }
 
+/** Known IBC denom hashes on abakos-sandbox-1 (USDC via the Noble channel). */
+const IBC_DENOMS: Record<string, { sym: string; dec: number }> = {
+  "ibc/8E27BA2D5493AF5636760E354E46004562C46AB7EC0CC4C1CA14E9E20E2545B5": { sym: "USDC", dec: 6 },
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  MsgEthereumTx: "EVM transfer",
+  MsgCreateClient: "IBC · Create client",
+  MsgUpdateClient: "IBC · Update client",
+  MsgConnectionOpenInit: "IBC · Connection init",
+  MsgConnectionOpenAck: "IBC · Connection ack",
+  MsgConnectionOpenTry: "IBC · Connection try",
+  MsgConnectionOpenConfirm: "IBC · Connection confirm",
+  MsgChannelOpenInit: "IBC · Channel init",
+  MsgChannelOpenTry: "IBC · Channel try",
+  MsgChannelOpenAck: "IBC · Channel ack",
+  MsgChannelOpenConfirm: "IBC · Channel confirm",
+  MsgRecvPacket: "IBC · Receive",
+  MsgAcknowledgement: "IBC · Acknowledge",
+  MsgTimeout: "IBC · Timeout",
+  MsgTransfer: "IBC · Transfer",
+};
+
 /** "MsgCreateDeployment" -> "Create deployment". */
 function msgLabel(typeUrl: string): string {
-  const name = (typeUrl.split(".").pop() || typeUrl).replace(/^Msg/, "");
+  const raw = typeUrl.split(".").pop() || typeUrl;
+  if (TYPE_LABELS[raw]) return TYPE_LABELS[raw];
+  const name = raw.replace(/^Msg/, "");
   const words = name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase();
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : typeUrl;
+}
+
+/** Format a non-ABA coin (uusdc / ibc-hash) for display; null when unknown. */
+function fmtForeign(amount: string, denom: string): string | null {
+  if (denom === "uusdc") return `${Number(amount) / 1e6} USDC`;
+  const known = IBC_DENOMS[denom];
+  if (known) return `${Number(amount) / Math.pow(10, known.dec)} ${known.sym} (IBC)`;
+  if (denom.startsWith("ibc/")) return `${Number(amount) / 1e6} ${denom.slice(0, 10)}… (IBC)`;
+  return null;
 }
 
 /** Sum the uaba part of a coin string like "5000000uaba" or "1uaba,2ufoo". */
@@ -182,6 +218,7 @@ function decodeTx(t: RawTxResponse, aba: string): TxInfo {
   let outU = 0;
   let cpIn: string | undefined;
   let cpOut: string | undefined;
+  let foreign: { text: string; dir: "in" | "out" } | undefined;
   for (const ev of t.events || []) {
     if (ev.type !== "transfer") continue;
     let rec = "";
@@ -190,13 +227,27 @@ function decodeTx(t: RawTxResponse, aba: string): TxInfo {
       if (at.key === "recipient") rec = at.value;
       else if (at.key === "sender") snd = at.value;
       else if (at.key === "amount") {
-        const amt = parseUaba(at.value);
-        if (rec === aba && snd !== aba) {
-          inU += amt;
-          if (snd) cpIn = cpIn || snd;
-        } else if (snd === aba && rec !== aba) {
-          outU += amt;
-          if (rec) cpOut = cpOut || rec;
+        const mine = rec === aba && snd !== aba ? "in" : snd === aba && rec !== aba ? "out" : null;
+        if (mine) {
+          const amt = parseUaba(at.value);
+          if (mine === "in") {
+            inU += amt;
+            if (snd) cpIn = cpIn || snd;
+          } else {
+            outU += amt;
+            if (rec) cpOut = cpOut || rec;
+          }
+          // Non-ABA flows (IBC-USDC etc.) don't sum into uaba; keep the first one for display.
+          if (!amt && !foreign) {
+            for (const part of at.value.split(",")) {
+              const m = part.trim().match(/^(\d+)(.+)$/);
+              const txt = m ? fmtForeign(m[1], m[2]) : null;
+              if (txt) {
+                foreign = { text: txt, dir: mine };
+                break;
+              }
+            }
+          }
         }
         rec = snd = "";
       }
@@ -204,7 +255,10 @@ function decodeTx(t: RawTxResponse, aba: string): TxInfo {
   }
 
   const msgs = t.tx?.body?.messages || [];
-  const first = (msgs[0] || {}) as Record<string, unknown>;
+  // Relayer txs pair UpdateClient with the actual packet — label the packet.
+  const first = (msgs.find(m => /MsgRecvPacket|MsgAcknowledgement|MsgTransfer|MsgTimeout|MsgEthereumTx/.test(String(m["@type"]))) ||
+    msgs[0] ||
+    {}) as Record<string, unknown>;
   const typeUrl = String(first["@type"] || "");
   let label = msgLabel(typeUrl || "Tx");
   let amountAba = Math.abs(inU - outU) / 1e6;
@@ -233,7 +287,13 @@ function decodeTx(t: RawTxResponse, aba: string): TxInfo {
     if (!counterparty && data.to) counterparty = String(data.to);
     if (direction === "none") direction = "out";
   }
-  if (msgs.length > 1) label += ` +${msgs.length - 1}`;
+  if (msgs.length > 1 && !typeUrl.includes("ibc.")) label += ` +${msgs.length - 1}`;
+
+  let amountText: string | undefined;
+  if (!amountAba && foreign) {
+    amountText = foreign.text;
+    if (direction === "none") direction = foreign.dir;
+  }
 
   return {
     hash: t.txhash,
@@ -243,6 +303,7 @@ function decodeTx(t: RawTxResponse, aba: string): TxInfo {
     label,
     direction,
     amountAba,
+    amountText,
     counterparty,
   };
 }
