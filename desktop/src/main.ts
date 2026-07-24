@@ -3,7 +3,7 @@ import * as wallet from "./wallet";
 import type { Addresses } from "./wallet";
 import * as mining from "./mining";
 import * as host from "./host";
-import { EXPLORER, DEX, enableMining, kvGet, kvSet, fetchTxs, reportStats } from "./net";
+import { EXPLORER, DEX, enableMining, kvGet, kvSet, fetchTxsWithProvider, chainProviders, reportStats } from "./net";
 import type { TxInfo } from "./net";
 import { checkForUpdate } from "./update";
 import { getVersion } from "@tauri-apps/api/app";
@@ -344,8 +344,9 @@ function renderTab(): void {
       </div>
       <div class="card">
         <div class="label">Bid deposit</div>
-        <p class="fineprint">Each compute bid escrows <b>${BID_DEPOSIT_ABA} ABA</b> from this wallet as a refundable deposit — it is returned when the bid or lease closes. There is no faucet funding for providers: keep at least <b>${BID_DEPOSIT_ABA + 1} ABA</b> spendable so your provider keeps bidding.</p>
+        <p class="fineprint">Each compute bid escrows <b>${BID_DEPOSIT_ABA} ABA</b> from the provider account as a refundable deposit — it is returned when the bid or lease closes. There is no faucet funding for providers: keep at least <b>${BID_DEPOSIT_ABA + 1} ABA</b> spendable so your provider keeps bidding.</p>
         <p class="msg" id="bidwarn"></p>
+        <div id="provlink"></div>
       </div>
       <div class="card">
         <div class="label">How hosting works</div>
@@ -457,7 +458,7 @@ function txRowHtml(t: TxInfo, compact = false): string {
     <div class="txrow${t.ok ? "" : " fail"}">
       <span class="txdir ${dirCls}">${arrow}</span>
       <div class="txmain">
-        <b>${t.label}</b>
+        <b>${t.label}${t.account === "provider" ? ' <span class="txsrc">provider</span>' : ""}</b>
         <span>${meta}</span>
       </div>
       <div class="txside">
@@ -467,11 +468,19 @@ function txRowHtml(t: TxInfo, compact = false): string {
     </div>`;
 }
 
+async function watchedProvider(): Promise<string | null> {
+  try {
+    return (await kvGet("watch_provider")) || null;
+  } catch {
+    return null;
+  }
+}
+
 async function loadActivity(): Promise<void> {
   const el = document.getElementById("activity");
   if (!el || !addresses) return;
   await refreshBookNames();
-  txCache = await fetchTxs(addresses.aba);
+  txCache = await fetchTxsWithProvider(addresses.aba, await watchedProvider());
   if (!document.getElementById("activity")) return; // tab switched meanwhile
   el.innerHTML = txCache.length
     ? txCache.slice(0, 5).map((t) => txRowHtml(t, true)).join("")
@@ -492,7 +501,7 @@ async function setupTxs(): Promise<void> {
   const load = async (): Promise<void> => {
     if (!addresses) return;
     await refreshBookNames();
-    txCache = await fetchTxs(addresses.aba, 50);
+    txCache = await fetchTxsWithProvider(addresses.aba, await watchedProvider(), 50);
     paintTxList();
   };
   (document.getElementById("txrefresh") as HTMLButtonElement).onclick = load;
@@ -816,8 +825,37 @@ async function refreshBidWarning(): Promise<void> {
   }
 }
 
+// The provider daemon signs with its own key (created by the registration
+// script), so its account is separate from this wallet. Linking it here merges
+// its history (bids, 5 ABA deposits, refunds) into the Transactions tab.
+async function setupProviderLink(): Promise<void> {
+  const box = document.getElementById("provlink");
+  if (!box || !addresses) return;
+  try {
+    const provs = await chainProviders();
+    if (!provs.length) return;
+    const mine = provs.find((p) => p.owner === addresses?.aba);
+    if (mine) {
+      box.innerHTML = `<p class="fineprint">This wallet is the registered provider — bids and deposits appear in your Transactions tab automatically.</p>`;
+      return;
+    }
+    const p = provs[0];
+    const watched = (await kvGet("watch_provider")) === p.owner;
+    box.innerHTML = `
+      <p class="fineprint" style="margin-top:10px">On-chain provider account (own key, created at registration):<br><span class="mono">${p.owner}</span></p>
+      <label class="field" style="margin-top:6px"><span class="toggle"><input type="checkbox" id="watchprov" ${watched ? "checked" : ""}> Show its bids &amp; deposits in my Transactions tab</span></label>`;
+    (document.getElementById("watchprov") as HTMLInputElement).onchange = async (e) => {
+      const on = (e.target as HTMLInputElement).checked;
+      await kvSet("watch_provider", on ? p.owner : "");
+    };
+  } catch {
+    /* card is optional */
+  }
+}
+
 async function setupHost(): Promise<void> {
   (document.getElementById("hostbtn") as HTMLButtonElement).onclick = toggleHost;
+  setupProviderLink();
   const uriCopy = document.getElementById("hosturicopy");
   if (uriCopy) {
     uriCopy.onclick = () => {

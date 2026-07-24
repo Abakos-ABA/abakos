@@ -184,3 +184,4 @@ input[type="range"] { accent-color: var(--abk-brand); padding: 0; }
 .txamt.in { color: var(--abk-green); }
 .txamt.out { color: var(--abk-text); }
 .txside a { font-size: 11px; color: var(--abk-text-muted); }
+.txsrc { display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--abk-accent); border: 1px solid rgba(var(--abk-accent-rgb), 0.35); border-radius: 999px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }

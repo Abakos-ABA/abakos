@@ -149,6 +149,8 @@ export interface TxInfo {
   /** Pre-formatted amount for non-ABA flows (e.g. "0.2 USDC (IBC)"). Wins over amountAba. */
   amountText?: string;
   counterparty?: string;
+  /** Which watched account this row belongs to ("provider" rows get a badge). */
+  account?: "wallet" | "provider";
 }
 
 /** Known IBC denom hashes on abakos-sandbox-1 (USDC via the Noble channel). */
@@ -334,6 +336,38 @@ export async function fetchTxs(aba: string, limit = 30): Promise<TxInfo[]> {
   }
   out.sort((x, y) => y.height - x.height);
   return out;
+}
+
+/**
+ * Wallet history plus (optionally) the linked provider account's history, merged
+ * and tagged. A tx touching both accounts keeps the wallet perspective.
+ */
+export async function fetchTxsWithProvider(aba: string, providerAddr: string | null, limit = 30): Promise<TxInfo[]> {
+  const [mine, prov] = await Promise.all([
+    fetchTxs(aba, limit),
+    providerAddr && providerAddr !== aba ? fetchTxs(providerAddr, limit) : Promise.resolve([] as TxInfo[]),
+  ]);
+  const seen = new Set(mine.map((t) => t.hash));
+  const out: TxInfo[] = mine.map((t) => ({ ...t, account: "wallet" }));
+  for (const t of prov) {
+    if (seen.has(t.hash)) continue;
+    out.push({ ...t, account: "provider" });
+  }
+  out.sort((x, y) => y.height - x.height);
+  return out;
+}
+
+/** Providers registered on chain (the sandbox has exactly one). */
+export async function chainProviders(): Promise<{ owner: string; host_uri: string }[]> {
+  try {
+    const text = await netGet(`${COSMOS_REST}/akash/provider/v1beta4/providers?pagination.limit=50`);
+    return (JSON.parse(text).providers || []).map((p: { owner: string; host_uri: string }) => ({
+      owner: String(p.owner),
+      host_uri: String(p.host_uri),
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export interface ProviderStat {
