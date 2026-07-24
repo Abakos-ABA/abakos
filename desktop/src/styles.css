@@ -35,9 +35,15 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; }
+/* The solid base color lives on <html> so it ALWAYS fills the full scrollable page —
+   putting it on a viewport-height <body> left a hard edge below the fold when content
+   scrolled (the "strich"). The top glow uses background-attachment: fixed so it stays
+   anchored to the viewport instead of ending at body height. */
+html { margin: 0; min-height: 100%; background: var(--abk-bg); }
 body {
-  background: radial-gradient(1200px 600px at 50% -10%, rgba(var(--abk-brand-rgb), 0.14), transparent 60%), var(--abk-bg);
+  margin: 0; min-height: 100vh;
+  background: radial-gradient(1200px 620px at 50% -8%, rgba(var(--abk-brand-rgb), 0.16), transparent 62%);
+  background-attachment: fixed; background-repeat: no-repeat;
   color: var(--abk-text);
   font-family: var(--abk-font-body);
   /* 13.5px, not 14: Inter's x-height runs larger than the old Satoshi, so the
@@ -46,7 +52,7 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
-#app { min-height: 100%; }
+#app { min-height: 100vh; }
 
 h1, h2, h3 { font-family: var(--abk-font-display); margin: 0; font-weight: 800; letter-spacing: -0.02em; }
 a { color: var(--abk-brand-light); text-decoration: none; }
@@ -75,10 +81,17 @@ a:hover { text-decoration: underline; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
 
-/* Cards */
+/* Cards — frosted glass: translucent theme surface + blur so the drifting color
+   behind the app shows through, a light top highlight, and a soft depth shadow.
+   Falls back to the solid gradient where color-mix / backdrop-filter is missing. */
 .card {
   background: linear-gradient(180deg, var(--abk-surface), var(--abk-card));
-  border: 1px solid var(--abk-line); border-radius: var(--abk-radius-lg);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--abk-surface) 70%, transparent), color-mix(in srgb, var(--abk-card) 60%, transparent));
+  backdrop-filter: blur(16px) saturate(1.35);
+  -webkit-backdrop-filter: blur(16px) saturate(1.35);
+  border: 1px solid color-mix(in srgb, var(--abk-text) 12%, transparent);
+  border-radius: var(--abk-radius-lg);
+  box-shadow: 0 10px 34px -14px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   padding: 20px;
 }
 .card + .card, .grid + .grid, .grid + .card, .card + .grid { margin-top: 16px; }
@@ -97,9 +110,27 @@ a:hover { text-decoration: underline; }
 .balance { font-family: var(--abk-font-display); font-weight: 800; font-size: 34px; line-height: 1.05; letter-spacing: -0.02em; }
 .balance small { font-size: 16px; color: var(--abk-text-muted); font-weight: 600; }
 .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 8px; }
-.stat { background: var(--abk-bg); border: 1px solid var(--abk-line); border-radius: var(--abk-radius-md); padding: 12px 14px; }
-.stat b { font-family: var(--abk-font-display); font-size: 18px; display: block; }
+/* Each tile carries its own accent hue (--tile) — no longer all violet — with a
+   frosted-glass tint, a colored hairline, a top glow bar, and the number in that hue. */
+.stat {
+  --tile: var(--abk-brand); position: relative; overflow: hidden;
+  background: var(--abk-bg);
+  background: color-mix(in srgb, var(--tile) 10%, color-mix(in srgb, var(--abk-bg) 78%, transparent));
+  backdrop-filter: blur(10px) saturate(1.3); -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  border: 1px solid var(--abk-line);
+  border-color: color-mix(in srgb, var(--tile) 38%, var(--abk-line));
+  border-radius: var(--abk-radius-md); padding: 12px 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.stat::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--tile), transparent); opacity: 0.8; }
+.stat b { font-family: var(--abk-font-display); font-size: 18px; display: block; color: color-mix(in srgb, var(--tile) 78%, var(--abk-text)); }
 .stat span { font-size: 11px; color: var(--abk-text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+/* Distinct hue per tile position (cycles for grids with more than four). */
+.stat:nth-child(4n + 1) { --tile: var(--abk-brand); }
+.stat:nth-child(4n + 2) { --tile: var(--abk-accent); }
+.stat:nth-child(4n + 3) { --tile: var(--abk-green); }
+.stat:nth-child(4n + 4) { --tile: #FF8A3D; }
 
 /* Forms */
 label.field { display: block; margin: 0 0 12px; }
@@ -275,4 +306,11 @@ body::before {
   --abk-accent: #0A9FCF; --abk-accent-rgb: 10, 159, 207;
   --abk-bg: #F3F4FB; --abk-surface: #FFFFFF; --abk-card: #F8F9FE; --abk-line: #E1E2EF;
   --abk-text: #14131F; --abk-text-soft: #45475B; --abk-text-muted: #6B6E85;
+}
+/* True OLED dark mode: pure black, minimal color, soft violet/cyan accents. */
+:root[data-theme="onyx"] {
+  --abk-brand: #A78BFA; --abk-brand-rgb: 167, 139, 250; --abk-brand-light: #C4B5FD; --abk-brand-dark: #7C5CFF;
+  --abk-accent: #22D3EE; --abk-accent-rgb: 34, 211, 238;
+  --abk-bg: #000000; --abk-surface: #0B0B0F; --abk-card: #060609; --abk-line: #1B1B22;
+  --abk-text: #F5F5F7; --abk-text-soft: #B2B2BC; --abk-text-muted: #6E6E7A;
 }

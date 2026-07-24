@@ -21,6 +21,7 @@ const brandLogo = (size: "sm" | "xl"): string =>
 // so the choice survives restarts; applied before the first render to avoid a flash.
 const THEMES = [
   { id: "midnight", label: "Midnight", swatch: "#7C46FF" },
+  { id: "onyx", label: "Onyx (Dark)", swatch: "#0A0A0A" },
   { id: "aurora", label: "Aurora", swatch: "#00CFFF" },
   { id: "nebula", label: "Nebula", swatch: "#FF4D9D" },
   { id: "ember", label: "Ember", swatch: "#FF8A3D" },
