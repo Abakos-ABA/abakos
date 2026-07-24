@@ -169,7 +169,7 @@ The chain is a Cosmos SDK app and builds on **Linux** (Go 1.25+, CosmWasm `libwa
 - ⭐ **Star this repo** — it is the single strongest signal that makes Abakos discoverable for the next person searching for a zero-fee compute chain.
 - 🌐 Website & waitlist: [abakos.ai](https://abakos.ai)
 - 💬 Questions and ideas: [GitHub Discussions](https://github.com/Abakos-ABA/abakos/discussions)
-- 🐦 Updates: [@MarlonMorales0 on X](https://x.com/MarlonMorales0)
+- 🐦 Updates: [@Abakos_ai on X](https://x.com/Abakos_ai)
 
 ---
 
