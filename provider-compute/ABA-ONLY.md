@@ -94,7 +94,7 @@ bash provider-compute/scripts/30-test-deploy.sh
 
 1. `scripts/00-install-k3s.sh` — k3s, ingress-nginx, cert-manager, **Gateway API CRDs**, hostname + inventory operators
 2. `scripts/10-build-provider.sh` — `provider-services` with Abakos bech32/denom patch
-3. `scripts/20-register-provider.sh` — on-chain `MsgCreateProvider`
+3. `scripts/20-register-provider.sh` — on-chain `MsgCreateProvider`. The script does **not** use the faucet: it prints the provider address and waits until you send it at least 6 ABA yourself (e.g. from the Abakos Desktop Wallet) — bid deposits are escrowed from the provider's own balance, same as mainnet.
 4. systemd / `provider-services run` — bids use `--bid-deposit 5000000uaba`
 
 ### Hostname operator (required for bids)

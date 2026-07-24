@@ -24,13 +24,39 @@ ADDR="$(abakosd keys show "$KEY" -a --keyring-backend "$ABA_KEYRING_BACKEND")"
 echo "provider address: $ADDR"
 [[ "$ADDR" == abakos1* ]] || { echo "!! address is not abakos1..."; exit 1; }
 
-if [ -n "$ABA_FAUCET" ] && [ "$ABA_NETWORK" = "sandbox" ]; then
-  echo "== [2/5] fund from faucet (sandbox only) =="
-  curl -sS -X POST "$ABA_FAUCET" -H 'content-type: application/json' \
-    -d "{\"address\":\"$ADDR\"}" || true
-  echo; sleep 6
-else
-  echo "== [2/5] mainnet: fund $ADDR with uaba manually (no faucet) =="
+# Bid deposits are escrowed from the provider's own wallet — no faucet funding,
+# identical flow on sandbox and mainnet.
+BID_UAB="${ABA_BID_DEPOSIT%uaba}"
+NEED_UAB="$((BID_UAB + 1000000))"   # bid deposit + 1 ABA fee/tx buffer
+FUND_TIMEOUT="${FUND_TIMEOUT:-900}"
+
+spendable_uaba() {
+  abakosd query bank spendable-balances "$ADDR" --node "$ABA_RPC" -o json 2>/dev/null \
+    | jq -r '[.balances[]? | select(.denom=="uaba") | .amount] | first // "0"'
+}
+
+echo "== [2/5] wallet funding (provider pays its own bid deposits) =="
+BAL="$(spendable_uaba)"
+if [ "$BAL" -lt "$NEED_UAB" ]; then
+  cat <<EOF
+Provider wallet needs at least ${NEED_UAB}uaba (bid deposit $ABA_BID_DEPOSIT + buffer).
+Current spendable balance: ${BAL}uaba
+
+  Send ABA to: $ADDR
+  (e.g. from the Abakos Desktop Wallet, Send tab)
+
+Waiting up to ${FUND_TIMEOUT}s for funds...
+EOF
+  waited=0
+  while [ "$BAL" -lt "$NEED_UAB" ]; do
+    if [ "$waited" -ge "$FUND_TIMEOUT" ]; then
+      echo "!! timed out after ${FUND_TIMEOUT}s — fund $ADDR and re-run this script" >&2
+      exit 1
+    fi
+    sleep 5; waited=$((waited + 5))
+    BAL="$(spendable_uaba)"
+  done
+  echo "funded: ${BAL}uaba"
 fi
 abakosd query bank spendable-balances "$ADDR" --node "$ABA_RPC" -o json | jq '.balances' || true
 

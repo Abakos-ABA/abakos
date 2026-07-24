@@ -59,6 +59,7 @@ Install provider-compute on the Linux VM first (Phase 1). Public reachability st
 ## Checklist before E2E
 
 - [ ] `abakosd` is ABA-only build (post 2026-07-22)
+- [ ] Provider wallet holds ≥ 6 ABA for bid deposits (self-funded — registration no longer uses the faucet)
 - [ ] `kubectl get pods -n akash-services` — `operator-hostname` **Running**
 - [ ] `systemctl is-active abakos-provider`
 - [ ] Tenant has `uaba` in **spendable-balances** (not just `aba` in `balances`)

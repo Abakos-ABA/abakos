@@ -63,7 +63,7 @@ bash provider-compute/scripts/30-test-deploy.sh
 | ---- | ------ | ------------ |
 | 1 | `scripts/00-install-k3s.sh` | k3s, ingress-nginx, cert-manager, Gateway API CRDs, hostname + inventory operators |
 | 2 | `scripts/10-build-provider.sh` | Clone/build `provider-services` (Abakos prefixes) |
-| 3 | `scripts/20-register-provider.sh` | Provider key, faucet, cert, `provider create` |
+| 3 | `scripts/20-register-provider.sh` | Provider key, wallet funding (send ABA yourself — no faucet), cert, `provider create` |
 | 4 | systemd / manual `run` | `abakos-provider` service (`systemd/provider-services.service`) |
 | 5 | `scripts/30-test-deploy.sh` | Tenant: deploy `examples/hello-cpu.yaml` → bid → lease → manifest |
 
