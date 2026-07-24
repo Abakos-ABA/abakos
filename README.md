@@ -7,6 +7,8 @@
 [![Supply](https://img.shields.io/badge/supply-fixed%2010B%20%C2%B7%200%25%20inflation-orange)](#tokenomics-fixed-supply--deflationary)
 [![Website](https://img.shields.io/badge/website-abakos.ai-000)](https://abakos.ai)
 
+![Abakos — zero-fee PoS compute chain. Rent out CPU, RAM, GPU and storage; idle capacity mines the best coin and buys ABA on the market.](docs/img/social-preview.png)
+
 **Abakos is a zero-fee, EVM-compatible Proof-of-Stake blockchain for decentralized compute (DePIN).** It is a fork of the open [Akash](https://akash.network) stack (Cosmos SDK + CometBFT) with a native EVM, an on-chain DEX, and a **Provider Agent** that keeps every machine fully utilized: rent CPU, RAM, GPU and storage through the Console, and when GPU or CPU would otherwise sit idle, the agent mines the most profitable coin and auto-converts the proceeds into **ABA**.
 
 > **Project name** from the Greek *ábax / abakos* (abacus, the oldest computing device) — a direct tie to compute. **Ticker `ABA`.** Live at **[abakos.ai](https://abakos.ai)**.
@@ -29,6 +31,21 @@
 Abakos runs the product suite Akash proved — Console for deploys, Chat, an OpenAI-compatible API, and provider software — on its **own** Proof-of-Stake chain forked from [`akash-network/node`](https://github.com/akash-network/node) (Cosmos SDK + CometBFT, Apache-2.0). **ABA** is the settlement and staking asset with native fee capture, a fixed genesis allocation, and validator economics.
 
 The differentiator versus plain GPU-rental networks is the **Provider Agent**, which keeps every machine fully utilized. Paid rentals fill the machine first; any idle GPU or CPU mines the most profitable coin, auto-converts to ABA (buyback), and pays the host. Chain security is funded by protocol revenue and staking — **not** by inflating the token.
+
+## How Abakos compares
+
+Honest positioning against the networks people actually weigh it against:
+
+| | **Abakos** | **Akash Network** | **Render / io.net** |
+|---|---|---|---|
+| Idle hardware | **Mines the best coin → proceeds buy ABA on the DEX** | Sits idle between leases | Sits idle between jobs |
+| Transaction fees | **Zero** (Cosmos *and* EVM txs, `eth_gasPrice = 0`) | Gas in AKT | Gas on Solana / L2 |
+| Token supply | **Fixed 10B, 0% inflation, protocol burn** | Inflationary (staking emissions) | Emission programs |
+| Staking rewards | **Paid from real usage revenue** (12% mining cut, 3% rental fee) | Paid from inflation | n/a |
+| EVM support | **Native, chain id 9721, MetaMask-ready** | No EVM | n/a |
+| Stack | Fork of the proven Akash stack (Cosmos SDK + CometBFT) | Origin of the stack | Custom |
+
+If you are searching for an **Akash alternative with an EVM**, a **zero-gas chain for dApps**, or a way to **earn on an idle GPU without new token emissions** — that is exactly the niche Abakos targets.
 
 ## Free transactions (zero gas)
 
@@ -118,6 +135,26 @@ abakos/
 
 **Next:** see the sandbox status doc (Console wallet Connected bug is the current P0). Then buyback / burn, EVM + AMM audit, fiat onramp, mainnet.
 
+## FAQ
+
+**Is Abakos a fork of Akash Network?**
+Yes — the chain forks [`akash-network/node`](https://github.com/akash-network/node) (Apache-2.0, Cosmos SDK + CometBFT) and keeps the proven marketplace modules, then adds a native EVM, zero-fee transactions, an on-chain ABA/USDT DEX and the Provider Agent. Attributions are preserved (see [NOTICE](NOTICE)).
+
+**How do I earn with an idle GPU or CPU?**
+Run the Provider Agent. It rents your CPU, RAM, GPU and storage out through the Console when there is demand; when a GPU or CPU would sit idle it mines the most profitable coin and the proceeds **buy ABA on the open market** — 88% to you, 4% stakers, 4% treasury, 4% burned. No empty hours.
+
+**Is ABA inflationary?**
+No. All 10,000,000,000 ABA exist at genesis; none are ever minted. Stakers and validators are paid from real usage revenue (the 12% mining cut and the 3% rental fee), and a third of every protocol cut is burned — supply only goes down.
+
+**How can transactions be free? What stops spam?**
+The L1 sets `eth_gasPrice = 0` for both Cosmos and EVM transactions. Spam is bounded by consensus and mempool limits instead of price — see the [fee model](docs/fee-model.md).
+
+**Can I use MetaMask?**
+Yes. Native Ethereum JSON-RPC at `evm-rpc.abakos.ai`, EIP-155 chain id **9721**.
+
+**Is this live today?**
+The public sandbox is live: chain + EVM, web wallet, explorer, faucet, ABA/USDT DEX, Provider Agent + Dashboard. Console, Chat and the API are in development; mainnet follows after an audit and external validator onboarding. Canonical status: [abakos.ai/status](https://abakos.ai/status/).
+
 ## Build (chain)
 
 The chain is a Cosmos SDK app and builds on **Linux** (Go 1.25+, CosmWasm `libwasmvm`). Use WSL or a Linux server; Windows is for editing only. Build/run steps live in [`chain/`](chain/).
@@ -126,6 +163,13 @@ The chain is a Cosmos SDK app and builds on **Linux** (Go 1.25+, CosmWasm `libwa
 
 - **Host:** IONOS VPS, Ubuntu, Caddy (auto-TLS).
 - **Site content:** built from `site/` (`npm run build`) and deployed via the `MarlonMoralesServer` ops repo.
+
+## Community
+
+- ⭐ **Star this repo** — it is the single strongest signal that makes Abakos discoverable for the next person searching for a zero-fee compute chain.
+- 🌐 Website & waitlist: [abakos.ai](https://abakos.ai)
+- 💬 Questions and ideas: [GitHub Discussions](https://github.com/Abakos-ABA/abakos/discussions)
+- 🐦 Updates: [@MarlonMorales0 on X](https://x.com/MarlonMorales0)
 
 ---
 

@@ -1,0 +1,6 @@
+Abakos — third-party notices
+
+- chain/ is a fork of akash-network/node (Apache-2.0); original license headers
+  and attributions are preserved in the vendored sources.
+- When upstream btcd source is vendored into node/, those files remain under
+  the ISC license of their original authors; their headers are preserved.
