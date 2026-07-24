@@ -3,11 +3,28 @@ import * as wallet from "./wallet";
 import type { Addresses } from "./wallet";
 import * as mining from "./mining";
 import * as host from "./host";
-import { EXPLORER, DEX, enableMining, kvGet, kvSet, recentTxs, reportStats } from "./net";
+import { EXPLORER, DEX, enableMining, kvGet, kvSet, fetchTxs, reportStats } from "./net";
+import type { TxInfo } from "./net";
 import { checkForUpdate } from "./update";
 import { getVersion } from "@tauri-apps/api/app";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 const POOL = "https://pool.abakos.ai/";
+// Escrowed per compute bid by the provider daemon; mirrors ABA_BID_DEPOSIT in
+// provider-compute/config/network.sh.
+const BID_DEPOSIT_ABA = 5;
+
+// External links open in the system browser — a plain href would navigate the
+// Tauri webview away from the app with no way back.
+document.addEventListener("click", (e) => {
+  const a = (e.target as HTMLElement).closest?.("a[href]") as HTMLAnchorElement | null;
+  if (!a) return;
+  const href = a.getAttribute("href") || "";
+  if (/^https?:\/\//.test(href)) {
+    e.preventDefault();
+    openUrl(href).catch(() => {});
+  }
+});
 
 const app = document.getElementById("app") as HTMLElement;
 
@@ -184,6 +201,7 @@ const TABS: [string, string][] = [
   ["wallet", "Wallet"],
   ["send", "Send"],
   ["receive", "Receive"],
+  ["txs", "Transactions"],
   ["mining", "Mining"],
   ["host", "Host"],
   ["settings", "Settings"],
@@ -224,13 +242,30 @@ function renderTab(): void {
       </div>
       <div class="card">
         <div class="label">Recent activity</div>
-        <div id="activity" class="fineprint">loading\u2026</div>
-        <p class="fineprint" style="margin-top:8px"><a href="${EXPLORER}#acct/${a.aba}">View account on Explorer \u2192</a></p>
+        <div id="activity">loading\u2026</div>
+        <p class="fineprint" style="margin-top:8px"><a href="#" id="alltxs">All transactions \u2192</a> \u00b7 <a href="${EXPLORER}#acct/${a.aba}">Explorer \u2197</a></p>
       </div>`;
     wireCopy();
     (document.getElementById("refresh") as HTMLButtonElement).onclick = refreshBalance;
     (document.getElementById("faucet") as HTMLButtonElement).onclick = doFaucet;
+    (document.getElementById("alltxs") as HTMLElement).onclick = (e) => {
+      e.preventDefault();
+      activeTab = "txs";
+      renderApp();
+    };
     loadActivity();
+  } else if (activeTab === "txs") {
+    c.innerHTML = `
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <div><div class="label">Transactions</div><h2>Account history</h2></div>
+          <button class="btn" id="txrefresh">Refresh</button>
+        </div>
+        <div id="txlist"><p class="fineprint">loading\u2026</p></div>
+        <div class="actions" style="margin-top:12px"><button class="btn" id="txmore" style="display:none">Show more</button></div>
+        <p class="fineprint">Full history: <a href="${EXPLORER}#acct/${a.aba}">account on Explorer \u2197</a> (opens in your browser)</p>
+      </div>`;
+    setupTxs();
   } else if (activeTab === "send") {
     c.innerHTML = `
       <div class="card">
@@ -308,11 +343,17 @@ function renderTab(): void {
         <p class="fineprint" id="hostline">Unit: abakos-provider</p>
       </div>
       <div class="card">
+        <div class="label">Bid deposit</div>
+        <p class="fineprint">Each compute bid escrows <b>${BID_DEPOSIT_ABA} ABA</b> from this wallet as a refundable deposit — it is returned when the bid or lease closes. There is no faucet funding for providers: keep at least <b>${BID_DEPOSIT_ABA + 1} ABA</b> spendable so your provider keeps bidding.</p>
+        <p class="msg" id="bidwarn"></p>
+      </div>
+      <div class="card">
         <div class="label">How hosting works</div>
         <p class="fineprint">Tenants deploy via <a href="https://console.abakos.ai">console.abakos.ai</a>. Your gateway must be publicly reachable (tunnel or public IP on :8443). Compute hosting runs on k3s (Linux containers), so it needs Linux. On Windows, run the provider inside <b>WSL2</b> (Ubuntu) or a Linux VM, then open this tab there to start/stop. Mining (CPU/GPU) works natively on Windows and is independent of hosting.</p>
       </div>`;
     setupHost();
     refreshHost();
+    refreshBidWarning();
   } else if (activeTab === "settings") {
     c.innerHTML = `
       <div class="card">
@@ -368,6 +409,7 @@ async function refreshBalance(): Promise<void> {
       cos.textContent = "\u2013";
     }
   }
+  refreshBidWarning();
 }
 
 async function doFaucet(): Promise<void> {
@@ -385,15 +427,83 @@ async function doFaucet(): Promise<void> {
   }
 }
 
+// ---------------------------------------------------------------- transactions
+let txCache: TxInfo[] = [];
+let txShown = 12;
+let bookNames: Map<string, string> = new Map();
+
+async function refreshBookNames(): Promise<void> {
+  try {
+    bookNames = new Map((await wallet.getContacts()).map((c) => [c.addr, c.name]));
+  } catch {
+    /* names are cosmetic */
+  }
+}
+
+function nameFor(addr?: string): string {
+  if (!addr) return "";
+  return bookNames.get(addr) || short(addr, 8);
+}
+
+function txRowHtml(t: TxInfo, compact = false): string {
+  const dirCls = t.direction === "in" ? "in" : t.direction === "out" ? "out" : "none";
+  const arrow = t.direction === "in" ? "\u2193" : t.direction === "out" ? "\u2191" : "\u00b7";
+  const amt =
+    t.amountAba > 0
+      ? `${t.direction === "in" ? "+" : t.direction === "out" ? "\u2212" : ""}${fmtAba(t.amountAba)} ABA`
+      : "";
+  const cp = t.counterparty ? `${t.direction === "in" ? "from" : "to"} ${nameFor(t.counterparty)}` : "";
+  const when = t.ts ? new Date(t.ts).toLocaleString() : `block ${t.height}`;
+  const meta = [cp, when, t.ok ? "" : "FAILED"].filter(Boolean).join(" \u00b7 ");
+  return `
+    <div class="txrow${t.ok ? "" : " fail"}">
+      <span class="txdir ${dirCls}">${arrow}</span>
+      <div class="txmain">
+        <b>${t.label}</b>
+        <span>${meta}</span>
+      </div>
+      <div class="txside">
+        <b class="txamt ${dirCls}">${amt}</b>
+        ${compact ? "" : `<a class="mono" href="${EXPLORER}#tx/${t.hash}">${short(t.hash, 6)} \u2197</a>`}
+      </div>
+    </div>`;
+}
+
 async function loadActivity(): Promise<void> {
   const el = document.getElementById("activity");
   if (!el || !addresses) return;
-  const rows = await recentTxs(addresses.aba);
-  el.innerHTML = rows.length
-    ? rows
-        .map((r) => `<div class="actrow"><a class="mono" href="${EXPLORER}#tx/${r.hash}">${short(r.hash, 8)}</a> <span class="mut">block ${r.height}${r.ts ? " \u00b7 " + new Date(r.ts).toLocaleString() : ""}</span></div>`)
-        .join("")
-    : "No recent sends found (or indexer unavailable). Use the Explorer link below.";
+  await refreshBookNames();
+  txCache = await fetchTxs(addresses.aba);
+  if (!document.getElementById("activity")) return; // tab switched meanwhile
+  el.innerHTML = txCache.length
+    ? txCache.slice(0, 5).map((t) => txRowHtml(t, true)).join("")
+    : `<p class="fineprint">No transactions yet (or indexer unavailable).</p>`;
+}
+
+function paintTxList(): void {
+  const el = document.getElementById("txlist");
+  const more = document.getElementById("txmore") as HTMLButtonElement | null;
+  if (!el) return;
+  el.innerHTML = txCache.length
+    ? txCache.slice(0, txShown).map((t) => txRowHtml(t)).join("")
+    : `<p class="fineprint">No transactions found for this account (or indexer unavailable).</p>`;
+  if (more) more.style.display = txCache.length > txShown ? "" : "none";
+}
+
+async function setupTxs(): Promise<void> {
+  const load = async (): Promise<void> => {
+    if (!addresses) return;
+    await refreshBookNames();
+    txCache = await fetchTxs(addresses.aba, 50);
+    paintTxList();
+  };
+  (document.getElementById("txrefresh") as HTMLButtonElement).onclick = load;
+  (document.getElementById("txmore") as HTMLButtonElement).onclick = () => {
+    txShown += 12;
+    paintTxList();
+  };
+  if (txCache.length) paintTxList(); // show cached rows instantly, then refresh
+  await load();
 }
 
 async function loadContacts(): Promise<void> {
@@ -688,6 +798,25 @@ async function refreshLive(): Promise<void> {
 
 // ---------------------------------------------------------------- host (compute provider)
 let hosting_ = false;
+
+// Bid deposits come out of the Cosmos-side spendable balance of this wallet.
+async function refreshBidWarning(): Promise<void> {
+  const el = document.getElementById("bidwarn");
+  if (!el) return;
+  try {
+    const bal = await wallet.balanceCosmos();
+    if (bal < BID_DEPOSIT_ABA + 1) {
+      el.className = "msg err";
+      el.textContent = `Balance too low for bids: ${fmtAba(bal)} ABA spendable — send this wallet at least ${BID_DEPOSIT_ABA + 1} ABA.`;
+    } else {
+      el.className = "msg ok";
+      el.textContent = `${fmtAba(bal)} ABA spendable — enough for bid deposits.`;
+    }
+  } catch {
+    el.className = "msg";
+    el.textContent = "";
+  }
+}
 
 async function setupHost(): Promise<void> {
   (document.getElementById("hostbtn") as HTMLButtonElement).onclick = toggleHost;

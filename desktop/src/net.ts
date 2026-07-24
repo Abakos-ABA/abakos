@@ -138,25 +138,141 @@ export async function faucetRequest(aba: string): Promise<string> {
   throw new Error(j.error || "faucet failed" + (j.retry_after_s ? ` (retry in ${j.retry_after_s}s)` : ""));
 }
 
-export interface TxRow {
+export interface TxInfo {
   hash: string;
-  height: string;
+  height: number;
   ts?: string;
+  ok: boolean;
+  label: string;
+  direction: "in" | "out" | "none";
+  amountAba: number;
+  counterparty?: string;
 }
-/** Best-effort recent activity for an address via Cosmos REST tx search. */
-export async function recentTxs(aba: string): Promise<TxRow[]> {
-  try {
-    const q = encodeURIComponent(`message.sender='${aba}'`);
-    const text = await netGet(`${COSMOS_REST}/cosmos/tx/v1beta1/txs?query=${q}&order_by=2&limit=8`);
-    const j = JSON.parse(text);
-    return (j.tx_responses || []).map((t: { txhash: string; height: string; timestamp?: string }) => ({
-      hash: t.txhash,
-      height: t.height,
-      ts: t.timestamp,
-    }));
-  } catch {
-    return [];
+
+/** "MsgCreateDeployment" -> "Create deployment". */
+function msgLabel(typeUrl: string): string {
+  const name = (typeUrl.split(".").pop() || typeUrl).replace(/^Msg/, "");
+  const words = name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : typeUrl;
+}
+
+/** Sum the uaba part of a coin string like "5000000uaba" or "1uaba,2ufoo". */
+function parseUaba(s: string): number {
+  let total = 0;
+  for (const part of String(s || "").split(",")) {
+    const m = part.trim().match(/^(\d+)uaba$/);
+    if (m) total += Number(m[1]);
   }
+  return total;
+}
+
+interface RawTxResponse {
+  txhash: string;
+  height: string;
+  timestamp?: string;
+  code: number;
+  events?: { type: string; attributes?: { key: string; value: string }[] }[];
+  tx?: { body?: { messages?: Record<string, unknown>[] } };
+}
+
+function decodeTx(t: RawTxResponse, aba: string): TxInfo {
+  // Direction + net amount from the tx's indexed transfer events — accurate for
+  // bank sends, faucet drops, escrow deposits and refunds alike.
+  let inU = 0;
+  let outU = 0;
+  let cpIn: string | undefined;
+  let cpOut: string | undefined;
+  for (const ev of t.events || []) {
+    if (ev.type !== "transfer") continue;
+    let rec = "";
+    let snd = "";
+    for (const at of ev.attributes || []) {
+      if (at.key === "recipient") rec = at.value;
+      else if (at.key === "sender") snd = at.value;
+      else if (at.key === "amount") {
+        const amt = parseUaba(at.value);
+        if (rec === aba && snd !== aba) {
+          inU += amt;
+          if (snd) cpIn = cpIn || snd;
+        } else if (snd === aba && rec !== aba) {
+          outU += amt;
+          if (rec) cpOut = cpOut || rec;
+        }
+        rec = snd = "";
+      }
+    }
+  }
+
+  const msgs = t.tx?.body?.messages || [];
+  const first = (msgs[0] || {}) as Record<string, unknown>;
+  const typeUrl = String(first["@type"] || "");
+  let label = msgLabel(typeUrl || "Tx");
+  let amountAba = Math.abs(inU - outU) / 1e6;
+  let direction: TxInfo["direction"] = inU > outU ? "in" : outU > inU ? "out" : "none";
+  let counterparty = direction === "in" ? cpIn : cpOut;
+
+  if (typeUrl.endsWith("bank.v1beta1.MsgSend")) {
+    const from = String(first.from_address || "");
+    const to = String(first.to_address || "");
+    direction = from === aba ? "out" : "in";
+    label = direction === "out" ? "Send" : "Receive";
+    counterparty = direction === "out" ? to : from;
+    if (!amountAba) {
+      amountAba = parseUaba(
+        ((first.amount as { denom: string; amount: string }[]) || [])
+          .map((c) => `${c.amount}${c.denom}`)
+          .join(","),
+      ) / 1e6;
+    }
+  } else if (typeUrl.endsWith("MsgEthereumTx")) {
+    // EVM value is 18-dec inside the inner tx data.
+    label = "EVM transfer";
+    const data = (first.data || {}) as Record<string, unknown>;
+    const wei = Number(String(data.value || "0"));
+    if (!amountAba && Number.isFinite(wei)) amountAba = wei / 1e18;
+    if (!counterparty && data.to) counterparty = String(data.to);
+    if (direction === "none") direction = "out";
+  }
+  if (msgs.length > 1) label += ` +${msgs.length - 1}`;
+
+  return {
+    hash: t.txhash,
+    height: Number(t.height),
+    ts: t.timestamp,
+    ok: t.code === 0,
+    label,
+    direction,
+    amountAba,
+    counterparty,
+  };
+}
+
+/**
+ * Transaction history for an address via Cosmos REST tx search: everything the
+ * account signed plus everything it received, merged and decoded. Best-effort —
+ * returns [] if the indexer is unavailable.
+ */
+export async function fetchTxs(aba: string, limit = 30): Promise<TxInfo[]> {
+  const queries = [`message.sender='${aba}'`, `transfer.recipient='${aba}'`];
+  const lists = await Promise.all(
+    queries.map(async (q) => {
+      try {
+        const url = `${COSMOS_REST}/cosmos/tx/v1beta1/txs?query=${encodeURIComponent(q)}&order_by=2&limit=${limit}`;
+        return (JSON.parse(await netGet(url)).tx_responses || []) as RawTxResponse[];
+      } catch {
+        return [] as RawTxResponse[];
+      }
+    }),
+  );
+  const seen = new Set<string>();
+  const out: TxInfo[] = [];
+  for (const t of lists.flat()) {
+    if (seen.has(t.txhash)) continue;
+    seen.add(t.txhash);
+    out.push(decodeTx(t, aba));
+  }
+  out.sort((x, y) => y.height - x.height);
+  return out;
 }
 
 export interface ProviderStat {
