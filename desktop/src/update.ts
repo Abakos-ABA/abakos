@@ -89,7 +89,19 @@ function showModal(update: Update): void {
             break;
         }
       });
-      await relaunch();
+      try {
+        await relaunch();
+      } catch {
+        /* fall through to the manual-restart hint below */
+      }
+      // On Linux (AppImage) relaunch sometimes exits without spawning the new
+      // process. The update IS installed at this point \u2014 tell the user instead
+      // of sitting on "Installing\u2026" forever.
+      setTimeout(() => {
+        msg.textContent = "Update installed. Please close and reopen the app.";
+        later.disabled = false;
+        later.textContent = "Close";
+      }, 4000);
     } catch (err) {
       msg.textContent = "Update failed: " + ((err as Error).message || String(err));
       later.disabled = now.disabled = false;

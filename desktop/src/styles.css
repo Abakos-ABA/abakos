@@ -40,13 +40,15 @@ body {
   background: radial-gradient(1200px 600px at 50% -10%, rgba(var(--abk-brand-rgb), 0.14), transparent 60%), var(--abk-bg);
   color: var(--abk-text);
   font-family: var(--abk-font-body);
-  font-size: 14px;
+  /* 13.5px, not 14: Inter's x-height runs larger than the old Satoshi, so the
+     same px size reads noticeably bigger. This restores the previous density. */
+  font-size: 13.5px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 #app { min-height: 100%; }
 
-h1, h2, h3 { font-family: var(--abk-font-display); margin: 0; font-weight: 800; letter-spacing: -0.01em; }
+h1, h2, h3 { font-family: var(--abk-font-display); margin: 0; font-weight: 800; letter-spacing: -0.02em; }
 a { color: var(--abk-brand-light); text-decoration: none; }
 a:hover { text-decoration: underline; }
 .mono { font-family: var(--abk-font-mono); }
@@ -62,7 +64,7 @@ a:hover { text-decoration: underline; }
   background: rgba(16, 17, 24, 0.6); backdrop-filter: blur(8px);
   position: sticky; top: 0; z-index: 5;
 }
-.brand { display: flex; align-items: center; gap: 10px; font-family: var(--abk-font-display); font-weight: 800; font-size: 17px; }
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--abk-font-display); font-weight: 800; font-size: 16px; }
 .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--abk-brand); box-shadow: 0 0 12px rgba(var(--abk-brand-rgb), 0.9); }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
@@ -75,7 +77,7 @@ a:hover { text-decoration: underline; }
 }
 .card + .card, .grid + .grid, .grid + .card, .card + .grid { margin-top: 16px; }
 .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--abk-text-muted); font-weight: 700; }
-.card h2 { font-size: 18px; margin: 6px 0 12px; }
+.card h2 { font-size: 16px; margin: 6px 0 12px; }
 
 /* Badges */
 .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid var(--abk-line); border-radius: 999px; padding: 4px 10px; color: var(--abk-text-soft); }
@@ -86,11 +88,11 @@ a:hover { text-decoration: underline; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
 /* Numbers */
-.balance { font-family: var(--abk-font-display); font-weight: 800; font-size: 40px; line-height: 1.05; }
+.balance { font-family: var(--abk-font-display); font-weight: 800; font-size: 34px; line-height: 1.05; letter-spacing: -0.02em; }
 .balance small { font-size: 16px; color: var(--abk-text-muted); font-weight: 600; }
 .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 8px; }
 .stat { background: var(--abk-bg); border: 1px solid var(--abk-line); border-radius: var(--abk-radius-md); padding: 12px 14px; }
-.stat b { font-family: var(--abk-font-display); font-size: 20px; display: block; }
+.stat b { font-family: var(--abk-font-display); font-size: 18px; display: block; }
 .stat span { font-size: 11px; color: var(--abk-text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
 
 /* Forms */
