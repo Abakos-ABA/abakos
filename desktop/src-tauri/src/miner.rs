@@ -18,10 +18,14 @@ const POOL_HOST: &str = "mine.abakos.ai";
 const POOL_PORT: u16 = 3355;
 const XMRIG_API_PORT: u16 = 16000;
 const SRB_API_PORT: u16 = 21555;
-const PRL_POOL: &str = "prl.kryptex.network:7048";
-/// Kryptex account that receives the mined value (auto-exchanged to USDT).
+const PRL_POOL: &str = "pearlpow.unmineable.com:3333";
+/// unMineable account alias that receives the mined value (auto-exchanged to USDC
+/// on Polygon via the account's payout settings). Used only for the failover pool;
+/// primary mining goes through the Abakos proxy which attributes per-ABA-address.
 fn kryptex_user() -> String {
-    std::env::var("ABA_KRYPTEX_USER").unwrap_or_else(|_| "krxXP93EGN".to_string())
+    std::env::var("ABA_UNMINEABLE_USER")
+        .or_else(|_| std::env::var("ABA_KRYPTEX_USER"))
+        .unwrap_or_else(|_| "abakos_ai".to_string())
 }
 
 pub struct Inner {
@@ -275,9 +279,10 @@ fn run_cpu(data_dir: &Path, address: &str, threads: u32) -> Result<Child, String
                 "algo": "rx/0"
             },
             {
-                // Failover: mine straight to Kryptex if the proxy is unreachable, so
-                // the machine keeps earning (attribution resumes once the proxy is up).
-                "url": "xmr.kryptex.network:7029",
+                // Failover: mine straight to unMineable (RandomX) if the proxy is
+                // unreachable, so the machine keeps earning (attribution resumes once
+                // the proxy is up). unMineable login format is Alias.Worker.
+                "url": "rx.unmineable.com:3333",
                 "user": format!("{}.cpu{}", kryptex_user(), if tag.is_empty() { "abk".into() } else { tag }),
                 "pass": "x",
                 "keepalive": true,
@@ -320,14 +325,17 @@ fn run_gpu(data_dir: &Path, address: &str) -> Result<Child, String> {
     kill_on_port(SRB_API_PORT);
     // Primary: the Abakos proxy (same host/port as CPU; it auto-detects the Pearl
     // dialect and attributes VERIFIED GPU shares to the ABA address). Failover: mine
-    // straight to Kryptex so the GPU keeps earning if the proxy is unreachable.
+    // straight to unMineable PearlPow so the GPU keeps earning if the proxy is down.
     let proxy_pool = format!("{POOL_HOST}:{POOL_PORT}");
     let kryptex_wallet = format!("{}.{}", kryptex_user(), worker);
     let mut cmd = Command::new(&bin);
     cmd.args([
-        // pearlhash is a GPU algorithm: it MUST be passed via --algorithm-gpu.
-        // Using plain --algorithm (the CPU-algo switch) makes SRBMiner crash.
-        "--algorithm-gpu", "pearlhash",
+        // pearlhash MUST be passed via plain --algorithm (unMineable's documented
+        // SRBMiner command). --algorithm-gpu ran the GPU but produced ZERO accepted
+        // shares (wrong difficulty/target handling for this pool) -- verified against
+        // pearlpow.unmineable.com: --algorithm pearlhash gets shares accepted in ~47s,
+        // --algorithm-gpu got 0 shares in 30 min. Do NOT change back to --algorithm-gpu.
+        "--algorithm", "pearlhash",
         // SRBMiner failover: comma-separated pools + matching wallets (positional).
         "--pool", &format!("{proxy_pool},{PRL_POOL}"),
         "--wallet", &format!("{address},{kryptex_wallet}"),
@@ -604,21 +612,28 @@ fn query_srbminer() -> Result<(f64, u64), String> {
         .map_err(|e| e.to_string())?
         .json()
         .map_err(|e| e.to_string())?;
-    // SRBMiner-MULTI shape: /algorithms/0/hashrate/now (total, H/s). Fall back to
-    // summing per-GPU entries under /algorithms/0/hashrate/gpu, then the legacy field.
+    // SRBMiner-MULTI v3.4.6 shape (verified against a live pearlhash rig):
+    //   /algorithms/0/hashrate/gpu/total  -> total GPU H/s (the number we want)
+    //   /algorithms/0/hashrate/1min       -> windowed average (fallback)
+    // The old `/hashrate/now` field does not exist in this build, and
+    // `/hashrate/gpu` is an OBJECT {gpu0, total} -- summing it double-counts the
+    // per-device entry and the total. Read the explicit total, then fall back.
     let hr = v
-        .pointer("/algorithms/0/hashrate/now")
+        .pointer("/algorithms/0/hashrate/gpu/total")
         .and_then(|x| x.as_f64())
-        .or_else(|| {
-            v.pointer("/algorithms/0/hashrate/gpu")
-                .and_then(|g| g.as_object())
-                .map(|gpus| gpus.values().filter_map(|x| x.as_f64()).sum::<f64>())
-        })
+        .or_else(|| v.pointer("/algorithms/0/hashrate/1min").and_then(|x| x.as_f64()))
+        .or_else(|| v.pointer("/algorithms/0/hashrate/now").and_then(|x| x.as_f64()))
         .or_else(|| v.pointer("/hashrate_total_now").and_then(|x| x.as_f64()))
         .unwrap_or(0.0);
     let shares = v
         .pointer("/algorithms/0/shares/accepted")
         .and_then(|x| x.as_u64())
+        .or_else(|| {
+            // sum per-GPU accepted shares if the aggregate is absent
+            v.pointer("/algorithms/0/gpu_accepted_shares")
+                .and_then(|g| g.as_object())
+                .map(|gpus| gpus.values().filter_map(|x| x.as_u64()).sum::<u64>())
+        })
         .or_else(|| v.pointer("/shares/accepted").and_then(|x| x.as_u64()))
         .unwrap_or(0);
     Ok((hr, shares))

@@ -8,6 +8,33 @@ import type { TxInfo } from "./net";
 import { checkForUpdate } from "./update";
 import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import markUrl from "./assets/abakos-mark.svg";
+
+// Animated Abakos logo: the "A" mark with a glowing accent ball orbiting it.
+// `size` = "sm" (topbar) or "xl" (unlock/onboarding hero).
+const brandLogo = (size: "sm" | "xl"): string =>
+  `<span class="ablogo ${size}"><span class="ablogo-orbit"><i class="ablogo-ball"></i></span><img class="ablogo-mark" src="${markUrl}" alt="Abakos" draggable="false"></span>`;
+
+// Theme: names map to :root[data-theme="…"] blocks in styles.css. Persisted via kv
+// so the choice survives restarts; applied before the first render to avoid a flash.
+const THEMES = [
+  { id: "midnight", label: "Midnight", swatch: "#7C46FF" },
+  { id: "aurora", label: "Aurora", swatch: "#00CFFF" },
+  { id: "nebula", label: "Nebula", swatch: "#FF4D9D" },
+  { id: "ember", label: "Ember", swatch: "#FF8A3D" },
+  { id: "matrix", label: "Matrix", swatch: "#3DFF9A" },
+  { id: "daylight", label: "Daylight", swatch: "#5B6CFF" },
+];
+function applyTheme(id: string): void {
+  document.documentElement.dataset.theme = THEMES.some((t) => t.id === id) ? id : "midnight";
+}
+async function initTheme(): Promise<void> {
+  try {
+    applyTheme((await kvGet("theme")) || "midnight");
+  } catch {
+    applyTheme("midnight");
+  }
+}
 
 const POOL = "https://pool.abakos.ai/";
 // Escrowed per compute bid by the provider daemon; mirrors ABA_BID_DEPOSIT in
@@ -72,7 +99,7 @@ async function boot(): Promise<void> {
 function shell(inner: string): void {
   app.innerHTML = `
     <div class="topbar">
-      <div class="brand"><span class="dot"></span> Abakos Provider</div>
+      <div class="brand">${brandLogo("sm")}<span class="brandword">Abakos&nbsp;<b>Provider</b></span></div>
       <span class="badge off" id="netbadge"><span class="pulse"></span> sandbox</span>
     </div>
     <div class="wrap">${inner}</div>`;
@@ -81,6 +108,7 @@ function shell(inner: string): void {
 function renderOnboarding(): void {
   shell(`
     <div class="center">
+      <div class="hero">${brandLogo("xl")}</div>
       <div class="card">
         <div class="label">Welcome</div>
         <h2>Set up your ABA wallet</h2>
@@ -164,6 +192,7 @@ function revealMnemonic(mnemonic: string, a: Addresses): void {
 function renderUnlock(): void {
   shell(`
     <div class="center">
+      <div class="hero">${brandLogo("xl")}</div>
       <div class="card">
         <div class="label">Welcome back</div>
         <h2>Unlock your wallet</h2>
@@ -374,6 +403,14 @@ function renderTab(): void {
         <button class="btn danger" id="forget">Forget wallet</button>
       </div>
       <div class="card">
+        <div class="label">Appearance</div>
+        <h2>Theme</h2>
+        <p class="fineprint" style="margin-top:0">Pick a look \u2014 it's saved and stays after you reopen the app.</p>
+        <div class="themegrid" id="themegrid">
+          ${THEMES.map((t) => `<button class="themeswatch" data-theme-id="${t.id}"><span class="themedot" style="background:${t.swatch}"></span>${t.label}</button>`).join("")}
+        </div>
+      </div>
+      <div class="card">
         <div class="label">App</div>
         <p class="fineprint">Version <b id="appver">\u2026</b> \u00b7 updates are downloaded and installed in-app.</p>
         <div class="actions" style="margin-top:8px"><button class="btn" id="checkupd">Check for updates</button></div>
@@ -574,7 +611,27 @@ function wireSettings(): void {
   if (ver) getVersion().then((v) => (ver.textContent = v)).catch(() => (ver.textContent = "\u2013"));
   const cu = document.getElementById("checkupd") as HTMLButtonElement | null;
   if (cu) cu.onclick = () => checkForUpdate({ silent: false });
+  wireThemes();
   loadBook();
+}
+
+function wireThemes(): void {
+  const grid = document.getElementById("themegrid");
+  if (!grid) return;
+  const active = document.documentElement.dataset.theme || "midnight";
+  const mark = (id: string): void =>
+    grid.querySelectorAll(".themeswatch").forEach((b) =>
+      b.classList.toggle("on", (b as HTMLElement).dataset.themeId === id),
+    );
+  mark(active);
+  grid.querySelectorAll(".themeswatch").forEach((b) =>
+    ((b as HTMLElement).onclick = () => {
+      const id = (b as HTMLElement).dataset.themeId as string;
+      applyTheme(id); // instant, live preview
+      mark(id);
+      kvSet("theme", id).catch(() => {}); // persist for next launch
+    }),
+  );
 }
 
 async function loadBook(): Promise<void> {
@@ -942,6 +999,8 @@ async function refreshHost(): Promise<void> {
   }
 }
 
-boot();
+// Apply the saved theme before the first render (avoids a flash of the default),
+// then boot the app.
+initTheme().finally(boot);
 // Check for a newer signed release shortly after launch (silent if up to date).
 setTimeout(() => { checkForUpdate({ silent: true }).catch(() => {}); }, 1500);

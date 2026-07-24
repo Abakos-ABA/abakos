@@ -42,6 +42,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 PORT = int(os.environ.get("ABA_PROXY_PORT", "3333"))
 GPU_PORT = int(os.environ.get("ABA_GPU_PORT", "3356"))
 HTTP_PORT = int(os.environ.get("ABA_PROXY_HTTP", "8092"))
+# asyncio's default StreamReader limit is 64KB; Pearl (PearlHash v2, cert_version 2)
+# share submits exceed that, so readline() raises "Separator is not found, and chunk
+# exceed the limit" mid-session and the relay drops the connection before any share
+# lands. Raise the buffer on every stream (both listeners + both upstream sockets).
+STREAM_LIMIT = int(os.environ.get("ABA_STREAM_LIMIT", str(8 * 1024 * 1024)))
 UP_HOST = os.environ.get("ABA_UPSTREAM_HOST", "xmr.kryptex.network")
 UP_PORT = int(os.environ.get("ABA_UPSTREAM_PORT", "7029"))
 GPU_UP_HOST = os.environ.get("ABA_GPU_UPSTREAM_HOST", "prl.kryptex.network")
@@ -223,7 +228,7 @@ async def handle_miner(down_reader, down_writer, first_line=None):
                     aba["coin"] = algo[0]
                 # connect upstream + rewrite login
                 try:
-                    up_reader, up_writer = await asyncio.open_connection(UP_HOST, UP_PORT)
+                    up_reader, up_writer = await asyncio.open_connection(UP_HOST, UP_PORT, limit=STREAM_LIMIT)
                 except Exception as e:
                     log("upstream connect failed: " + str(e)[:120])
                     break
@@ -277,20 +282,36 @@ def _pearl_job_diff(job_id):
 
 
 async def handle_gpu_miner(down_reader, down_writer, first_line=None):
-    """Relay the Pearl (PearlHash / GPU) stratum dialect and verify shares per ABA
-    address. Pearl differs from cryptonote: no mining.subscribe, params are OBJECTS,
-    difficulty is the integer suffix of job_id, accept == {"error":null,"result":true}.
-    The miner authorizes with its abakos1 address as the wallet; we rewrite the wallet
-    to OUR Kryptex user (auto-exchange -> USDT) and attribute the accepted shares here."""
+    """Transparent relay for the Pearl (PearlHash / GPU, SRBMiner) stratum dialect,
+    verifying accepted shares per ABA address. SRBMiner speaks standard stratum and may
+    open with mining.subscribe BEFORE mining.authorize, so we connect upstream on the
+    first line and forward every message bidirectionally (dropping nothing -> the
+    handshake completes and the connection stays up instead of reconnect-looping). We
+    only special-case two methods: mining.authorize (the miner sends its abakos1 address
+    as the wallet; we swap in our unMineable "Alias.Worker" login so shares are credited
+    to the account) and mining.submit (tag the id to attribute the accepted share).
+    Pearl accept == result:true; difficulty is the integer suffix of the job_id. Handles
+    both object and array authorize params (SRBMiner uses either depending on version)."""
     peer = down_writer.get_extra_info("peername")
     with _lock:
         _state["conns"] += 1
     aba = {"addr": None}
     pending = {}           # rpc id -> difficulty (credit on accept)
-    up_reader = up_writer = None
 
     def log(m):
         print("[gpu %s%s] %s" % (peer, (" " + aba["addr"][:12]) if aba["addr"] else "", m), flush=True)
+
+    # Connect upstream immediately so the opening handshake (subscribe/authorize, in
+    # whatever order the miner sends) reaches the pool intact.
+    try:
+        up_reader, up_writer = await asyncio.open_connection(GPU_UP_HOST, GPU_UP_PORT, limit=STREAM_LIMIT)
+    except Exception as e:
+        log("gpu upstream connect failed: " + str(e)[:120])
+        try:
+            down_writer.close()
+        except Exception:
+            pass
+        return
 
     async def pump_up_to_down():
         try:
@@ -314,6 +335,42 @@ async def handle_gpu_miner(down_reader, down_writer, first_line=None):
                 await down_writer.drain()
         except Exception:
             pass
+        finally:
+            try:
+                down_writer.close()
+            except Exception:
+                pass
+
+    asyncio.ensure_future(pump_up_to_down())
+
+    def rewrite_authorize(msg):
+        """Swap the miner's abakos1 wallet for our unMineable Alias.Worker login.
+        Returns the abakos1 base address, or None if the wallet is invalid."""
+        p = msg.get("params")
+        if isinstance(p, dict):
+            wallet = str(p.get("wallet") or "").strip()
+        elif isinstance(p, list) and p:
+            wallet = str(p[0] or "").strip()
+        else:
+            wallet = ""
+        base = wallet.split(".")[0]  # SRBMiner may glue wallet.worker
+        if not ABA_RE.match(base):
+            return None
+        worker = "gpu" + (re.sub(r"[^a-z0-9]", "", base[7:])[:9] or "abk")
+        up_base = KRYPTEX_USER or POOL_WALLET or wallet
+        up_login = (up_base + WORKER_SEP + worker) if (KRYPTEX_USER or POOL_WALLET) else wallet
+        if isinstance(p, dict):
+            p = dict(p)
+            p["wallet"] = up_login
+            p["worker"] = worker
+            p["pass"] = p.get("pass") or UP_PASS
+        else:
+            p = list(p)
+            p[0] = up_login
+            if len(p) < 2:
+                p.append(UP_PASS)
+        msg["params"] = p
+        return base
 
     try:
         first = first_line
@@ -330,48 +387,33 @@ async def handle_gpu_miner(down_reader, down_writer, first_line=None):
             try:
                 msg = json.loads(s)
             except Exception:
-                if up_writer:
-                    up_writer.write(line)
-                    await up_writer.drain()
+                up_writer.write(line)
+                await up_writer.drain()
                 continue
 
             method = msg.get("method")
-            if method == "mining.authorize" and up_writer is None:
-                params = msg.get("params") if isinstance(msg.get("params"), dict) else {}
-                wallet = str(params.get("wallet") or "").strip()
-                base = wallet.split(".")[0]  # SRBMiner may glue wallet.worker
-                if not ABA_RE.match(base):
+            if method == "mining.authorize":
+                base = rewrite_authorize(msg)
+                if base is None:
                     down_writer.write((json.dumps({"id": msg.get("id"),
                                                    "error": {"code": 25, "msg": "wallet must be your abakos1 address"},
                                                    "result": None}) + "\n").encode())
                     await down_writer.drain()
-                    log("rejected wallet: " + wallet[:24])
+                    log("rejected wallet")
                     break
                 aba["addr"] = base
-                try:
-                    up_reader, up_writer = await asyncio.open_connection(GPU_UP_HOST, GPU_UP_PORT)
-                except Exception as e:
-                    log("gpu upstream connect failed: " + str(e)[:120])
-                    break
-                worker = re.sub(r"[^a-z0-9]", "", base[7:])[:12] or "abk"
-                newp = dict(params)
-                newp["wallet"] = KRYPTEX_USER or POOL_WALLET or wallet
-                newp["worker"] = worker
-                newp["pass"] = params.get("pass") or UP_PASS
-                msg["params"] = newp
                 up_writer.write((json.dumps(msg) + "\n").encode())
                 await up_writer.drain()
-                log("authorize ok -> %s:%d as %s" % (GPU_UP_HOST, GPU_UP_PORT, str(newp["wallet"])[:24]))
-                asyncio.ensure_future(pump_up_to_down())
+                wl = msg["params"]["wallet"] if isinstance(msg["params"], dict) else msg["params"][0]
+                log("authorize ok -> %s:%d as %s" % (GPU_UP_HOST, GPU_UP_PORT, str(wl)[:24]))
                 continue
 
             if method == "mining.submit" and isinstance(msg.get("params"), dict):
                 mid = msg.get("id")
                 if mid is not None:
                     pending[mid] = _pearl_job_diff(msg["params"].get("job_id"))
-            if up_writer:
-                up_writer.write((json.dumps(msg) + "\n").encode())
-                await up_writer.drain()
+            up_writer.write((json.dumps(msg) + "\n").encode())
+            await up_writer.drain()
     except Exception:
         pass
     finally:
@@ -380,8 +422,7 @@ async def handle_gpu_miner(down_reader, down_writer, first_line=None):
         except Exception:
             pass
         try:
-            if up_writer:
-                up_writer.close()
+            up_writer.close()
         except Exception:
             pass
 
@@ -445,7 +486,11 @@ async def handle_conn(down_reader, down_writer):
         method = (json.loads(line.decode(errors="ignore").strip()) or {}).get("method")
     except Exception:
         method = None
-    if method == "mining.authorize":
+    # Pearl/GPU (SRBMiner) speaks standard stratum: it may open with mining.subscribe
+    # OR mining.authorize. Cryptonote/CPU (xmrig) opens with "login". Route both Pearl
+    # openers to the GPU handler so a subscribe-first miner isn't misrouted to the CPU
+    # handler (which drops it -> reconnect loop).
+    if method in ("mining.subscribe", "mining.authorize", "mining.hello"):
         await handle_gpu_miner(down_reader, down_writer, first_line=line)
     else:
         await handle_miner(down_reader, down_writer, first_line=line)
@@ -460,8 +505,8 @@ async def main():
     threading.Thread(target=http_thread, daemon=True).start()
     # Main port auto-detects CPU vs GPU. GPU_PORT is also bound directly for miners
     # that prefer a dedicated GPU endpoint (both reach the same verified accounting).
-    main_server = await asyncio.start_server(handle_conn, "0.0.0.0", PORT)
-    gpu_server = await asyncio.start_server(handle_gpu_miner, "0.0.0.0", GPU_PORT)
+    main_server = await asyncio.start_server(handle_conn, "0.0.0.0", PORT, limit=STREAM_LIMIT)
+    gpu_server = await asyncio.start_server(handle_gpu_miner, "0.0.0.0", GPU_PORT, limit=STREAM_LIMIT)
     print("[stratum] listening 0.0.0.0:%d (auto CPU->%s:%d / GPU->%s:%d)"
           % (PORT, UP_HOST, UP_PORT, GPU_UP_HOST, GPU_UP_PORT), flush=True)
     print("[stratum gpu] listening 0.0.0.0:%d -> %s:%d" % (GPU_PORT, GPU_UP_HOST, GPU_UP_PORT), flush=True)

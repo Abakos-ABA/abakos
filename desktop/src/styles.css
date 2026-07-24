@@ -185,3 +185,74 @@ input[type="range"] { accent-color: var(--abk-brand); padding: 0; }
 .txamt.out { color: var(--abk-text); }
 .txside a { font-size: 11px; color: var(--abk-text-muted); }
 .txsrc { display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--abk-accent); border: 1px solid rgba(var(--abk-accent-rgb), 0.35); border-radius: 999px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }
+
+/* ---------------------------------------------------------------- Animated logo */
+/* The Abakos "A" mark with a glowing accent ball orbiting it. Sizes: sm (topbar),
+   xl (unlock/onboarding hero). Colors follow the active theme's brand/accent. */
+.ablogo { position: relative; display: inline-grid; place-items: center; flex: none; vertical-align: middle; }
+.ablogo.sm { width: 30px; height: 30px; }
+.ablogo.xl { width: 136px; height: 136px; }
+.ablogo-mark { width: 70%; height: 70%; object-fit: contain; user-select: none;
+  filter: drop-shadow(0 0 6px rgba(var(--abk-accent-rgb), 0.45));
+  animation: ablogo-float 4.5s var(--abk-ease) infinite; }
+.ablogo.xl .ablogo-mark { filter: drop-shadow(0 0 24px rgba(var(--abk-brand-rgb), 0.55)); }
+.ablogo-orbit { position: absolute; inset: 0; border-radius: 50%; animation: ablogo-spin 5.5s linear infinite; }
+.ablogo-ball { position: absolute; top: 0; left: 50%; width: 7px; height: 7px; transform: translate(-50%, -8%);
+  border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, var(--abk-accent) 55%, var(--abk-brand) 100%);
+  box-shadow: 0 0 8px 1px rgba(var(--abk-accent-rgb), 0.85); }
+.ablogo.xl .ablogo-ball { width: 22px; height: 22px; box-shadow: 0 0 18px 4px rgba(var(--abk-accent-rgb), 0.8); }
+@keyframes ablogo-spin { to { transform: rotate(360deg); } }
+@keyframes ablogo-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7%); } }
+
+/* Wordmark next to the topbar logo */
+.brandword { font-family: var(--abk-font-display); font-weight: 800; font-size: 16px; letter-spacing: -0.01em; white-space: nowrap; }
+.brandword b { font-weight: 800; color: var(--abk-brand-light);
+  background: linear-gradient(90deg, var(--abk-brand-light), var(--abk-accent));
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+
+/* Big hero above the unlock / onboarding card */
+.hero { display: grid; place-items: center; margin: 1vh 0 24px; position: relative; }
+.hero::after { content: ""; position: absolute; width: 230px; height: 230px; border-radius: 50%; z-index: -1;
+  background: radial-gradient(circle, rgba(var(--abk-brand-rgb), 0.28), transparent 62%);
+  animation: hero-breathe 5s var(--abk-ease) infinite; }
+@keyframes hero-breathe { 0%, 100% { opacity: 0.55; transform: scale(1); } 50% { opacity: 1; transform: scale(1.1); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ablogo-orbit, .ablogo-mark, .hero::after { animation: none; }
+}
+
+/* ---------------------------------------------------------------- Theme picker */
+.themegrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+@media (max-width: 560px) { .themegrid { grid-template-columns: repeat(2, 1fr); } }
+.themeswatch { display: flex; align-items: center; gap: 9px; cursor: pointer; font-family: inherit; font-weight: 700; font-size: 13px;
+  color: var(--abk-text-soft); background: var(--abk-bg); border: 1px solid var(--abk-line); border-radius: var(--abk-radius-md);
+  padding: 10px 12px; transition: border-color 0.15s, background 0.15s, color 0.15s; }
+.themeswatch:hover { border-color: var(--abk-brand-light); }
+.themeswatch.on { border-color: var(--abk-brand); background: rgba(var(--abk-brand-rgb), 0.10); color: var(--abk-text); }
+.themedot { width: 15px; height: 15px; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25); }
+
+/* ---------------------------------------------------------------- Themes */
+/* Each overrides the brand/accent tokens; body background + all accents follow live. */
+:root[data-theme="aurora"] {
+  --abk-brand: #00CFFF; --abk-brand-rgb: 0, 207, 255; --abk-brand-light: #7CE7FF; --abk-brand-dark: #0A7FA8;
+  --abk-accent: #7C46FF; --abk-accent-rgb: 124, 70, 255; --abk-bg: #05090E;
+}
+:root[data-theme="nebula"] {
+  --abk-brand: #FF4D9D; --abk-brand-rgb: 255, 77, 157; --abk-brand-light: #FF97C4; --abk-brand-dark: #C81E6E;
+  --abk-accent: #B18CFF; --abk-accent-rgb: 177, 140, 255; --abk-bg: #0C0710;
+}
+:root[data-theme="ember"] {
+  --abk-brand: #FF8A3D; --abk-brand-rgb: 255, 138, 61; --abk-brand-light: #FFB585; --abk-brand-dark: #C85A17;
+  --abk-accent: #FFD24D; --abk-accent-rgb: 255, 210, 77; --abk-bg: #0E0A06;
+}
+:root[data-theme="matrix"] {
+  --abk-brand: #3DFF9A; --abk-brand-rgb: 61, 255, 154; --abk-brand-light: #97FFC8; --abk-brand-dark: #17C86A;
+  --abk-accent: #00CFFF; --abk-accent-rgb: 0, 207, 255; --abk-bg: #050E0A;
+}
+:root[data-theme="daylight"] {
+  color-scheme: light;
+  --abk-brand: #5B6CFF; --abk-brand-rgb: 91, 108, 255; --abk-brand-light: #3A48C8; --abk-brand-dark: #2A34A0;
+  --abk-accent: #0A9FCF; --abk-accent-rgb: 10, 159, 207;
+  --abk-bg: #F3F4FB; --abk-surface: #FFFFFF; --abk-card: #F8F9FE; --abk-line: #E1E2EF;
+  --abk-text: #14131F; --abk-text-soft: #45475B; --abk-text-muted: #6B6E85;
+}
