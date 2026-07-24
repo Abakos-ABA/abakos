@@ -65,7 +65,7 @@ else:
 - **Zero-fee (gasless):** transactions cost nothing on both the Cosmos and EVM
   sides (`no_base_fee`, `min_gas_price = 0`, `eth_gasPrice = 0`); spam is bounded
   by consensus `block.max_gas` and a capped mempool, not by price.
-- **On-chain ABA/USDT DEX:** a Uniswap-v2 fork (0.30% swap fee to LPs) is the
+- **On-chain ABA/USDC DEX:** a Uniswap-v2 fork (0.30% swap fee to LPs) is the
   buyback venue and price oracle. Stablecoin standard is USDT (BEP20).
 - Earlier PoUW / GEMM / reward-split work remains research archive only.
 
@@ -116,7 +116,7 @@ public internet in v1.
 Radical transparency is part of the design. Live status: **status.abakos.ai**.
 
 - **Live today (public sandbox):** PoS chain + EVM (id 9721), zero-fee
-  transactions, web wallet, public explorer, faucet, on-chain ABA/USDT DEX, and
+  transactions, web wallet, public explorer, on-chain ABA/USDC DEX, and
   the Provider Agent + Dashboard with a real on-chain buyback and payout by
   verified shares. Single-operator for now.
 - **In design / not live:** Console (bundles, add-ons, on-chain escrow),
@@ -149,7 +149,7 @@ Radical transparency is part of the design. Live status: **status.abakos.ai**.
   - Idle mining buyback cut: **12%** (88% host, 4% stakers, 4% treasury, 4% burn).
   - Chat / API product markup: **+12%** = 4% stakers + 4% treasury + 4% burn,
     then standard settlement fee.
-- **Stablecoin standard:** USDT (BEP20) for pool payouts and the ABA/USDT DEX
+- **Stablecoin standard:** USDT (BEP20) for pool payouts and the ABA/USDC DEX
   (0.30% swap fee to LPs).
 - **Burn:** a burn slice on every revenue source (1% of Console/Marketplace
   settlement; 4% of the idle-mining, Chat and API cuts) permanently removes ABA
@@ -179,7 +179,7 @@ Radical transparency is part of the design. Live status: **status.abakos.ai**.
 Phase numbers match **status.abakos.ai**.
 
 - **Phase 0 (done):** Architecture pivot.
-- **Phase 1 (live):** Public sandbox &mdash; PoS chain + EVM, zero-fee, wallet, explorer, ABA/USDT DEX, faucet, Provider Agent + Dashboard.
+- **Phase 1 (live):** Public sandbox &mdash; PoS chain + EVM, zero-fee, wallet, explorer, ABA/USDC DEX, Provider Agent + Dashboard.
 - **Phase 2:** Console, bundles, add-ons, ABA escrow, idle buyback.
 - **Phase 3:** Developer API (batch).
 - **Phase 4:** Chat + streaming API.

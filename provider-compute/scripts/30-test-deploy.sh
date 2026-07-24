@@ -25,13 +25,10 @@ abakosd keys show "$TKEY" -a --keyring-backend "$ABA_KEYRING_BACKEND" >/dev/null
   abakosd keys add "$TKEY" --keyring-backend "$ABA_KEYRING_BACKEND"
 TADDR="$(abakosd keys show "$TKEY" -a --keyring-backend "$ABA_KEYRING_BACKEND")"
 
-if [ -n "$ABA_FAUCET" ] && [ "$ABA_NETWORK" = "sandbox" ]; then
-  curl -sS -X POST "$ABA_FAUCET" -H 'content-type: application/json' -d "{\"address\":\"$TADDR\"}" || true
-  echo; sleep 6
-fi
-
+# No faucet on Abakos: the tenant wallet must be funded before running this
+# (send uaba from any funded account, e.g. the desktop wallet).
 UABA="$(abakosd query bank spendable-balances "$TADDR" --node "$ABA_RPC" -o json | jq -r '[.balances[]|select(.denom=="uaba")|.amount]|first // "0"')"
-[ "${UABA:-0}" != "0" ] || { echo "!! no spendable uaba"; exit 1; }
+[ "${UABA:-0}" != "0" ] || { echo "!! no spendable uaba — fund $TADDR first, then re-run"; exit 1; }
 echo "tenant uaba: $UABA"
 
 abakosd tx cert generate client --from "$TKEY" $TX 2>/dev/null || true

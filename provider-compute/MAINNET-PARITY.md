@@ -1,6 +1,6 @@
 # Mainnet parity
 
-Abakos **sandbox** (`abakos-sandbox-1`) is designed to run the **same software paths** as **mainnet** (`abakos-1`). Differences are genesis, keys, faucet, and economic value — not architecture.
+Abakos **sandbox** (`abakos-sandbox-1`) is designed to run the **same software paths** as **mainnet** (`abakos-1`). Differences are genesis, keys, and economic value — not architecture.
 
 ## Same on sandbox and mainnet
 
@@ -33,7 +33,7 @@ export ABA_KEYRING_BACKEND=file
 | -------- | ------- | -------------------- |
 | `ABA_CHAIN_ID` | `abakos-sandbox-1` | `abakos-1` |
 | `ABA_KEYRING_BACKEND` | `test` | `file` |
-| `ABA_FAUCET` | explorer faucet | *(none — fund wallets manually)* |
+| `ABA_FAUCET` | *(removed — no faucet)* | *(none)* |
 | `ABA_PROVIDER_DOMAIN` | `provider.abakos.ai` | `provider.abakos.ai` (or your host) |
 
 Keplr / wallet metadata: [`chain/networks/sandbox/chain.json`](../chain/networks/sandbox/chain.json) and [`chain/networks/mainnet/chain.json`](../chain/networks/mainnet/chain.json).
@@ -65,7 +65,7 @@ Sets `min_deposits` and `bid_min_deposits` to **uaba only** — same proposal fo
 | ---- | ------- | ----------------- |
 | Chain id | `abakos-sandbox-1` | `abakos-1` (new genesis) |
 | ABA value | No market value | Real liquidity |
-| Faucet | Yes | No |
+| Faucet | No (removed) | No |
 | Validators | Single hosted node | Multi-validator set |
 | uakt/uact alias in binary | Until gov params migrate | Removed after genesis uses uaba only |
 | Security audit | In progress | Required gate |

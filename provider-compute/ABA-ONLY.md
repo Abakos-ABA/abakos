@@ -1,6 +1,6 @@
 # ABA-only compute market (single coin)
 
-Abakos compute runs on **one tenant-facing coin: native `uaba` (ABA)**. Tenants fund deployments from the faucet, escrow `uaba` on-chain, and pay providers in `uaba` per block. There is **no ACT (`uact`), no BME mint, and no oracle price feed** required for the standard deploy → bid → lease → manifest flow.
+Abakos compute runs on **one tenant-facing coin: native `uaba` (ABA)**. Tenants fund deployments from their own wallet, escrow `uaba` on-chain, and pay providers in `uaba` per block. There is **no ACT (`uact`), no BME mint, and no oracle price feed** required for the standard deploy → bid → lease → manifest flow.
 
 **Mainnet parity:** sandbox uses the same architecture as `abakos-1` — see [MAINNET-PARITY.md](MAINNET-PARITY.md).
 
@@ -12,7 +12,7 @@ This document explains the model, what changed in chain/SDK, how to run provider
 
 | Old dual-token model | ABA-only (current) |
 | -------------------- | ------------------ |
-| Tenant gets `uaba` from faucet | Same |
+| Tenant funds wallet with `uaba` (mining/hosting/transfer) | Same |
 | Must `mint-act` / burn-mint to `uact` for escrow | **Deposit `uaba` directly** |
 | SDL pricing in `uact` | SDL pricing in **`uaba`** |
 | Oracle `aba/usd` required for BME | **Not required for tenants** |
@@ -45,17 +45,15 @@ Oracle proposal **#1** (for ACT/BME) is **optional** for ABA-only tenants.
 
 ---
 
-## Tenant quick start (faucet → deploy)
+## Tenant quick start (fund → deploy)
 
 Prerequisites: `abakosd` built from this monorepo (ABA-only handlers), keyring, client cert.
 
 ```bash
-# 1) Key + faucet (250 ABA on sandbox)
+# 1) Key + funding (no faucet — send uaba to the tenant address from any funded wallet)
 abakosd keys add tenant --keyring-backend test
 TADDR=$(abakosd keys show tenant -a --keyring-backend test)
-curl -sS -X POST https://explorer.abakos.ai/faucet \
-  -H 'content-type: application/json' \
-  -d "{\"address\":\"$TADDR\"}"
+echo "fund this address: $TADDR"
 
 # 2) Check spendable balance (use spendable-balances, not balances — see Troubleshooting)
 abakosd query bank spendable-balances "$TADDR" \
@@ -181,7 +179,7 @@ All escrow accounts show `denom: uaba` in `abakosd query deployment list` and bi
 
 `balance_checker.go` in upstream provider only watches `uact` escrow. Rebuild with `scripts/10-build-provider.sh` — it patches the checker to accept `uaba` (`DenomUakt`).
 
-### `no uaba balance` but faucet succeeded
+### `no uaba balance` after funding
 
 `query bank balances` may show display denom `aba`. Use **spendable** micro denom:
 
@@ -189,9 +187,6 @@ All escrow accounts show `denom: uaba` in `abakosd query deployment list` and bi
 abakosd query bank spendable-balances <addr> --node https://rpc.abakos.ai:443 -o json
 ```
 
-### Faucet `cooldown`
-
-Sandbox faucet rate-limits per address. Wait `retry_after_s` or use an existing funded key.
 
 ### `Invalid deposit denomination uaba`
 

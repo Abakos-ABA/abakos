@@ -9,7 +9,6 @@ import {
   kvDelete,
   evmBalanceAba,
   cosmosBalanceAba,
-  faucetRequest,
   gasPrice,
   nonce,
   sendRawTx,
@@ -167,12 +166,6 @@ export async function balanceCosmos(): Promise<number> {
   const a = currentAddresses();
   if (!a) throw new Error("no address");
   return cosmosBalanceAba(a.aba);
-}
-
-export async function faucet(): Promise<string> {
-  const a = currentAddresses();
-  if (!a) throw new Error("no address");
-  return faucetRequest(a.aba);
 }
 
 /** Export the raw private key (0x). Re-verifies the password against the keystore. */

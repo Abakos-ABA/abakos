@@ -49,7 +49,7 @@ Install provider-compute on the Linux VM first (Phase 1). Public reachability st
 
 ## Tenant flow (30-test-deploy.sh)
 
-1. Create `tenant` key + faucet → **250 ABA** (`uaba`)
+1. Create `tenant` key and fund it with `uaba` (no faucet — transfer from a funded wallet)
 2. Publish client certificate
 3. `deployment create` with `5000000uaba` deposit
 4. Wait for provider bid (`uaba` price + bid deposit)
@@ -71,7 +71,7 @@ Install provider-compute on the Linux VM first (Phase 1). Public reachability st
 | ------- | --- |
 | No bids | Install hostname operator — [ABA-ONLY.md](ABA-ONLY.md#hostname-operator-required-for-bids) |
 | `no uaba balance` | Use `query bank spendable-balances` |
-| Faucet cooldown | Wait or reuse funded key |
+| No spendable uaba | Fund the tenant address, then re-run |
 | Manifest hostname error | SDL v2.1 + `accept:` list |
 | send-manifest EOF | Use port **8443**, not 8444 |
 

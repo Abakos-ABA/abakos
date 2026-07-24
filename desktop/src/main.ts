@@ -237,7 +237,7 @@ function renderTab(): void {
         <p class="fineprint">Cosmos bank: <b id="cosbal">\u2026</b> ABA \u00b7 same account, two encodings.</p>
         <div class="addr" style="margin-top:12px"><span class="atype">Cosmos</span><code>${a.aba}</code><span class="copy" data-copy="${a.aba}">copy</span></div>
         <div class="addr" style="margin-top:8px"><span class="atype evm">EVM</span><code>${a.evm}</code><span class="copy" data-copy="${a.evm}">copy</span></div>
-        <div class="actions" style="margin-top:12px"><button class="btn" id="refresh">Refresh</button><button class="btn fill" id="faucet">Get test ABA</button></div>
+        <div class="actions" style="margin-top:12px"><button class="btn" id="refresh">Refresh</button></div>
         <p class="msg" id="walletmsg"></p>
       </div>
       <div class="card">
@@ -247,7 +247,6 @@ function renderTab(): void {
       </div>`;
     wireCopy();
     (document.getElementById("refresh") as HTMLButtonElement).onclick = refreshBalance;
-    (document.getElementById("faucet") as HTMLButtonElement).onclick = doFaucet;
     (document.getElementById("alltxs") as HTMLElement).onclick = (e) => {
       e.preventDefault();
       activeTab = "txs";
@@ -411,21 +410,6 @@ async function refreshBalance(): Promise<void> {
     }
   }
   refreshBidWarning();
-}
-
-async function doFaucet(): Promise<void> {
-  const msg = document.getElementById("walletmsg") as HTMLElement;
-  msg.className = "msg";
-  msg.textContent = "requesting test ABA\u2026";
-  try {
-    const tx = await wallet.faucet();
-    msg.className = "msg ok";
-    msg.innerHTML = `faucet sent \u00b7 <a href="${EXPLORER}#tx/${tx}">${short(tx)}</a>`;
-    setTimeout(refreshBalance, 4000);
-  } catch (e) {
-    msg.className = "msg err";
-    msg.textContent = (e as Error).message || String(e);
-  }
 }
 
 // ---------------------------------------------------------------- transactions

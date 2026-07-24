@@ -130,14 +130,6 @@ export async function cosmosBalanceAba(aba: string): Promise<number> {
   return c ? Number(c.amount) / 1e6 : 0;
 }
 
-/** Request test ABA from the sandbox faucet. Returns the tx hash on success. */
-export async function faucetRequest(aba: string): Promise<string> {
-  const text = await netPost("https://explorer.abakos.ai/faucet", JSON.stringify({ address: aba }));
-  const j = JSON.parse(text);
-  if (j.ok) return j.txhash as string;
-  throw new Error(j.error || "faucet failed" + (j.retry_after_s ? ` (retry in ${j.retry_after_s}s)` : ""));
-}
-
 export interface TxInfo {
   hash: string;
   height: number;

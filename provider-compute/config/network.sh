@@ -13,7 +13,7 @@ case "$ABA_NETWORK" in
     : "${ABA_CHAIN_ID:=abakos-sandbox-1}"
     : "${ABA_RPC:=https://rpc.abakos.ai:443}"
     : "${ABA_REST:=https://rest.abakos.ai}"
-    : "${ABA_FAUCET:=https://explorer.abakos.ai/faucet}"
+    : "${ABA_FAUCET:=}"   # no faucet — ABA is earned (mining/hosting) or transferred
     : "${ABA_EXPLORER:=https://explorer.abakos.ai}"
     : "${ABA_KEYRING_BACKEND:=test}"
     : "${ABA_GAS_PRICES:=0uaba}"
