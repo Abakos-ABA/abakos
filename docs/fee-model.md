@@ -35,5 +35,11 @@ supply-reducing burn via module/precompile is a mainnet TODO).
 ## Enforcement status
 - **Idle mining (live):** enforced in `provider-agent/agent.py` (`SPLIT = host .88 /
   stakers .04 / treasury .04 / burn .04`). Shown on `abakos.ai/dashboard`.
-- **Console / Chat / API:** not built yet -> this doc + site copy are the spec; the
+- **Console / Marketplace (live since 2026-07-24):** enforced on-chain in the escrow
+  keeper (`chain/x/escrow/keeper/fees.go`, `settlementPayout`): every lease payout is
+  split 97% provider / 1% fee_collector (distributed to stakers next block) / 1%
+  treasury / 1% burn address. Deposit refunds (bid collateral, unused tenant deposit)
+  are exempt. Sandbox: destination addresses are code constants; mainnet TODO: gov
+  params + real supply-reducing burn.
+- **Chat / API:** not built yet -> this doc + site copy are the spec; the
   settlement logic must implement these splits when built.

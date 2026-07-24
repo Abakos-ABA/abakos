@@ -663,7 +663,9 @@ func (k *keeper) settleFromAktFallback(ctx sdk.Context, acc *account, payments [
 
 		uaktTransfer := sdk.NewCoin(sdkutil.DenomUakt, settled.Amount.TruncateInt())
 		if uaktTransfer.IsPositive() {
-			if err := k.bkeeper.SendCoinsFromModuleToAccount(ctx, module.ModuleName, owner, sdk.NewCoins(uaktTransfer)); err != nil {
+			// Same 3% settlement fee as paymentWithdraw — this fallback path pays
+			// the provider directly and must not bypass the split.
+			if err := k.settlementPayout(ctx, owner, uaktTransfer); err != nil {
 				return err
 			}
 		}
@@ -1196,7 +1198,8 @@ func (k *keeper) paymentWithdraw(ctx sdk.Context, obj *payment) error {
 		return nil
 	}
 
-	err = k.bkeeper.SendCoinsFromModuleToAccount(ctx, module.ModuleName, owner, sdk.NewCoins(earnings))
+	// 3% settlement fee (1% stakers / 1% treasury / 1% burn), provider gets the rest.
+	err = k.settlementPayout(ctx, owner, earnings)
 	if err != nil {
 		return err
 	}
