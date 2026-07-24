@@ -70,7 +70,7 @@ Landed / deployed pieces:
 | Sandbox chain config (`slip44: 60`, eth features, `uaba`) | Done | `apps/deploy-web/src/chains/akash-sandbox.ts` |
 | Net config RPC/REST → `rpc.abakos.ai` / `rest.abakos.ai` | Done | `packages/net` (`sandbox-2` slot) |
 | Provider-proxy upstream (local `127.0.0.1:3040`, not Akash Cloud) | Done | `apps/deploy-web/src/pages/api/provider-proxy/[network].ts` + Caddy |
-| MetaMask **EVM** cosmos-kit wallet (bech32 map, EIP-712 amino signer) | Code done; UX blocked (see §3) | `apps/deploy-web/src/wallet/metamask-evm/` |
+| MetaMask **EVM** cosmos-kit wallet (bech32 map, EIP-712 amino signer) | Deployed; modal verified live 2026-07-23 (runtime connect still to confirm, §3) | `apps/deploy-web/src/wallet/metamask-evm/` |
 | Wallet list labels (EVM vs Snap) | Done | `WalletListView.tsx` |
 | Preferred sign type `amino` for ethsecp / EIP-712 | Done | `CustomChainProvider.tsx` |
 | Keplr suggest with coinType 60 | Config done | same chain file |
@@ -96,6 +96,14 @@ After a successful wallet connect (MetaMask **or** Keplr mock):
 - UI stays on **Connect Wallet**; user cannot create certs or deploy.
 
 This is **not** an EVM RPC misconfig (`eth_chainId` returns `0x25f9`). It is also **not** MetaMask-EVM-only: the same disconnect UI happened with a Keplr mock after accounts were persisted.
+
+### Status (2026-07-23)
+
+A candidate fix landed on `abakos-console` main as commit `b7b7b0a` — "fix: Connected state after
+wallet connect (fix dependency loop in ModalWrapper)": the `ModalWrapper` `useEffect` had
+`isWalletModalOpen` in its dependency array, causing a `setState → effect → setState` loop when
+`props.isOpen` changed. Fix depends only on `props.isOpen` + the (stable) setter. **Not yet verified
+in a live browser with real Keplr/MetaMask** — the acceptance criteria below are still the gate.
 
 ### Likely area
 
@@ -241,10 +249,80 @@ Chain EIP-712 and provider tunnel scripts should already be on `main` in this mo
 | CLI tenant deploy | Often yes | `30-test-deploy.sh` |
 | Desktop mining 0.1.12 | Yes | Windows background fix |
 | Desktop Host on Windows | Partial | needs Linux/WSL2 |
-| Console MetaMask code | Yes in git | live UX blocked |
-| Console shows Connected | **No** | §3 blocker |
-| Console E2E deploy | **No** | blocked by Connected |
-| provider.abakos.ai DNS | Maybe | manual IONOS A + firewall |
+| Console MetaMask code | Yes | deployed + verified live in wallet modal (2026-07-23) |
+| Console shows Connected | **Fix landed, unverified** | fix `b7b7b0a` (ModalWrapper dep loop) on `abakos-console` main; needs live browser confirm |
+| Console E2E deploy | **No** | pending live Connected confirm |
+| provider.abakos.ai DNS | Yes | `:8443/status` reachable, provider-services v0.14.2, 1 active lease (2026-07-23) |
 | Public testnet / mainnet | No | later |
 
 When §3 is green, update this file’s board and bump the “Last updated” date.
+
+---
+
+## 10. Amino sign bytes: how the chain really builds them (2026-07-24)
+
+Console deployments failed for a long chain of reasons. Four were console bugs and are fixed and
+live. The last two are chain defects and are **not** fixed.
+
+### What the node actually does
+
+`sdkutil.MakeEncodingConfig` (chain-sdk/go/sdkutil/encoding.go) builds the tx config with
+`tx.DefaultSignModes`, so `SIGN_MODE_LEGACY_AMINO_JSON` is served by the **`cosmossdk.io/x/tx`
+aminojson encoder**, not by the legacy amino codec. That encoder works off protobuf descriptors:
+
+- the message type is `"/" + proto full name`, because no akash `Msg` declares
+  `option (amino.name)` — `RegisterConcrete` in the modules' `codec.go` has no effect here,
+- field names come from the **proto**, not the gogo `json:` tags: `bid_id` not `id`,
+  `sources` not `deposit_sources`, `quantity` not `size`,
+- unset and default-valued fields are dropped, bytes are base64, uint64 is a string, uint32 and
+  enums are numbers, a Duration is its nanosecond count as a string.
+
+Deriving the client's amino json from the Go struct tags — the obvious thing to do — produces
+sign bytes the node never computes, and every tx comes back as
+`signature verification failed ... unauthorized`.
+
+### Defect 1: the signature does not cover the deployment
+
+For `MsgCreateDeployment` the node's sign bytes are:
+
+```json
+{"deposit":{...},"groups":[{}],"hash":"…","id":{"dseq":"620","owner":"abakos1…"}}
+```
+
+The repeated `groups` field resolves to a descriptor without fields, so **group name, resources
+and price are absent from what gets signed**, while the tx body carries them in full — verified
+by a deployment created this way: on-chain it has the complete resource tree, the signature only
+covered the reduced json. Anyone relaying such a tx can rewrite resources and price without
+breaking the signature. This needs fixing before anything but a sandbox.
+
+### Defect 2: MetaMask cannot sign akash messages
+
+cosmos/evm derives the EIP-712 type name from the amino type. With the type-url fallback that
+becomes `Typeakash.deployment.v1beta4.MsgCreateDeployment`, and go-ethereum's `apitypes` rejects
+type names containing dots. Proven: the same message with the same, correct json verifies through
+keccak(amino) and is rejected through EIP-712. **Keplr works today; MetaMask cannot until the
+chain changes.**
+
+### The fix worth making
+
+Give the node a sign-mode handler for `SIGN_MODE_LEGACY_AMINO_JSON` that uses the legacy amino
+codec (the names already registered via `RegisterConcrete`, e.g.
+`akash-sdk/x/deployment/MsgCreateDeployment`). That closes both defects at once: the names lose
+their dots so EIP-712 works, and the codec marshals the full Go structs so the signature covers
+the whole message. The console converter then has to move back to the gogo json-tag shapes.
+
+Adding `option (amino.name)` to the akash Msg protos fixes only defect 2.
+
+### Tooling
+
+`abakos-console/tmp-eip712/` (gitignored) holds probes that answer these questions in seconds
+against the live sandbox, without deploying the console:
+
+- `keccak-amino-probe.mjs` — separates "amino json wrong" from "EIP-712 wrapper wrong"
+- `verify-create-deployment.mjs` — signs with the app's own converter and broadcasts
+- `direct-mode-probe.mjs` — proves SIGN_MODE_DIRECT works with ethsecp256k1 keys
+
+Ground truth comes from a small Go program that runs the node's own encoder over the wire bytes
+the app sends (`go run . akash.deployment.v1beta4.MsgCreateDeployment <base64>`); rebuild it after
+any chain-sdk or cosmos-sdk bump and re-record the shapes in
+`apps/deploy-web/src/utils/customAminoTypes.spec.ts`.
