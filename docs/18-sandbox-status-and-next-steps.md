@@ -348,3 +348,16 @@ keccak and EIP-712 fail), and the console's MetaMask adapter signs with personal
 now shows the complete sign-doc json — every byte the signature covers. Keplr unchanged.
 
 Probe result on the live chain: het-deploy/personal = code 0; all prior paths still green.
+
+### Update 2026-07-24 (3): lease works end-to-end; manifest needs explicit hostnames
+
+The full console flow now reaches the provider: deployment → bid → lease (personal_sign, bseq
+fix) → manifest over the provider-proxy (mTLS). The provider then rejects manifests whose global
+http exposes carry no hostname ("exposed on 80:TCP must have a hostname"): this provider has no
+wildcard ingress domain configured, so it cannot auto-generate hostnames the way mainnet
+providers do. Every SDL deployed through the console needs an explicit `accept` entry, exactly
+like provider-compute/examples/hello-cpu.yaml.
+
+Infra follow-ups for real reachability of deployed apps (documented, not done): a wildcard DNS
+record *.provider.abakos.ai, forwarding 80/443 through the tunnel next to 8443, or configuring
+the provider's ingress domain so hostnames auto-generate.
