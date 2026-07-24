@@ -60,9 +60,15 @@ a:hover { text-decoration: underline; }
 .wrap { max-width: 980px; margin: 0 auto; padding: 22px 22px 40px; }
 .topbar {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 14px 22px; border-bottom: 1px solid var(--abk-line);
-  background: rgba(16, 17, 24, 0.6); backdrop-filter: blur(8px);
+  padding: 14px 22px; border-bottom: none;
+  background: rgba(16, 17, 24, 0.55); backdrop-filter: blur(10px);
   position: sticky; top: 0; z-index: 5;
+}
+/* Soft, edge-fading gradient accent instead of a hard divider line. */
+.topbar::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(var(--abk-brand-rgb), 0.5), rgba(var(--abk-accent-rgb), 0.5), transparent);
+  opacity: 0.7;
 }
 .brand { display: flex; align-items: center; gap: 10px; font-family: var(--abk-font-display); font-weight: 800; font-size: 16px; }
 .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--abk-brand); box-shadow: 0 0 12px rgba(var(--abk-brand-rgb), 0.9); }
@@ -187,22 +193,17 @@ input[type="range"] { accent-color: var(--abk-brand); padding: 0; }
 .txsrc { display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--abk-accent); border: 1px solid rgba(var(--abk-accent-rgb), 0.35); border-radius: 999px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }
 
 /* ---------------------------------------------------------------- Animated logo */
-/* The Abakos "A" mark with a glowing accent ball orbiting it. Sizes: sm (topbar),
-   xl (unlock/onboarding hero). Colors follow the active theme's brand/accent. */
-.ablogo { position: relative; display: inline-grid; place-items: center; flex: none; vertical-align: middle; }
-.ablogo.sm { width: 30px; height: 30px; }
-.ablogo.xl { width: 136px; height: 136px; }
-.ablogo-mark { width: 70%; height: 70%; object-fit: contain; user-select: none;
-  filter: drop-shadow(0 0 6px rgba(var(--abk-accent-rgb), 0.45));
-  animation: ablogo-float 4.5s var(--abk-ease) infinite; }
-.ablogo.xl .ablogo-mark { filter: drop-shadow(0 0 24px rgba(var(--abk-brand-rgb), 0.55)); }
-.ablogo-orbit { position: absolute; inset: 0; border-radius: 50%; animation: ablogo-spin 5.5s linear infinite; }
-.ablogo-ball { position: absolute; top: 0; left: 50%; width: 7px; height: 7px; transform: translate(-50%, -8%);
-  border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, var(--abk-accent) 55%, var(--abk-brand) 100%);
-  box-shadow: 0 0 8px 1px rgba(var(--abk-accent-rgb), 0.85); }
-.ablogo.xl .ablogo-ball { width: 22px; height: 22px; box-shadow: 0 0 18px 4px rgba(var(--abk-accent-rgb), 0.8); }
-@keyframes ablogo-spin { to { transform: rotate(360deg); } }
-@keyframes ablogo-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7%); } }
+/* The real Abakos brand mark (abakos-3d-drop.svg): color-shifting fields + a dropping
+   ball, animated via SMIL inside the <img>. sizes: sm (topbar), xl (hero). We add a
+   gentle float + a themed glow. */
+.ablogo { display: inline-grid; place-items: center; flex: none; vertical-align: middle; }
+.ablogo.sm { width: 34px; height: 34px; }
+.ablogo.xl { width: 150px; height: 150px; }
+.ablogo-mark { width: 100%; height: 100%; object-fit: contain; user-select: none; -webkit-user-drag: none;
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.4));
+  animation: ablogo-float 5s var(--abk-ease) infinite; }
+.ablogo.xl .ablogo-mark { filter: drop-shadow(0 10px 30px rgba(var(--abk-brand-rgb), 0.45)); }
+@keyframes ablogo-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6%); } }
 
 /* Wordmark next to the topbar logo */
 .brandword { font-family: var(--abk-font-display); font-weight: 800; font-size: 16px; letter-spacing: -0.01em; white-space: nowrap; }
@@ -211,14 +212,33 @@ input[type="range"] { accent-color: var(--abk-brand); padding: 0; }
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 
 /* Big hero above the unlock / onboarding card */
-.hero { display: grid; place-items: center; margin: 1vh 0 24px; position: relative; }
-.hero::after { content: ""; position: absolute; width: 230px; height: 230px; border-radius: 50%; z-index: -1;
-  background: radial-gradient(circle, rgba(var(--abk-brand-rgb), 0.28), transparent 62%);
-  animation: hero-breathe 5s var(--abk-ease) infinite; }
-@keyframes hero-breathe { 0%, 100% { opacity: 0.55; transform: scale(1); } 50% { opacity: 1; transform: scale(1.1); } }
+.hero { display: grid; place-items: center; margin: 2vh 0 26px; position: relative; }
+.hero::after { content: ""; position: absolute; width: 260px; height: 260px; border-radius: 50%; z-index: -1;
+  background: radial-gradient(circle, rgba(var(--abk-brand-rgb), 0.3), rgba(var(--abk-accent-rgb), 0.12) 45%, transparent 66%);
+  animation: hero-breathe 6s var(--abk-ease) infinite; }
+@keyframes hero-breathe { 0%, 100% { opacity: 0.5; transform: scale(1) rotate(0deg); } 50% { opacity: 1; transform: scale(1.12) rotate(8deg); } }
+
+/* Slow drifting color blobs behind everything — "moving colors", theme-aware. */
+body::before {
+  content: ""; position: fixed; inset: -25%; z-index: -1; pointer-events: none; filter: blur(30px);
+  background:
+    radial-gradient(40% 40% at 16% 20%, rgba(var(--abk-brand-rgb), 0.32), transparent 70%),
+    radial-gradient(36% 36% at 84% 26%, rgba(var(--abk-accent-rgb), 0.28), transparent 70%),
+    radial-gradient(46% 46% at 60% 92%, rgba(var(--abk-brand-rgb), 0.24), transparent 72%),
+    radial-gradient(30% 30% at 40% 55%, rgba(var(--abk-accent-rgb), 0.16), transparent 70%);
+  animation: bgdrift 22s var(--abk-ease) infinite alternate;
+}
+@keyframes bgdrift {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(3%, -2.5%) scale(1.08); }
+  100% { transform: translate(-3%, 3%) scale(1.05); }
+}
+
+/* Active tab gets a soft themed glow — a little more life. */
+.apptab.on { box-shadow: 0 -2px 18px -6px rgba(var(--abk-brand-rgb), 0.7); }
 
 @media (prefers-reduced-motion: reduce) {
-  .ablogo-orbit, .ablogo-mark, .hero::after { animation: none; }
+  .ablogo-mark, .hero::after, body::before { animation: none; }
 }
 
 /* ---------------------------------------------------------------- Theme picker */

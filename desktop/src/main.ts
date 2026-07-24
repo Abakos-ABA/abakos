@@ -8,12 +8,14 @@ import type { TxInfo } from "./net";
 import { checkForUpdate } from "./update";
 import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import markUrl from "./assets/abakos-mark.svg";
+import logoUrl from "./assets/abakos-3d-drop.svg";
 
-// Animated Abakos logo: the "A" mark with a glowing accent ball orbiting it.
+// The real animated Abakos brand mark (color-shifting fields + dropping ball, SMIL).
+// It animates continuously inside an <img>, and — since the topbar is no longer
+// rebuilt on tab switch (see switchTab) — keeps playing across the whole app.
 // `size` = "sm" (topbar) or "xl" (unlock/onboarding hero).
 const brandLogo = (size: "sm" | "xl"): string =>
-  `<span class="ablogo ${size}"><span class="ablogo-orbit"><i class="ablogo-ball"></i></span><img class="ablogo-mark" src="${markUrl}" alt="Abakos" draggable="false"></span>`;
+  `<span class="ablogo ${size}"><img class="ablogo-mark" src="${logoUrl}" alt="Abakos" draggable="false"></span>`;
 
 // Theme: names map to :root[data-theme="…"] blocks in styles.css. Persisted via kv
 // so the choice survives restarts; applied before the first render to avoid a flash.
@@ -243,16 +245,25 @@ function renderApp(): void {
     </div>
     <div id="tabc"></div>`);
   document.querySelectorAll(".apptab").forEach((b) =>
-    ((b as HTMLElement).onclick = () => {
-      activeTab = (b as HTMLElement).dataset.t as string;
-      renderApp();
-    }),
+    ((b as HTMLElement).onclick = () => switchTab((b as HTMLElement).dataset.t as string)),
   );
   renderTab();
   refreshBalance();
   if (!balanceTimer) balanceTimer = window.setInterval(refreshBalance, 15000);
   if (!liveTimer) liveTimer = window.setInterval(refreshLive, 4000);
   refreshLive();
+}
+
+// Switch tabs WITHOUT rebuilding the shell/topbar, so the animated logo keeps
+// playing instead of restarting. Only the tab strip's active state and the tab
+// content (#tabc) change.
+function switchTab(id: string): void {
+  if (id === activeTab) return;
+  activeTab = id;
+  document.querySelectorAll(".apptab").forEach((b) =>
+    (b as HTMLElement).classList.toggle("on", (b as HTMLElement).dataset.t === id),
+  );
+  renderTab();
 }
 
 function renderTab(): void {
