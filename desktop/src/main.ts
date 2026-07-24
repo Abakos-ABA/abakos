@@ -265,6 +265,10 @@ function switchTab(id: string): void {
     (b as HTMLElement).classList.toggle("on", (b as HTMLElement).dataset.t === id),
   );
   renderTab();
+  // renderTab paints placeholders ("…"); populate the new tab's data immediately
+  // instead of waiting for the next timer tick (both guard on missing elements).
+  refreshBalance();
+  refreshLive();
 }
 
 function renderTab(): void {
