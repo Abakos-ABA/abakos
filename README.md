@@ -1,4 +1,4 @@
-# Abakos (ABA) — Crypto Mining App for Idle CPU/GPU That Pays Out via USDC, on a Zero-Fee EVM Proof-of-Stake Compute Chain
+# Abakos (ABA) — Crypto Mining App for Idle CPU/GPU: Earnings Convert to USDC and Pay Out in ABA On-Chain (Zero-Fee EVM PoS Compute Chain)
 
 [![Latest release](https://img.shields.io/github/v/release/Abakos-ABA/abakos?label=download&color=2ea44f)](https://github.com/Abakos-ABA/abakos/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/Abakos-ABA/abakos/total?color=2ea44f)](https://github.com/Abakos-ABA/abakos/releases)
@@ -25,6 +25,20 @@
 | 🌐 **No hardware?** | [Trade on the DEX](https://abakos.ai/dex/) · [Web wallet](https://abakos.ai/wallet/) · [Explorer](https://abakos.ai/explorer/) |
 
 If Abakos is useful or interesting to you, **[⭐ star this repo](https://github.com/Abakos-ABA/abakos/stargazers)** — stars are how the next person searching for *"earn crypto with an idle PC"* finds it.
+
+## 🔒 Verify your download (and a note on antivirus flags)
+
+- **Open source, top to bottom.** The app, the payout engine and the chain live in this repo. The total protocol cut is **12% (88% goes to you)** — hardcoded in the [payout engine](provider-agent/agent.py) and documented in the [fee model](docs/fee-model.md). You are paid in **ABA**; mined value is converted to real USDC and buys ABA on the public on-chain DEX first (every buyback is visible in the [explorer](https://abakos.ai/explorer/)).
+- **Signed auto-updates.** Updates are cryptographically signed (Tauri updater / minisign); the app only installs updates that match the embedded public key.
+- **SHA-256 checksums — v0.1.22:**
+
+  ```
+  31785eeac4dc31c55d0342a65cc6718ba25d6582d48cf8f4aeca9a1613804073  Abakos.Provider_0.1.22_x64-setup.exe
+  6ad31f778bd98bdc87b7257b9de7612a61be2c210d1117bbf96594cd264d616b  Abakos.Provider_0.1.22_x64_en-US.msi
+  ```
+
+  Verify on Windows: `certutil -hashfile Abakos.Provider_0.1.22_x64-setup.exe SHA256` — or check the file on [VirusTotal](https://www.virustotal.com/gui/file/31785eeac4dc31c55d0342a65cc6718ba25d6582d48cf8f4aeca9a1613804073).
+- **Why do some antivirus tools flag mining apps?** The app bundles the stock miners (XMRig / SRBMiner family), which many AV engines generically flag as *"PUA / Coinminer"* — that heuristic hits every mining tool, including the most established ones. If your AV blocks the install, allow-list the install folder. Only ever download Abakos from this repository or [abakos.ai/download](https://abakos.ai/download/).
 
 ## How the payout pipeline works (all of it is live)
 
