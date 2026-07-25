@@ -25,8 +25,10 @@ Demonstrates the Abakos differentiator end-to-end against the live sandbox chain
      (/shares); self-reported hashrate is only a display/fallback. Shares cannot
      be faked, so the payout basis is trustless.
 
-Everything on-chain is real; only the mining hashing itself is simulated. ABA on
-this network has no value. Serves JSON at :8091/stats for the dashboard.
+Everything on-chain is real; only the mining hashing itself is simulated. ABA has
+real value and trades on the live DEX against real (Noble) USDC; this is still the
+sandbox phase, so only risk what you can afford to lose. Serves JSON at
+:8091/stats for the dashboard.
 
 Sandbox buyback still pays from the genesis `liquidity` account (no private key
 for an EVM swap wallet on the agent yet); the *price* is the live DEX quote
@@ -59,11 +61,13 @@ STATE_PATH = os.environ.get("ABA_AGENT_STATE", "/opt/abakos-agent/state.json")
 
 ABA_PRICE_USD = float(os.environ.get("ABA_PRICE_USD", "0.25"))  # fallback if DEX RPC down
 EVM_RPC = os.environ.get("ABA_EVM_RPC", "http://127.0.0.1:8545")
-# Same Uniswap-v2 WABA/USDT pool as site/src/dex.body.html
-WABA = os.environ.get("ABA_WABA", "0x6F1212300a629A28cB87FDDa66a29B29A62af887")
-USDT = os.environ.get("ABA_USDT", os.environ.get("ABA_USDC", "0x17Ecb8BcaDbe756c1bB0DDb3a6dbd169741C05F9"))
-PAIR = os.environ.get("ABA_PAIR", "0x6C50f8b591f91Be81f7dC36B878427256850BA43")
-ROUTER = os.environ.get("ABA_ROUTER", "0x3E321D05BC2De36152Db588bCbec252Bac87902b")
+# Uniswap-v2 WABA/USDC pool paired against the real Noble USDC (IBC erc20
+# precompile). Canonical addresses live in dex/deployed-uniswap.json; the
+# systemd unit on the validator overrides these via env anyway.
+WABA = os.environ.get("ABA_WABA", "0x380Dc585E9437362821F55d6237090Db9BF67c73")
+USDT = os.environ.get("ABA_USDT", os.environ.get("ABA_USDC", "0x4E46004562C46AB7EC0cC4C1ca14E9e20E2545B5"))
+PAIR = os.environ.get("ABA_PAIR", "0x233cCefd6ea87a3987B13D948117Ec51957F960b")
+ROUTER = os.environ.get("ABA_ROUTER", "0xAA6c934d3eaD6677C54F6B6e44777bE1653Bc306")
 # keccak256("balanceOf(address)")[:4]
 _SEL_BALANCE_OF = "0x70a08231"
 DEX_PRICE_TTL = int(os.environ.get("ABA_DEX_PRICE_TTL", "30"))
@@ -88,9 +92,10 @@ BURN_EVM = os.environ.get("ABA_BURN_EVM", "0x00000000000000000000000000000000000
 FEE = "0uaba"
 GAS = "220000"
 
-# Fixed Kryptex pools (decided): Monero (CPU / RandomX) + Pearl (GPU / PearlHash).
-# We no longer profit-switch across many coins; both auto-exchange to USDT on
-# Kryptex, and per-address attribution comes from our stratum proxy. Monero uses
+# Fixed upstream pools (unMineable): Monero (CPU / RandomX) + Pearl (GPU / PearlHash).
+# We no longer profit-switch across many coins; the mined value auto-exchanges and
+# is bridged to USDC (Noble -> IBC -> buyback wallet), and per-address attribution
+# comes from our stratum proxy. Monero uses
 # live network stats (p2pool.observer) + CoinGecko; Pearl (PRL) is a PoUW/AI coin
 # (mining = matrix-multiply, a natural fit for a compute network) that is not on
 # WhatToMine/CoinGecko, so it is priced from a configurable fallback.
@@ -101,7 +106,7 @@ PRL_USD_DAY = float(os.environ.get("ABA_PRL_USD_DAY", "0"))  # optional per-GPU/
 PRL_COINS_DAY = float(os.environ.get("ABA_PRL_COINS_DAY", "2.0"))  # est. PRL/day per GPU (display only)
 CG_IDS = {"XMR": "monero"}
 FALLBACK_PRICE = {"XMR": 330.0}
-KRYPTEX_POOLS = {"XMR": "xmr.kryptex.network:7029", "PRL": "prl.kryptex.network:7048"}
+KRYPTEX_POOLS = {"XMR": "rx.unmineable.com:3333", "PRL": "pearlpow.unmineable.com:3333"}
 _oracle_cache = {"ts": 0, "data": None}
 
 _lock = threading.Lock()
@@ -127,7 +132,7 @@ _state = {
     "addresses": {},
     "host": {"address": None, "balance_aba": None},
     "recent_payouts": [],
-    "note": "Sandbox. ABA has no value. Mining is simulated; on-chain payouts are real. ABA price from live DEX.",
+    "note": "Sandbox phase. ABA has real value and trades on the live DEX vs real USDC; only risk what you can afford to lose. Mining hashing is simulated; on-chain payouts are real. ABA price from live DEX.",
 }
 
 
@@ -634,7 +639,7 @@ def add_payout(kind, uaba, txhash, coin):
     entry = {"time": _now(), "type": kind, "amount_aba": round(uaba / 1e6, 6),
              "txhash": txhash, "coin": coin}
     _state["recent_payouts"].insert(0, entry)
-    del _state["recent_payouts"][20:]
+    del _state["recent_payouts"][100:]
 
 
 def fetch_proxy_shares():
@@ -727,9 +732,76 @@ def pay_provider(addr, pusd, coin, use_buyback, aba_price):
             _state["last_error"] = "provider payout: " + str(e)[:200]
 
 
+_SEL_REMOVE_LIQ_ETH = "0x02751cec"  # removeLiquidityETH(address,uint256,uint256,uint256,address,uint256)
+
+
+def dex_fee_tick():
+    """Redeem the DEX protocol fee and split it 1/3 stakers / 1/3 treasury / 1/3 burn.
+
+    The Uniswap factory's feeTo points at the buyback wallet: 1/6 of the 0.30%
+    swap fee (= 0.05% of volume) is minted to it as LP shares whenever liquidity
+    is added/removed. Every epoch (no threshold -- txs are free) any such shares
+    are burned via removeLiquidityETH, the USDC leg is swapped to ABA, and the
+    whole proceeds go to the market source with all three thirds booked into the
+    pending pots (flushed to community pool / treasury / burn right after).
+    Runs AFTER the mining distribution so wallet USDC here is only ever fee money."""
+    if not buyback_enabled():
+        return
+    from eth_abi import encode as abi_encode  # noqa: PLC0415
+    acct = _load_buyback()
+    try:
+        lp = int(_eth_call(PAIR, _balance_of_data(acct.address)), 16)
+        if lp <= 0:
+            return
+        # Redeem only once the USDC leg clears the dust floor: a burn whose leg
+        # rounds to 0 reverts (INSUFFICIENT_LIQUIDITY_BURNED) and would retry
+        # every epoch. 0.0001 USDC is reached almost immediately in practice.
+        ts = int(_eth_call(PAIR, "0x18160ddd"), 16)
+        usdc_leg = lp * usdt_balance_of(PAIR) // ts if ts else 0
+        if usdc_leg < MIN_SWAP_USDT:
+            return
+        allowance = int(_eth_call(PAIR, _SEL_ALLOWANCE + _addr32(acct.address) + _addr32(ROUTER)), 16)
+        if allowance < lp:
+            _send_evm_tx(PAIR, _SEL_APPROVE + abi_encode(["address", "uint256"], [ROUTER, (1 << 256) - 1]).hex(), gas=80000)
+        bal_before = int(_rpc("eth_getBalance", [acct.address, "latest"]), 16)
+        data = _SEL_REMOVE_LIQ_ETH + abi_encode(
+            ["address", "uint256", "uint256", "uint256", "address", "uint256"],
+            [USDT, lp, 0, 0, acct.address, int(time.time()) + 300],
+        ).hex()
+        _send_evm_tx(ROUTER, data, gas=SWAP_GAS)
+        usdc6 = usdt_balance_of(acct.address)
+        if usdc6 > 0:
+            buyback_swap(usdc6, acct.address)
+        gained_wei = int(_rpc("eth_getBalance", [acct.address, "latest"]), 16) - bal_before
+        if gained_wei <= 0:
+            return
+        src_evm = bech32_to_evm(key_addr(SOURCE_KEY))
+        txh, _ = _send_evm_tx(src_evm, "0x", gas=21000, value=gained_wei)
+        third6 = (gained_wei // 10**12) // 3
+        with _lock:
+            _state["pending"]["stakers_uaba"] += third6
+            _state["pending"]["treasury_uaba"] += third6
+            _state["pending"]["burn_uaba"] += third6
+        add_payout("dex-fee", int(gained_wei / 1e12), txh, "DEX")
+    except Exception as e:
+        with _lock:
+            _state["last_error"] = "dex fee: " + str(e)[:200]
+
+
 def save_state():
     try:
         os.makedirs(os.path.dirname(STATE_PATH), exist_ok=True)
+        # Persist the money-relevant per-provider fields: cumulative earned ABA
+        # (the desktop/pool "Earned" display) and any host share still below the
+        # swap dust floor. Everything else in _providers is live telemetry and
+        # rebuilds within a minute -- but these two must survive agent restarts.
+        # NOTE: the only runtime caller (end of step()) already holds _lock, and
+        # _lock is non-reentrant -- do NOT acquire it here.
+        _state["providers_persist"] = {
+            a: {"earned_aba": p.get("earned_aba", 0.0), "pending_host_usdt": int(p.get("pending_host_usdt", 0))}
+            for a, p in _providers.items()
+            if p.get("earned_aba") or p.get("pending_host_usdt")
+        }
         with open(STATE_PATH, "w") as f:
             json.dump(_state, f)
     except Exception:
@@ -740,13 +812,18 @@ def load_state():
     try:
         with open(STATE_PATH) as f:
             saved = json.load(f)
-        for k in ("epoch", "recent_payouts", "started_at"):
+        for k in ("epoch", "recent_payouts", "started_at", "providers_persist"):
             if k in saved:
                 _state[k] = saved[k]
         # Merge (don't replace) so newly added keys like burn_aba/burn_uaba keep defaults.
         for k in ("totals", "pending", "bsc_watch"):
             if isinstance(saved.get(k), dict):
                 _state[k].update(saved[k])
+        for a, p in (saved.get("providers_persist") or {}).items():
+            prov = _providers.setdefault(a, {"address": a, "earned_aba": 0.0})
+            prov["earned_aba"] = float(p.get("earned_aba", 0.0))
+            if p.get("pending_host_usdt"):
+                prov["pending_host_usdt"] = int(p["pending_host_usdt"])
     except Exception:
         pass
 
@@ -822,7 +899,16 @@ def step():
     # This epoch's distributable USD value. "kryptex-bsc": the REAL USDT that
     # arrived in the treasury (sized to actual Kryptex payouts). "oracle": the
     # sandbox estimate (weighted shares ≈ hashes -> USD via the CPU coin rate).
-    if USDT_SOURCE == "kryptex-bsc":
+    if USDT_SOURCE == "ibc":
+        # Real USDC delivered to the buyback wallet by the bridge forwarder
+        # (unMineable ATOM/POL -> Skip -> Noble -> IBC -> here). Distribute the whole
+        # current balance this epoch; the per-provider USDC->ABA swaps consume it, so
+        # it drains naturally and any leftover dust is swept next epoch. No remote
+        # treasury watch, no drip -- the wallet only holds what the bridge delivered.
+        bal6 = usdt_balance_of(_load_buyback().address) if buyback_enabled() else -1
+        epoch_usd = bal6 / 1e6 if (bal6 and bal6 > 0) else 0.0
+        value_src = "ibc-usdc"
+    elif USDT_SOURCE == "kryptex-bsc":
         epoch_usd = real_usdt_epoch_value()
         value_src = "kryptex-usdt"
     else:
@@ -889,6 +975,28 @@ def step():
     for addr, pusd in attribution.items():
         pay_provider(addr, pusd, mining_coin, use_buyback, aba_price)
 
+    # ibc mode: ONE distribution round per inflow. The host legs above swapped out
+    # their 88%; sweep the remaining stablecoin (the 4/4/4 counter-value) to the
+    # market source in the SAME epoch so the wallet ends empty -- otherwise the next
+    # epoch re-splits the leftover 12% and produces a geometric tail of ever-smaller
+    # payouts. SOURCE_KEY fronts the staker/treasury/burn ABA via the pending flush
+    # below and is reimbursed here. Host shares still below the swap dust floor stay
+    # reserved in the wallet.
+    if USDT_SOURCE == "ibc" and use_buyback and attribution and epoch_usd > 0:
+        try:
+            rest6 = usdt_balance_of(_load_buyback().address)
+            with _lock:
+                reserved = sum(int(p.get("pending_host_usdt", 0)) for p in _providers.values())
+            sweep6 = rest6 - reserved
+            if sweep6 >= MIN_SWAP_USDT:
+                buyback_swap(sweep6, bech32_to_evm(key_addr(SOURCE_KEY)))
+        except Exception as e:
+            with _lock:
+                _state["last_error"] = "rest sweep: " + str(e)[:200]
+
+    # DEX protocol fee (0.05% of swap volume via factory feeTo): redeem & split.
+    dex_fee_tick()
+
     # Real-USDT mode: reduce the pending pot only once the inflow was paid out.
     if USDT_SOURCE == "kryptex-bsc" and attribution and epoch_usd > 0:
         with _lock:
@@ -908,6 +1016,13 @@ def step():
     if epoch % FLUSH_EVERY == 0:
         with _lock:
             s = _state["pending"]["stakers_uaba"]; t = _state["pending"]["treasury_uaba"]; b = _state["pending"]["burn_uaba"]
+        # dust floor 0.001 ABA per pot: keeps sub-cent flushes from flooding the
+        # payout log and the chain with per-epoch micro-txs; anything above goes
+        # out immediately (FLUSH_EVERY=1).
+        FLUSH_MIN = 1000
+        s = s if s >= FLUSH_MIN else 0
+        t = t if t >= FLUSH_MIN else 0
+        b = b if b >= FLUSH_MIN else 0
         if s > 0:
             try:
                 r = fund_community_pool(SOURCE_KEY, s)

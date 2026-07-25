@@ -152,6 +152,13 @@ const IBC_DENOMS: Record<string, { sym: string; dec: number }> = {
 
 const TYPE_LABELS: Record<string, string> = {
   MsgEthereumTx: "EVM transfer",
+  MsgDelegate: "Stake ABA",
+  MsgUndelegate: "Unstake ABA",
+  MsgBeginRedelegate: "Restake",
+  MsgWithdrawDelegatorReward: "Claim staking rewards",
+  MsgWithdrawValidatorCommission: "Validator commission",
+  MsgConvertERC20: "Convert ERC20",
+  MsgConvertCoin: "Convert coin",
   MsgCreateClient: "IBC · Create client",
   MsgUpdateClient: "IBC · Update client",
   MsgConnectionOpenInit: "IBC · Connection init",
@@ -167,6 +174,52 @@ const TYPE_LABELS: Record<string, string> = {
   MsgTimeout: "IBC · Timeout",
   MsgTransfer: "IBC · Transfer",
 };
+
+/**
+ * System contracts on the Abakos EVM (chain 9721). Used to turn opaque
+ * MsgEthereumTx rows into real actions ("DEX · Swap USDC → ABA", "Mining
+ * payout"). Addresses live in dex/deployed-uniswap.json; the buyback wallet
+ * is the agent's hot key that market-buys ABA for miner payouts.
+ */
+const EVM_SYS = {
+  router: "0xa1f065a4f30b06945d54c164861c54390b925c1f",
+  pair: "0x270f1f5b2192c418b76f2555bdae9352004986f2",
+  // v1 pool (retired 2026-07-25) — keep so historical rows still label correctly
+  routerV1: "0xaa6c934d3ead6677c54f6b6e44777be1653bc306",
+  pairV1: "0x233ccefd6ea87a3987b13d948117ec51957f960b",
+  usdc: "0x4e46004562c46ab7ec0cc4c1ca14e9e20e2545b5",
+  waba: "0x380dc585e9437362821f55d6237090db9bf67c73",
+} as const;
+const BUYBACK_COSMOS = "abakos175wca4q7lej002hs37lyyptr22kdksdm90sepj";
+const EVM_SELECTORS: Record<string, string> = {
+  "7ff36ab5": "Swap ABA → USDC",
+  fb3bdb41: "Swap ABA → USDC",
+  "18cbafe5": "Swap USDC → ABA",
+  "4a25d94a": "Swap USDC → ABA",
+  "38ed1739": "Swap",
+  "8803dbee": "Swap",
+  f305d719: "Add liquidity",
+  "02751cec": "Remove liquidity",
+  ded9382a: "Remove liquidity",
+  "095ea7b3": "Approve",
+  a9059cbb: "Transfer",
+  "23b872dd": "Transfer-from",
+  d0e30db0: "Wrap ABA",
+  "2e1a7d4d": "Unwrap ABA",
+};
+
+/** First 4 bytes of base64 EVM calldata as lowercase hex ("" when absent). */
+function calldataSelector(b64: unknown): string {
+  if (typeof b64 !== "string" || !b64) return "";
+  try {
+    const bin = atob(b64);
+    let hex = "";
+    for (let i = 0; i < Math.min(4, bin.length); i++) hex += bin.charCodeAt(i).toString(16).padStart(2, "0");
+    return hex.length === 8 ? hex : "";
+  } catch {
+    return "";
+  }
+}
 
 /** "MsgCreateDeployment" -> "Create deployment". */
 function msgLabel(typeUrl: string): string {
@@ -280,7 +333,34 @@ function decodeTx(t: RawTxResponse, aba: string): TxInfo {
     if (!amountAba && Number.isFinite(wei)) amountAba = wei / 1e18;
     if (!counterparty && data.to) counterparty = String(data.to);
     if (direction === "none") direction = "out";
+    // Name the system contracts: DEX swaps/liquidity, USDC approvals, wraps.
+    const to = String(data.to || "").toLowerCase();
+    const sel = EVM_SELECTORS[calldataSelector(data.data)];
+    const signer = ((t.events || [])
+      .find((e) => e.type === "message" && (e.attributes || []).some((a) => a.key === "sender" && a.value.startsWith("abakos1")))
+      ?.attributes || []).find((a) => a.key === "sender")?.value;
+    const fromBuyback = signer === BUYBACK_COSMOS;
+    if (fromBuyback && direction === "in") {
+      // The buyback router call delivers native ABA straight to the miner.
+      label = "Mining payout · DEX buyback";
+    } else if (to === EVM_SYS.router || to === EVM_SYS.routerV1) {
+      label = (fromBuyback ? "Buyback · " : "DEX · ") + (sel || "call");
+    } else if (to === EVM_SYS.usdc) {
+      label = "USDC · " + (sel || "call");
+      if (sel === "Approve") label = "Approve USDC (DEX)";
+    } else if (to === EVM_SYS.pair || to === EVM_SYS.pairV1) {
+      label = "DEX LP · " + (sel || "call");
+    } else if (to === EVM_SYS.waba) {
+      label = sel && (sel === "Wrap ABA" || sel === "Unwrap ABA") ? sel : "WABA · " + (sel || "call");
+    } else if (sel) {
+      label = "EVM · " + sel;
+    }
   }
+  // cosmos/evm: the cosmos tx can succeed while the inner EVM call reverts.
+  const evmFailed = (t.events || []).some(
+    (e) => e.type === "ethereum_tx" && (e.attributes || []).some((a) => a.key === "ethereumTxFailed" && a.value),
+  );
+  if (evmFailed) label += " (reverted)";
   if (msgs.length > 1 && !typeUrl.includes("ibc.")) label += ` +${msgs.length - 1}`;
 
   let amountText: string | undefined;
@@ -293,7 +373,7 @@ function decodeTx(t: RawTxResponse, aba: string): TxInfo {
     hash: t.txhash,
     height: Number(t.height),
     ts: t.timestamp,
-    ok: t.code === 0,
+    ok: t.code === 0 && !evmFailed,
     label,
     direction,
     amountAba,

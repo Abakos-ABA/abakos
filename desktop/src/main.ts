@@ -115,7 +115,7 @@ function renderOnboarding(): void {
       <div class="card">
         <div class="label">Welcome</div>
         <h2>Set up your ABA wallet</h2>
-        <p class="soft">One wallet earns your mining payouts and holds your ABA. Sandbox only &mdash; ABA has no value here.</p>
+        <p class="soft">One wallet earns your mining payouts and holds your ABA. Sandbox phase &mdash; ABA has real value on the live DEX; only risk what you can afford to lose.</p>
         <div class="tabs">
           <div class="tab on" data-tab="create">Create new</div>
           <div class="tab" data-tab="import">Import</div>
@@ -434,6 +434,11 @@ function renderTab(): void {
       <div class="card">
         <div class="label">Network</div>
         <p class="fineprint">Abakos sandbox \u00b7 EVM chain 9721 \u00b7 <a href="${EXPLORER}">Explorer</a> \u00b7 <a href="${DEX}">DEX</a> \u00b7 <a href="${POOL}">Pool</a></p>
+      </div>
+      <div class="card">
+        <div class="label">Support the project</div>
+        <p class="fineprint">Abakos is open source. A GitHub star is the single biggest help \u2014 it's how the next person earning on idle hardware finds it.</p>
+        <div class="actions" style="margin-top:8px"><button class="btn" id="starbtn">\u2b50 Star on GitHub</button> <a class="btn" href="https://discord.gg/zBxNvdMjtM">Discord</a></div>
       </div>`;
     wireSettings();
   }
@@ -609,6 +614,8 @@ function wireSettings(): void {
       setmsg.textContent = (e as Error).message || String(e);
     }
   };
+  const starbtn = document.getElementById("starbtn") as HTMLButtonElement | null;
+  if (starbtn) starbtn.onclick = () => openUrl("https://github.com/Abakos-ABA/abakos").catch(() => {});
   (document.getElementById("showkey") as HTMLButtonElement).onclick = () =>
     reveal(() => wallet.exportPrivateKey(pw()), "Private key (0x)");
   (document.getElementById("showmn") as HTMLButtonElement).onclick = () =>
