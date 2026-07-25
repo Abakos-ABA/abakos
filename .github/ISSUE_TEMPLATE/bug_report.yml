@@ -1,0 +1,42 @@
+name: Bug report
+description: Something is broken in the app, chain, DEX or site
+title: "[bug] "
+labels: [bug]
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Desktop app (Abakos Provider)
+        - Mining / payouts
+        - DEX / bridge (abakos.ai/dex)
+        - Wallet / explorer (web)
+        - Chain / EVM / RPC
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version / URL
+      description: Desktop app version (Settings → About) or page URL
+      placeholder: v0.1.22 / https://abakos.ai/dex/
+  - type: input
+    id: os
+    attributes:
+      label: OS / wallet
+      placeholder: Windows 11 · MetaMask 12.x
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Steps to reproduce + what you expected. Tx hashes and addresses help a lot.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (optional)
+      description: Desktop app logs live under %APPDATA%/ai.abakos.provider/ (Windows).
+      render: text

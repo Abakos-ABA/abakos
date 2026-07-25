@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 💬 Discord — fastest answers
+    url: https://discord.gg/zBxNvdMjtM
+    about: Chat with the team and other miners/providers.
+  - name: 🔒 Security issue (private)
+    url: https://github.com/Abakos-ABA/abakos/security/advisories/new
+    about: Please report vulnerabilities privately — meaningful findings are rewarded.
+  - name: 🌐 Live status
+    url: https://status.abakos.ai
+    about: What is live on the public sandbox right now.

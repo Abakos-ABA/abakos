@@ -24,17 +24,25 @@ supply-reducing burn via module/precompile is a mainnet TODO).
 | Console / Marketplace | 3%                  | 1% / 1% / 1%                      | 97%                    |
 
 ## 3. DEX + stablecoin
-- **Stablecoin standard: USDT (BEP20).** Pool payouts (Kryptex) and the DEX pairing use
-  USDT. Pool payout / treasury address (BEP20): `0x0BfFbd3F4cB218f0926218915adD810C6Be72dcB`.
-  The sandbox test token mirrors this (symbol USDT, 6-dec, no value). Rationale: same cost
-  and effort as USDC would be for us, deepest liquidity, and it is what we operate with.
-- The ABA/USDT AMM (Uniswap-v2 fork) charges the standard **0.30% swap fee, which goes
-  entirely to liquidity providers** (it stays in the pool reserves). No protocol split on
-  DEX swaps. This is separate from the protocol revenue share above.
+- **Stablecoin standard: USDC (Circle-issued on Noble, over IBC) — since 2026-07-25.**
+  There is exactly ONE canonical USDC on Abakos: the Noble IBC voucher
+  (`ibc/8E27BA2D...45B5`), exposed 1:1 in the EVM as the ERC20 precompile
+  `0x4E46004562C46AB7EC0cC4C1ca14E9e20E2545B5`. Inflows from Polygon/Ethereum/etc. route
+  Skip API -> CCTP -> Noble -> IBC and land as this same token (in-app bridge on
+  `abakos.ai/dex`); mining payouts (unMineable) convert to it before the buyback.
+  (Historical drafts standardized on USDT/BEP20 via Kryptex; fully replaced.)
+- The ABA/USDC AMM (Uniswap-v2 fork; LP token "Abakos LP" / ABA-LP) charges the standard
+  **0.30% swap fee: 0.25% to liquidity providers, 0.05% protocol** (the built-in factory
+  `feeTo` switch = 1/6 of fees), and the protocol slice is split
+  **1/3 stakers / 1/3 treasury / 1/3 burn**.
 
 ## Enforcement status
 - **Idle mining (live):** enforced in `provider-agent/agent.py` (`SPLIT = host .88 /
-  stakers .04 / treasury .04 / burn .04`). Shown on `abakos.ai/dashboard`.
+  stakers .04 / treasury .04 / burn .04`); one distribution round per inflow. Shown on
+  `abakos.ai/dashboard`.
+- **DEX protocol fee (live since 2026-07-25):** factory `feeTo` -> agent wallet;
+  `provider-agent/agent.py dex_fee_tick()` redeems the accrued fee-LP every epoch and
+  splits 1/3 / 1/3 / 1/3 via the same payout rails.
 - **Console / Marketplace (live since 2026-07-24):** enforced on-chain in the escrow
   keeper (`chain/x/escrow/keeper/fees.go`, `settlementPayout`): every lease payout is
   split 97% provider / 1% fee_collector (distributed to stakers next block) / 1%
