@@ -30,15 +30,15 @@ If Abakos is useful or interesting to you, **[⭐ star this repo](https://github
 
 - **Open source, top to bottom.** The app, the payout engine and the chain live in this repo. The total protocol cut is **12% (88% goes to you)** — hardcoded in the [payout engine](provider-agent/agent.py) and documented in the [fee model](docs/fee-model.md). You are paid in **ABA**; mined value is converted to real USDC and buys ABA on the public on-chain DEX first (every buyback is visible in the [explorer](https://abakos.ai/explorer/)).
 - **Signed auto-updates.** Updates are cryptographically signed (Tauri updater / minisign); the app only installs updates that match the embedded public key.
-- **SHA-256 checksums — v0.1.22:**
+- **SHA-256 checksums — v0.1.24:**
 
   ```
-  31785eeac4dc31c55d0342a65cc6718ba25d6582d48cf8f4aeca9a1613804073  Abakos.Provider_0.1.22_x64-setup.exe
-  6ad31f778bd98bdc87b7257b9de7612a61be2c210d1117bbf96594cd264d616b  Abakos.Provider_0.1.22_x64_en-US.msi
+  593205f57d6357a822a294054727339fc04ab1910231a8fe5287623261e1e540  Abakos.Provider_0.1.24_x64-setup.exe
+  1d27737a9563f3860e6e4e0dd84557542343c99052dee7663fb3cfe0ccfca111  Abakos.Provider_0.1.24_x64_en-US.msi
   ```
 
-  Verify on Windows: `certutil -hashfile Abakos.Provider_0.1.22_x64-setup.exe SHA256` — or check the file on [VirusTotal](https://www.virustotal.com/gui/file/31785eeac4dc31c55d0342a65cc6718ba25d6582d48cf8f4aeca9a1613804073).
-- **Why do some antivirus tools flag mining apps?** The app bundles the stock miners (XMRig / SRBMiner family), which many AV engines generically flag as *"PUA / Coinminer"* — that heuristic hits every mining tool, including the most established ones. If your AV blocks the install, allow-list the install folder. Only ever download Abakos from this repository or [abakos.ai/download](https://abakos.ai/download/).
+  Verify on Windows: `certutil -hashfile Abakos.Provider_0.1.24_x64-setup.exe SHA256`. Full verification guide, signing status and reporting: **[abakos.ai/security](https://abakos.ai/security/)**.
+- **Why do some antivirus tools flag mining apps?** The app bundles the stock miners (XMRig / SRBMiner family), which many AV engines generically flag as *"PUA / Coinminer"* — that heuristic hits every mining tool, including the most established ones (XMRig, SRBMiner, lolMiner). No code signature removes it; it is inherent to bundling a miner. The miner code is open, mining only runs when you start it, and 88% of the mined value is paid to you. If your AV blocks the install, allow-list the install folder. Only ever download Abakos from this repository or [abakos.ai/download](https://abakos.ai/download/).
 
 ## How the payout pipeline works (all of it is live)
 
