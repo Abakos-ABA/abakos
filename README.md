@@ -1,4 +1,4 @@
-# Abakos (ABA) — Earn With Your Idle PC on a Zero-Fee, EVM-Compatible Proof-of-Stake Compute Chain
+# Abakos (ABA) — Crypto Mining App for Idle CPU/GPU That Pays Out via USDC, on a Zero-Fee EVM Proof-of-Stake Compute Chain
 
 [![Latest release](https://img.shields.io/github/v/release/Abakos-ABA/abakos?label=download&color=2ea44f)](https://github.com/Abakos-ABA/abakos/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/Abakos-ABA/abakos/total?color=2ea44f)](https://github.com/Abakos-ABA/abakos/releases)
