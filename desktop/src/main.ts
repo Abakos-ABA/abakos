@@ -413,11 +413,6 @@ function renderTab(): void {
         <div class="label">Address book</div>
         <div id="booklist" class="fineprint">loading\u2026</div>
       </div>
-      <div class="card warn">
-        <div class="label">Danger zone</div>
-        <p class="fineprint">Removes this wallet from this device. Make sure you have your recovery phrase or private key.</p>
-        <button class="btn danger" id="forget">Forget wallet</button>
-      </div>
       <div class="card">
         <div class="label">Appearance</div>
         <h2>Theme</h2>
@@ -439,6 +434,11 @@ function renderTab(): void {
         <div class="label">Support the project</div>
         <p class="fineprint">Abakos is open source. A GitHub star is the single biggest help \u2014 it's how the next person earning on idle hardware finds it.</p>
         <div class="actions" style="margin-top:8px"><button class="btn" id="starbtn">\u2b50 Star on GitHub</button> <a class="btn" href="https://discord.gg/zBxNvdMjtM">Discord</a></div>
+      </div>
+      <div class="card warn">
+        <div class="label">Danger zone</div>
+        <p class="fineprint">Removes this wallet from this device. Make sure you have your recovery phrase or private key.</p>
+        <button class="btn danger" id="forget">Forget wallet</button>
       </div>`;
     wireSettings();
   }
