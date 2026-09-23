@@ -43,6 +43,59 @@ type LegacyAminoJSONHandler struct {
 	registry codectypes.InterfaceRegistry
 }
 
+// dropNulls removes every null-valued key and every key left holding an empty object, recursively.
+//
+// Amino writes an empty slice as null, and that breaks EIP-712 signing: cosmos/evm builds the
+// typed-data types by walking the same json, and a null is neither a primitive nor an object, so
+// no type is emitted for it — but the field stays in the message. go-ethereum then refuses to
+// hash a message carrying fields its type does not declare ("there is extra data provided in the
+// message"), so verification fails for every message with an empty list. A deployment always has
+// one (placement attributes, signedBy), so MetaMask could not sign a deployment at all.
+//
+// Empty objects have to go for the same reason: once a struct's fields are all dropped, what is
+// left hashes differently in go-ethereum than in the client's encoder, so the signature never
+// matches. Removing the key sidesteps the disagreement.
+//
+// Dropping the keys is safe here: in these messages a null only ever stands for an empty list or
+// a nil pointer, and an empty object for a struct whose fields were all empty, so nothing is
+// lost and the tenant sees the same fields either way. Both sides have to agree — the console
+// converter omits them too.
+func dropNulls(bz []byte) ([]byte, error) {
+	var decoded any
+	if err := json.Unmarshal(bz, &decoded); err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(withoutNulls(decoded))
+}
+
+func withoutNulls(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(typed))
+		for key, field := range typed {
+			if field == nil {
+				continue
+			}
+			cleaned := withoutNulls(field)
+			// A struct that lost all its fields would hash inconsistently, so drop it entirely.
+			if asMap, ok := cleaned.(map[string]any); ok && len(asMap) == 0 {
+				continue
+			}
+			out[key] = cleaned
+		}
+		return out
+	case []any:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			out = append(out, withoutNulls(item))
+		}
+		return out
+	default:
+		return value
+	}
+}
+
 // NewLegacyAminoJSONHandler returns a handler that signs over legacy amino json. The codec is
 // held by reference, so module registrations that happen after construction are picked up.
 func NewLegacyAminoJSONHandler(cdc *codec.LegacyAmino, registry codectypes.InterfaceRegistry) LegacyAminoJSONHandler {
@@ -94,6 +147,11 @@ func (h LegacyAminoJSONHandler) GetSignBytes(_ context.Context, signerData txsig
 		bz, err := h.cdc.MarshalJSON(msg)
 		if err != nil {
 			return nil, fmt.Errorf("amino json: cannot marshal message %d: %w", i, err)
+		}
+
+		bz, err = dropNulls(bz)
+		if err != nil {
+			return nil, fmt.Errorf("amino json: cannot normalise message %d: %w", i, err)
 		}
 		msgsBytes[i] = sdk.MustSortJSON(bz)
 	}

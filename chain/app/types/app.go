@@ -63,8 +63,10 @@ import (
 
 	// Cosmos EVM keepers + types
 	precompiletypes "github.com/cosmos/evm/precompiles/types"
+	erc20 "github.com/cosmos/evm/x/erc20"
 	erc20keeper "github.com/cosmos/evm/x/erc20/keeper"
 	erc20types "github.com/cosmos/evm/x/erc20/types"
+	evmtransferkeeper "github.com/cosmos/evm/x/ibc/transfer/keeper"
 	feemarketkeeper "github.com/cosmos/evm/x/feemarket/keeper"
 	feemarkettypes "github.com/cosmos/evm/x/feemarket/types"
 	precisebankkeeper "github.com/cosmos/evm/x/precisebank/keeper"
@@ -156,6 +158,10 @@ type AppKeepers struct {
 		PreciseBank precisebankkeeper.Keeper
 		EVM         *evmkeeper.Keeper
 		Erc20       erc20keeper.Keeper
+		// Transfer is the cosmos/evm wrapper around the ibc-go transfer keeper.
+		// It backs the erc20 dynamic precompiles (IBC coin <-> ERC20, STR v2);
+		// the embedded ibc-go keeper is exposed as Cosmos.Transfer.
+		Transfer evmtransferkeeper.Keeper
 	}
 
 	Modules struct {
@@ -426,18 +432,24 @@ func (app *App) InitNormalKeepers(
 		app.Keepers.Cosmos.Acct,
 	)
 
-	// register Transfer Keepers
-	app.Keepers.Cosmos.Transfer = ibctransferkeeper.NewKeeper(
+	// register Transfer Keepers. The cosmos/evm wrapper embeds a fresh ibc-go
+	// transfer keeper (same store key) and adds the ERC20 support required by the
+	// erc20 dynamic precompiles (IBC coin <-> ERC20). The &Erc20 pointer is
+	// populated later in this function; it is only dereferenced at runtime.
+	// The embedded ibc-go keeper is exposed as Cosmos.Transfer for all existing
+	// consumers (transfer module, wasm stack, IBC router).
+	app.Keepers.EVM.Transfer = evmtransferkeeper.NewKeeper(
 		cdc,
 		runtime.NewKVStoreService(app.keys[ibctransfertypes.StoreKey]),
-		app.GetSubspace(ibctransfertypes.ModuleName),
 		app.Keepers.Cosmos.IBC.ChannelKeeper,
 		app.Keepers.Cosmos.IBC.ChannelKeeper,
 		bApp.MsgServiceRouter(),
 		app.Keepers.Cosmos.Acct,
 		app.Keepers.Cosmos.Bank,
+		&app.Keepers.EVM.Erc20,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 	)
+	app.Keepers.Cosmos.Transfer = *app.Keepers.EVM.Transfer.Keeper
 
 	/// Light client modules
 	clientKeeper := app.Keepers.Cosmos.IBC.ClientKeeper
@@ -559,32 +571,17 @@ func (app *App) InitNormalKeepers(
 	)
 	app.Keepers.Cosmos.Wasm = &wasmKeeper
 
-	// Create fee enabled wasm ibc Stack
-	wasmStackIBCHandler := wasm.NewIBCHandler(app.Keepers.Cosmos.Wasm, app.Keepers.Cosmos.IBC.ChannelKeeper, app.Keepers.Cosmos.Transfer, app.Keepers.Cosmos.IBC.ChannelKeeper)
-
-	transferIBCModule := transfer.NewIBCModule(app.Keepers.Cosmos.Transfer)
-
-	// Create static IBC router, add transfer route, then set and seal it
-	ibcRouter := porttypes.NewRouter()
-	ibcRouter.AddRoute(ibctransfertypes.ModuleName, transferIBCModule)
-	ibcRouter.AddRoute(wasmtypes.ModuleName, wasmStackIBCHandler)
-
-	app.Keepers.Cosmos.IBC.SetRouter(ibcRouter)
-
-	ibcRouterV2 := ibcapi.NewRouter()
-	ibcRouterV2 = ibcRouterV2.
-		AddRoute(ibctransfertypes.PortID, transferv2.NewIBCModule(app.Keepers.Cosmos.Transfer)).
-		AddPrefixRoute(wasmkeeper.PortIDPrefixV2, wasmkeeper.NewIBC2Handler(app.Keepers.Cosmos.Wasm))
-
-	app.Keepers.Cosmos.IBC.SetRouterV2(ibcRouterV2)
-
 	// -------------------------------------------------------------------------
 	// Cosmos EVM keepers. Construction order: FeeMarket -> PreciseBank -> EVM ->
 	// Erc20. PreciseBank bridges the 6-decimal uaba bank denom to the 18-decimal
 	// representation the EVM expects. Coin info (uaba / aaba / ABA / 6 decimals)
 	// is configured from genesis (bank denom metadata + x/vm params), so there is
-	// no coin-info global to set here. v1 scope: no IBC<->ERC20 bridge, so the
-	// ERC20 keeper's transfer keeper is nil and the ICS20 precompile is omitted.
+	// no coin-info global to set here. The IBC<->ERC20 bridge IS wired (v2): the
+	// erc20 IBC middleware below auto-registers incoming IBC coins as ERC20
+	// dynamic precompiles (single token representation), and the ERC20 keeper
+	// holds the cosmos/evm transfer keeper for the precompile calls.
+	// The IBC routers are set at the end of this function, after the Erc20
+	// keeper exists, so the transfer route can be wrapped in the middleware.
 	// -------------------------------------------------------------------------
 	evmAuthority := authtypes.NewModuleAddress(govtypes.ModuleName)
 
@@ -628,8 +625,31 @@ func (app *App) InitNormalKeepers(
 		app.Keepers.EVM.PreciseBank,
 		app.Keepers.EVM.EVM,
 		app.Keepers.Cosmos.Staking,
-		nil, // evm ibc-transfer keeper: not wired in v1 (no IBC<->ERC20 bridge)
+		&app.Keepers.EVM.Transfer, // backs the erc20/werc20 dynamic precompiles
 	)
+
+	// Create fee enabled wasm ibc Stack
+	wasmStackIBCHandler := wasm.NewIBCHandler(app.Keepers.Cosmos.Wasm, app.Keepers.Cosmos.IBC.ChannelKeeper, app.Keepers.Cosmos.Transfer, app.Keepers.Cosmos.IBC.ChannelKeeper)
+
+	// Transfer stack: erc20 middleware over the ICS20 transfer module. On receive
+	// it auto-registers unseen `ibc/...` coins as ERC20 dynamic precompiles and
+	// keeps bank + ERC20 balances as a single token representation.
+	transferIBCModule := transfer.NewIBCModule(app.Keepers.Cosmos.Transfer)
+	transferStack := erc20.NewIBCMiddleware(app.Keepers.EVM.Erc20, transferIBCModule)
+
+	// Create static IBC router, add transfer route, then set and seal it
+	ibcRouter := porttypes.NewRouter()
+	ibcRouter.AddRoute(ibctransfertypes.ModuleName, transferStack)
+	ibcRouter.AddRoute(wasmtypes.ModuleName, wasmStackIBCHandler)
+
+	app.Keepers.Cosmos.IBC.SetRouter(ibcRouter)
+
+	ibcRouterV2 := ibcapi.NewRouter()
+	ibcRouterV2 = ibcRouterV2.
+		AddRoute(ibctransfertypes.PortID, transferv2.NewIBCModule(app.Keepers.Cosmos.Transfer)).
+		AddPrefixRoute(wasmkeeper.PortIDPrefixV2, wasmkeeper.NewIBC2Handler(app.Keepers.Cosmos.Wasm))
+
+	app.Keepers.Cosmos.IBC.SetRouterV2(ibcRouterV2)
 }
 
 // abakosStaticPrecompiles returns the static EVM precompile set for Abakos. It

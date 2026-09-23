@@ -175,3 +175,55 @@ func TestLegacyAminoJSONHandlerRemainingMsgs(t *testing.T) {
 		t.Logf("%T: %s", msg, string(signBytes))
 	}
 }
+
+// A service that exposes no port has no endpoints. Amino writes the empty list as null and the
+// handler drops it, so the key must be absent from the sign doc — the console converter has to
+// leave it out too (it once wrote [] and every such deployment failed signature verification).
+func TestLegacyAminoJSONHandlerDropsEmptyEndpoints(t *testing.T) {
+	encCfg := sdkutil.MakeEncodingConfig()
+	dv1beta4.RegisterLegacyAminoCodec(encCfg.Amino)
+	dv1beta4.RegisterInterfaces(encCfg.InterfaceRegistry)
+
+	msg := &dv1beta4.MsgCreateDeployment{
+		ID:   dv1.DeploymentID{Owner: "abakos1owner", DSeq: 620},
+		Hash: []byte{7, 7, 7},
+		Groups: dv1beta4.GroupSpecs{{
+			Name:         "dcloud",
+			Requirements: attrv1.PlacementRequirements{},
+			Resources: dv1beta4.ResourceUnits{{
+				Resources: resv1beta4.Resources{
+					ID:        1,
+					CPU:       &resv1beta4.CPU{Units: resv1beta4.NewResourceValue(100)},
+					Memory:    &resv1beta4.Memory{Quantity: resv1beta4.NewResourceValue(134217728)},
+					Storage:   resv1beta4.Volumes{{Name: "default", Quantity: resv1beta4.NewResourceValue(268435456)}},
+					GPU:       &resv1beta4.GPU{Units: resv1beta4.NewResourceValue(0)},
+					Endpoints: resv1beta4.Endpoints{},
+				},
+				Count: 1,
+				Price: sdk.NewDecCoin("uaba", sdkmath.NewInt(10000)),
+			}},
+		}},
+		Deposit: depositv1.Deposit{
+			Amount:  sdk.NewCoin("uaba", sdkmath.NewInt(1000000)),
+			Sources: depositv1.Sources{depositv1.SourceGrant, depositv1.SourceBalance},
+		},
+	}
+
+	anyMsg, err := anyFromMsg(encCfg, msg)
+	require.NoError(t, err)
+
+	handler := sdkutil.NewLegacyAminoJSONHandler(encCfg.Amino, encCfg.InterfaceRegistry)
+	signBytes, err := handler.GetSignBytes(context.Background(),
+		txsigning.SignerData{ChainID: "abakos-sandbox-1", AccountNumber: 82, Sequence: 10},
+		txsigning.TxData{
+			Body:     &txv1beta1.TxBody{Messages: []*anypb.Any{anyMsg}, Memo: "console air"},
+			AuthInfo: &txv1beta1.AuthInfo{Fee: &txv1beta1.Fee{GasLimit: 400000}},
+		})
+	require.NoError(t, err)
+
+	require.NotContains(t, string(signBytes), "endpoints")
+	require.NotContains(t, string(signBytes), ":null")
+	require.Equal(t,
+		`{"account_number":"82","chain_id":"abakos-sandbox-1","fee":{"amount":[],"gas":"400000"},"memo":"console air","msgs":[{"type":"akash-sdk/x/deployment/MsgCreateDeployment","value":{"deposit":{"amount":{"amount":"1000000","denom":"uaba"},"deposit_sources":[2,1]},"groups":[{"name":"dcloud","resources":[{"count":1,"price":{"amount":"10000.000000000000000000","denom":"uaba"},"resource":{"cpu":{"units":{"val":"100"}},"gpu":{"units":{"val":"0"}},"id":1,"memory":{"size":{"val":"134217728"}},"storage":[{"name":"default","size":{"val":"268435456"}}]}}]}],"hash":"BwcH","id":{"dseq":"620","owner":"abakos1owner"}}}],"sequence":"10"}`,
+		string(signBytes))
+}
