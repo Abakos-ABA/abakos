@@ -1,4 +1,4 @@
-// Local compute-provider (Host) tab helpers — systemd unit + on-chain host_uri.
+// Local compute-provider (Host) tab helpers - systemd unit + on-chain host_uri.
 import {
   providerDaemonStatus,
   startProvider,

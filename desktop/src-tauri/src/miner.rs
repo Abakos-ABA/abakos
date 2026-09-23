@@ -252,6 +252,15 @@ pub fn status(inner: &Arc<Mutex<Inner>>) -> Status {
     }
 }
 
+/// Parse a boolean-ish opt-in env var ("1" / "true" / "yes" / "on"); anything else
+/// (including unset) is false. Used for the RandomX levers that carry an AV/elevation
+/// cost, so they only turn on when the operator deliberately sets them.
+fn env_flag(name: &str) -> bool {
+    std::env::var(name)
+        .map(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+        .unwrap_or(false)
+}
+
 // ------------------------------------------------------------------ CPU (xmrig)
 fn run_cpu(data_dir: &Path, address: &str, threads: u32) -> Result<Child, String> {
     let bin = ensure_binary(
@@ -262,11 +271,19 @@ fn run_cpu(data_dir: &Path, address: &str, threads: u32) -> Result<Child, String
     )?;
     let rig = &address[..address.len().min(24)];
     let tag: String = address.chars().skip(7).take(10).filter(|c| c.is_ascii_alphanumeric()).collect();
+    // RandomX tuning. 2 MiB huge pages are attempted by default and are SAFE: xmrig
+    // falls back silently (just lower hashrate) if the OS won't grant them. The bigger
+    // wins -- 1 GiB pages and the MSR mod -- need elevation/large-page privilege and,
+    // on Windows, load the WinRing0 kernel driver, a frequent antivirus false-positive.
+    // On a consumer app that already fights AV flags that's not worth shipping to every
+    // user, so they stay OFF unless the operator opts in (ABA_MINER_1GB / ABA_MINER_MSR).
+    let want_1gb = env_flag("ABA_MINER_1GB");
+    let want_msr = env_flag("ABA_MINER_MSR");
     let cfg = serde_json::json!({
         "autosave": false,
         "http": { "enabled": true, "host": "127.0.0.1", "port": XMRIG_API_PORT, "access-token": serde_json::Value::Null, "restricted": true },
-        "cpu": { "enabled": true },
-        "randomx": { "1gb-pages": false },
+        "cpu": { "enabled": true, "huge-pages": true, "huge-pages-jit": true },
+        "randomx": { "1gb-pages": want_1gb, "rdmsr": want_msr, "wrmsr": want_msr },
         "pools": [
             {
                 // Primary: the Abakos proxy attributes verified shares to the ABA address.

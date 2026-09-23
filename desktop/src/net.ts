@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 export const EVM_RPC = "https://evm-rpc.abakos.ai";
 export const COSMOS_REST = "https://rest.abakos.ai";
+export const COSMOS_CHAIN_ID = "abakos-sandbox-1";
 export const AGENT_STATS = "https://explorer.abakos.ai/agent/stats";
 export const AGENT_REPORT = "https://explorer.abakos.ai/agent/report";
 export const EXPLORER = "https://abakos.ai/explorer/";
@@ -130,6 +131,22 @@ export async function cosmosBalanceAba(aba: string): Promise<number> {
   return c ? Number(c.amount) / 1e6 : 0;
 }
 
+/**
+ * Resolve the Cosmos tx hash for an EVM tx hash. The Explorer indexes txs by their
+ * Cosmos hash; a raw EVM send (eth_sendRawTransaction) only returns the EVM hash, so
+ * we find the wrapping Cosmos tx via its ethereum_tx event. Null until it indexes.
+ */
+export async function cosmosHashForEvmTx(evmHash: string): Promise<string | null> {
+  try {
+    const q = encodeURIComponent(`ethereum_tx.ethereumTxHash='${evmHash}'`);
+    const j = JSON.parse(await netGet(`${COSMOS_REST}/cosmos/tx/v1beta1/txs?query=${q}`));
+    const r = (j.tx_responses || [])[0];
+    return r?.txhash ? String(r.txhash) : null;
+  } catch {
+    return null;
+  }
+}
+
 export interface TxInfo {
   hash: string;
   height: number;
@@ -184,13 +201,16 @@ const TYPE_LABELS: Record<string, string> = {
 const EVM_SYS = {
   router: "0xa1f065a4f30b06945d54c164861c54390b925c1f",
   pair: "0x270f1f5b2192c418b76f2555bdae9352004986f2",
-  // v1 pool (retired 2026-07-25) — keep so historical rows still label correctly
+  // v1 pool (retired 2026-07-25) - keep so historical rows still label correctly
   routerV1: "0xaa6c934d3ead6677c54f6b6e44777be1653bc306",
   pairV1: "0x233ccefd6ea87a3987b13d948117ec51957f960b",
   usdc: "0x4e46004562c46ab7ec0cc4c1ca14e9e20e2545b5",
   waba: "0x380dc585e9437362821f55d6237090db9bf67c73",
 } as const;
 const BUYBACK_COSMOS = "abakos175wca4q7lej002hs37lyyptr22kdksdm90sepj";
+// Provider Agent market/liquidity source: a native ABA receive from here is this
+// wallet's idle-mining payout (the 88% host share, after the single DEX buyback).
+const MINING_SOURCE = "abakos1c363rrm53da6glme7k7wudtcdtmtmxk6an376a";
 const EVM_SELECTORS: Record<string, string> = {
   "7ff36ab5": "Swap ABA → USDC",
   fb3bdb41: "Swap ABA → USDC",
@@ -259,7 +279,7 @@ interface RawTxResponse {
 }
 
 function decodeTx(t: RawTxResponse, aba: string): TxInfo {
-  // Direction + net amount from the tx's indexed transfer events — accurate for
+  // Direction + net amount from the tx's indexed transfer events - accurate for
   // bank sends, faucet drops, escrow deposits and refunds alike.
   let inU = 0;
   let outU = 0;
@@ -302,7 +322,7 @@ function decodeTx(t: RawTxResponse, aba: string): TxInfo {
   }
 
   const msgs = t.tx?.body?.messages || [];
-  // Relayer txs pair UpdateClient with the actual packet — label the packet.
+  // Relayer txs pair UpdateClient with the actual packet - label the packet.
   const first = (msgs.find(m => /MsgRecvPacket|MsgAcknowledgement|MsgTransfer|MsgTimeout|MsgEthereumTx/.test(String(m["@type"]))) ||
     msgs[0] ||
     {}) as Record<string, unknown>;
@@ -317,6 +337,7 @@ function decodeTx(t: RawTxResponse, aba: string): TxInfo {
     const to = String(first.to_address || "");
     direction = from === aba ? "out" : "in";
     label = direction === "out" ? "Send" : "Receive";
+    if (direction === "in" && from === MINING_SOURCE) label = "Mining payout";
     counterparty = direction === "out" ? to : from;
     if (!amountAba) {
       amountAba = parseUaba(
@@ -384,7 +405,7 @@ function decodeTx(t: RawTxResponse, aba: string): TxInfo {
 
 /**
  * Transaction history for an address via Cosmos REST tx search: everything the
- * account signed plus everything it received, merged and decoded. Best-effort —
+ * account signed plus everything it received, merged and decoded. Best-effort -
  * returns [] if the indexer is unavailable.
  */
 export async function fetchTxs(aba: string, limit = 30): Promise<TxInfo[]> {
@@ -427,6 +448,68 @@ export async function fetchTxsWithProvider(aba: string, providerAddr: string | n
   }
   out.sort((x, y) => y.height - x.height);
   return out;
+}
+
+export interface ProviderResources {
+  cpuFree: number; cpuTotal: number; // cores
+  memFree: number; memTotal: number; // GB
+  storFree: number; storTotal: number; // GB
+  gpuFree: number; gpuTotal: number;
+}
+
+/**
+ * Compute-provider cluster inventory (free vs total CPU/RAM/storage/GPU), via the
+ * provider's public /status, proxied through abakos.ai (the gateway uses a
+ * self-signed cert; Caddy bridges it, so the app never skips TLS). Null if offline.
+ */
+export async function providerResources(): Promise<ProviderResources | null> {
+  try {
+    const j = JSON.parse(await netGet("https://abakos.ai/provider-status"));
+    const nodes = (j?.cluster?.inventory?.available?.nodes ?? []) as {
+      allocatable?: Record<string, number>;
+      available?: Record<string, number>;
+    }[];
+    if (!nodes.length) return null;
+    const tot = { cpu: 0, gpu: 0, memory: 0, storage: 0 };
+    const free = { cpu: 0, gpu: 0, memory: 0, storage: 0 };
+    for (const n of nodes) {
+      const a = n.allocatable ?? {};
+      const v = n.available ?? {};
+      tot.cpu += Number(a.cpu || 0);
+      free.cpu += Number(v.cpu || 0);
+      tot.gpu += Number(a.gpu || 0);
+      free.gpu += Number(v.gpu || 0);
+      tot.memory += Number(a.memory || 0);
+      free.memory += Number(v.memory || 0);
+      tot.storage += Number(a.storage_ephemeral || 0);
+      free.storage += Number(v.storage_ephemeral || 0);
+    }
+    return {
+      cpuFree: free.cpu / 1000,
+      cpuTotal: tot.cpu / 1000,
+      memFree: free.memory / 1e9,
+      memTotal: tot.memory / 1e9,
+      storFree: free.storage / 1e9,
+      storTotal: tot.storage / 1e9,
+      gpuFree: free.gpu,
+      gpuTotal: tot.gpu,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Active leases served by a provider (how many tenants are currently renting). */
+export async function activeLeases(provider: string): Promise<{ count: number; owners: string[] }> {
+  try {
+    const url = `${COSMOS_REST}/akash/market/v1beta5/leases/list?filters.provider=${provider}&filters.state=active&pagination.limit=200`;
+    const j = JSON.parse(await netGet(url));
+    const leases = (j.leases || []) as { lease?: { id?: { owner?: string } } }[];
+    const owners = leases.map((l) => l.lease?.id?.owner || "").filter(Boolean);
+    return { count: leases.length, owners };
+  } catch {
+    return { count: 0, owners: [] };
+  }
 }
 
 /** Providers registered on chain (the sandbox has exactly one). */

@@ -22,7 +22,7 @@
   </defs>
   <style>
     /* simulated: g=2600 u/s^2, restitution 0.32, impacts at 0.58, 0.94 s */
-    .ball { animation: drop 1.19s linear 1 both; transform-origin: 250px 452px; transform-box: view-box; }
+    .ball { animation: drop 1.19s linear 1s 1 both; transform-origin: 250px 452px; transform-box: view-box; }
     @keyframes drop {
       0.000% { transform: translateY(-430px) scale(1.000, 1.000); }
       0.719% { transform: translateY(-429.9px) scale(1.000, 1.000); }
@@ -137,7 +137,7 @@
       79.048% { transform: translateY(0px) scale(1.121, 0.857); }
       79.048%, 100% { transform: translateY(0) scale(1,1); }
     }
-    .jolt { animation: jolt 1.19s linear 1 both; }
+    .jolt { animation: jolt 1.19s linear 1s 1 both; }
     @keyframes jolt {
       0%, 48.200% { transform: translateY(0); }
       51.971% { transform: translateY(3.5px); }

@@ -95,7 +95,7 @@ function showModal(update: Update): void {
         /* fall through to the manual-restart hint below */
       }
       // On Linux (AppImage) relaunch sometimes exits without spawning the new
-      // process. The update IS installed at this point \u2014 tell the user instead
+      // process. The update IS installed at this point - tell the user instead
       // of sitting on "Installing\u2026" forever.
       setTimeout(() => {
         msg.textContent = "Update installed. Please close and reopen the app.";

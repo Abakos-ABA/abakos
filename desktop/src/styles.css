@@ -1,4 +1,4 @@
-/* Abakos design tokens (mirrors site/dist/assets/tokens.css — keep in sync). */
+/* Abakos design tokens (mirrors site/dist/assets/tokens.css - keep in sync). */
 @font-face {
   font-family: "Inter var";
   src: url("./assets/fonts/inter-var.woff2") format("woff2-variations"),
@@ -35,7 +35,7 @@
 }
 
 * { box-sizing: border-box; }
-/* The solid base color lives on <html> so it ALWAYS fills the full scrollable page —
+/* The solid base color lives on <html> so it ALWAYS fills the full scrollable page -
    putting it on a viewport-height <body> left a hard edge below the fold when content
    scrolled (the "strich"). The top glow uses background-attachment: fixed so it stays
    anchored to the viewport instead of ending at body height. */
@@ -81,7 +81,7 @@ a:hover { text-decoration: underline; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
 
-/* Cards — frosted glass: translucent theme surface + blur so the drifting color
+/* Cards - frosted glass: translucent theme surface + blur so the drifting color
    behind the app shows through, a light top highlight, and a soft depth shadow.
    Falls back to the solid gradient where color-mix / backdrop-filter is missing. */
 .card {
@@ -110,7 +110,7 @@ a:hover { text-decoration: underline; }
 .balance { font-family: var(--abk-font-display); font-weight: 800; font-size: 34px; line-height: 1.05; letter-spacing: -0.02em; }
 .balance small { font-size: 16px; color: var(--abk-text-muted); font-weight: 600; }
 .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 8px; }
-/* Each tile carries its own accent hue (--tile) — no longer all violet — with a
+/* Each tile carries its own accent hue (--tile) - no longer all violet - with a
    frosted-glass tint, a colored hairline, a top glow bar, and the number in that hue. */
 .stat {
   --tile: var(--abk-brand); position: relative; overflow: hidden;
@@ -214,14 +214,14 @@ input[type="range"] { accent-color: var(--abk-brand); padding: 0; }
 .txdir.in { color: var(--abk-green); border-color: rgba(var(--abk-green-rgb), 0.4); }
 .txdir.out { color: var(--abk-brand-light); border-color: rgba(var(--abk-brand-rgb), 0.4); }
 .txmain { flex: 1; min-width: 0; }
-.txmain b { display: block; font-size: 13px; }
+.txmain b { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; }
 .txmain span { display: block; font-size: 11px; color: var(--abk-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .txside { text-align: right; flex: none; }
 .txamt { display: block; font-size: 13px; }
 .txamt.in { color: var(--abk-green); }
 .txamt.out { color: var(--abk-text); }
 .txside a { font-size: 11px; color: var(--abk-text-muted); }
-.txsrc { display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--abk-accent); border: 1px solid rgba(var(--abk-accent-rgb), 0.35); border-radius: 999px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }
+.txsrc { flex: none; display: inline-flex; align-items: center; font-size: 9px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; line-height: 1; white-space: nowrap; color: var(--abk-accent); background: rgba(var(--abk-accent-rgb), 0.12); border: 1px solid rgba(var(--abk-accent-rgb), 0.28); border-radius: 999px; padding: 2px 7px; vertical-align: middle; }
 
 /* ---------------------------------------------------------------- Animated logo */
 /* The real Abakos brand mark (abakos-3d-drop.svg): color-shifting fields + a dropping
@@ -232,7 +232,7 @@ input[type="range"] { accent-color: var(--abk-brand); padding: 0; }
 .ablogo.xl { width: 150px; height: 150px; }
 .ablogo-mark { width: 100%; height: 100%; object-fit: contain; user-select: none; -webkit-user-drag: none;
   filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.4));
-  animation: ablogo-float 5s var(--abk-ease) infinite; }
+  animation: ablogo-float 5s var(--abk-ease) 1s infinite; }
 .ablogo.xl .ablogo-mark { filter: drop-shadow(0 10px 30px rgba(var(--abk-brand-rgb), 0.45)); }
 @keyframes ablogo-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6%); } }
 
@@ -249,7 +249,7 @@ input[type="range"] { accent-color: var(--abk-brand); padding: 0; }
   animation: hero-breathe 6s var(--abk-ease) infinite; }
 @keyframes hero-breathe { 0%, 100% { opacity: 0.5; transform: scale(1) rotate(0deg); } 50% { opacity: 1; transform: scale(1.12) rotate(8deg); } }
 
-/* Slow drifting color blobs behind everything — "moving colors", theme-aware. */
+/* Slow drifting color blobs behind everything - "moving colors", theme-aware. */
 body::before {
   content: ""; position: fixed; inset: -25%; z-index: -1; pointer-events: none; filter: blur(30px);
   background:
@@ -265,7 +265,7 @@ body::before {
   100% { transform: translate(-3%, 3%) scale(1.05); }
 }
 
-/* Active tab gets a soft themed glow — a little more life. */
+/* Active tab gets a soft themed glow - a little more life. */
 .apptab.on { box-shadow: 0 -2px 18px -6px rgba(var(--abk-brand-rgb), 0.7); }
 
 @media (prefers-reduced-motion: reduce) {
@@ -316,3 +316,48 @@ body::before {
   --abk-bg: #000000; --abk-surface: #0B0B0F; --abk-card: #060609; --abk-line: #1B1B22;
   --abk-text: #F5F5F7; --abk-text-soft: #B2B2BC; --abk-text-muted: #6E6E7A;
 }
+
+/* --- Send flow --- */
+.tohint { font-size: 12px; margin: -6px 0 12px; min-height: 1.1em; color: var(--abk-text-muted); }
+.tohint.ok { color: var(--abk-green); }
+.maxbtn { color: var(--abk-brand-light); margin-left: 8px; font-weight: 700; cursor: pointer; }
+.saverow { display: flex; gap: 8px; align-items: center; margin: 4px 0 10px; }
+.saverow input { flex: 1; margin: 0; }
+.saverow .btn { padding: 9px 14px; }
+.sent { border: 1px solid rgba(var(--abk-green-rgb), 0.35); background: rgba(var(--abk-green-rgb), 0.07); border-radius: var(--abk-radius-md); padding: 12px 14px; margin-top: 12px; }
+.sent-top { font-size: 14px; }
+.sent-check { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: var(--abk-green); color: #05130a; font-weight: 900; font-size: 12px; margin-right: 6px; vertical-align: -3px; }
+
+/* --- Address book --- */
+.bookrow { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--abk-line); }
+.bookrow:last-child { border-bottom: none; }
+.bookav { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; color: #fff; background: linear-gradient(135deg, var(--abk-brand), var(--abk-accent)); }
+.bookmeta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.bookmeta b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bookmeta span { font-size: 11px; color: var(--abk-text-muted); }
+.bookact { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; font-size: 12px; }
+.bookact a { color: var(--abk-brand-light); cursor: pointer; }
+.bookact a.rm { color: var(--abk-text-muted); }
+
+/* --- Toggle switch (styled checkbox) --- */
+input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  width: 40px; height: 22px; flex: none; border-radius: 999px; cursor: pointer;
+  background: var(--abk-line); border: 1px solid var(--abk-line); position: relative;
+  vertical-align: middle; transition: background 0.18s var(--abk-ease), border-color 0.18s;
+}
+input[type="checkbox"]::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--abk-text-soft);
+  transition: transform 0.18s var(--abk-ease), background 0.18s;
+}
+input[type="checkbox"]:checked { background: var(--abk-brand); border-color: var(--abk-brand); }
+input[type="checkbox"]:checked::after { transform: translateX(18px); background: #fff; }
+input[type="checkbox"]:focus-visible { outline: 2px solid var(--abk-brand-light); outline-offset: 2px; }
+
+/* --- Provider dashboard (Host tab) --- */
+.provsub { font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--abk-text-muted); margin: 18px 0 8px; }
+.provstats { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; margin: 8px 0; }
+.pstat { background: var(--abk-bg); border: 1px solid var(--abk-line); border-radius: var(--abk-radius-md); padding: 12px 8px; text-align: center; }
+.pstat b { display: block; font-size: 17px; }
+.pstat span { display: block; font-size: 10px; color: var(--abk-text-muted); margin-top: 3px; }

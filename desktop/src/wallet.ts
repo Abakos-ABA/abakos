@@ -1,8 +1,9 @@
 // Self-custody ABA wallet. Uses eth-style key derivation (coinType 60): the 0x
 // address and its bech32 form (abakos1) are the same account on the Abakos EVM.
 // The key is stored as a password-encrypted keystore (scrypt) via the Rust KV.
-import { Wallet, HDNodeWallet, parseEther } from "ethers";
+import { Wallet, HDNodeWallet, parseEther, getBytes } from "ethers";
 import { ethToAbakos, abakosToEth } from "./bech32";
+import { grantHostingSponsor, revokeHostingSponsor, fetchDepositGrant } from "./cosmos";
 import {
   kvGet,
   kvSet,
@@ -226,4 +227,61 @@ export async function sendAba(to: string, amountAba: string): Promise<string> {
   };
   const raw = await signer.signTransaction(tx);
   return sendRawTx(raw);
+}
+
+// --- Cosmos authz: sponsor a compute provider's bid deposits from this wallet ---
+// The wallet's eth key doubles as the cosmos account key. We expose only a
+// digest-signer + the compressed pubkey to cosmos.ts, keeping key material here.
+
+/** Sign a 32-byte digest with the eth key; returns the 64-byte [R||S] cosmos sig. */
+function signDigest(digest: Uint8Array): Uint8Array {
+  if (!signer) throw new Error("wallet locked");
+  const sig = signer.signingKey.sign(digest);
+  const out = new Uint8Array(64);
+  out.set(getBytes(sig.r), 0);
+  out.set(getBytes(sig.s), 32);
+  return out;
+}
+
+function compressedPubKey(): Uint8Array {
+  if (!signer) throw new Error("wallet locked");
+  return getBytes(signer.signingKey.compressedPublicKey);
+}
+
+/**
+ * Activate hosting sponsorship: grant `grantee` (the provider/operator account)
+ * a DepositAuthorization so the provider's 5-ABA bid deposits are drawn from
+ * this wallet, capped at `maxAba` simultaneously bound. Returns the tx hash.
+ */
+export async function grantHosting(grantee: string, maxAba: number): Promise<string> {
+  const a = currentAddresses();
+  if (!a) throw new Error("wallet locked");
+  if (grantee === a.aba) throw new Error("grantee and granter must differ");
+  return grantHostingSponsor({
+    granterAba: a.aba,
+    granteeAba: grantee,
+    maxAba,
+    pubKeyCompressed: compressedPubKey(),
+    sign: signDigest,
+  });
+}
+
+/** Kill-switch: revoke the hosting sponsorship grant. Returns the tx hash. */
+export async function revokeHosting(grantee: string): Promise<string> {
+  const a = currentAddresses();
+  if (!a) throw new Error("wallet locked");
+  return revokeHostingSponsor({
+    granterAba: a.aba,
+    granteeAba: grantee,
+    pubKeyCompressed: compressedPubKey(),
+    sign: signDigest,
+  });
+}
+
+/** Current hosting spend limit (ABA) this wallet grants the provider, or null if none. */
+export async function hostingLimitAba(grantee: string): Promise<number | null> {
+  const a = currentAddresses();
+  if (!a) return null;
+  const g = await fetchDepositGrant(a.aba, grantee);
+  return g ? Number(g.spendLimitUaba) / 1e6 : null;
 }

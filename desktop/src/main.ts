@@ -3,19 +3,32 @@ import * as wallet from "./wallet";
 import type { Addresses } from "./wallet";
 import * as mining from "./mining";
 import * as host from "./host";
-import { EXPLORER, DEX, enableMining, kvGet, kvSet, fetchTxsWithProvider, chainProviders, reportStats } from "./net";
+import { EXPLORER, DEX, enableMining, kvGet, kvSet, fetchTxs, fetchTxsWithProvider, chainProviders, reportStats, cosmosHashForEvmTx, cosmosBalanceAba, activeLeases, providerResources } from "./net";
 import type { TxInfo } from "./net";
 import { checkForUpdate } from "./update";
 import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import logoUrl from "./assets/abakos-3d-drop.svg";
+import logoRaw from "./assets/abakos-3d-drop.svg?raw";
 
-// The real animated Abakos brand mark (color-shifting fields + dropping ball, SMIL).
-// It animates continuously inside an <img>, and — since the topbar is no longer
-// rebuilt on tab switch (see switchTab) — keeps playing across the whole app.
-// `size` = "sm" (topbar) or "xl" (unlock/onboarding hero).
-const brandLogo = (size: "sm" | "xl"): string =>
-  `<span class="ablogo ${size}"><img class="ablogo-mark" src="${logoUrl}" alt="Abakos" draggable="false"></span>`;
+// The real animated Abakos brand mark (color-shifting fields via SMIL + a CSS
+// ball-drop). We INLINE the SVG rather than use <img src>: an <img>-embedded SVG
+// freezes its internal CSS animations on Linux/webkit2gtk (the ball stuck up top
+// while only the outer float ran). Inline, the keyframes + SMIL run on all OS.
+// IDs are namespaced per instance so url(#…)/href="#…" refs don't clash when two
+// logos (topbar + onboarding) coexist in the DOM. `size` = "sm" | "xl".
+const logoBase = logoRaw.slice(logoRaw.indexOf("<svg")).replace("<svg ", '<svg class="ablogo-mark" ');
+let logoSeq = 0;
+const brandLogo = (size: "sm" | "xl"): string => {
+  const n = ++logoSeq;
+  let svg = logoBase;
+  for (const id of ["fields", "fBlur", "softShadow", "cp0", "cp1", "cp2"]) {
+    svg = svg
+      .replace(new RegExp(`id="${id}"`, "g"), `id="${id}_${n}"`)
+      .replace(new RegExp(`url\\(#${id}\\)`, "g"), `url(#${id}_${n})`)
+      .replace(new RegExp(`href="#${id}"`, "g"), `href="#${id}_${n}"`);
+  }
+  return `<span class="ablogo ${size}">${svg}</span>`;
+};
 
 // Theme: names map to :root[data-theme="…"] blocks in styles.css. Persisted via kv
 // so the choice survives restarts; applied before the first render to avoid a flash.
@@ -44,7 +57,7 @@ const POOL = "https://pool.abakos.ai/";
 // provider-compute/config/network.sh.
 const BID_DEPOSIT_ABA = 5;
 
-// External links open in the system browser — a plain href would navigate the
+// External links open in the system browser - a plain href would navigate the
 // Tauri webview away from the app with no way back.
 document.addEventListener("click", (e) => {
   const a = (e.target as HTMLElement).closest?.("a[href]") as HTMLAnchorElement | null;
@@ -74,6 +87,11 @@ const short = (s: string, n = 10): string => (s.length > 2 * n ? s.slice(0, n) +
 
 let addresses: Addresses | null = null;
 let activeTab = "wallet";
+let pendingRecipient = ""; // set by "Send" from the address book, consumed on Send-tab render
+
+// Escape user-provided text (contact names) before putting it in innerHTML.
+const esc = (s: string): string =>
+  (s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] as string);
 let receiveShowAba = true;
 let balanceTimer: number | undefined;
 let liveTimer: number | undefined;
@@ -314,20 +332,20 @@ function renderTab(): void {
     c.innerHTML = `
       <div class="card">
         <div class="label">Send ABA</div>
-        <label class="field"><span>Recipient (abakos1\u2026 or 0x\u2026)</span><input id="to" placeholder="abakos1\u2026 or 0x\u2026"></label>
+        <label class="field"><span>Recipient</span><input id="to" placeholder="abakos1\u2026 or 0x\u2026" autocomplete="off" spellcheck="false"></label>
+        <p class="tohint" id="tohint"></p>
         <div id="contacts" class="contacts"></div>
-        <label class="field"><span>Amount (ABA)</span><input id="amt" type="number" min="0" step="0.000001" placeholder="1.0"></label>
+        <label class="field"><span>Amount (ABA) \u00b7 <span class="soft" id="sendbal">\u2026</span><a class="maxbtn" id="sendmax">Max</a></span><input id="amt" type="number" min="0" step="0.000001" placeholder="0.0"></label>
         <div class="actions"><button class="btn fill" id="send">Send</button><button class="btn" id="savec">Save recipient</button></div>
-        <p class="msg" id="sendmsg"></p>
+        <div class="saverow" id="saverow" style="display:none"><input id="savename" placeholder="Name for this address" maxlength="40"><button class="btn fill" id="savego">Save</button><button class="btn" id="savecancel">Cancel</button></div>
+        <div id="sendresult"></div>
       </div>`;
-    (document.getElementById("send") as HTMLButtonElement).onclick = doSend;
-    (document.getElementById("savec") as HTMLButtonElement).onclick = saveContact;
-    loadContacts();
+    setupSend();
   } else if (activeTab === "receive") {
     c.innerHTML = `
       <div class="card" style="text-align:center">
         <div class="label" style="text-align:left">Receive</div>
-        <p class="soft" style="text-align:left">Same account, two encodings \u2014 share either. Cosmos wallets use <span class="mono">abakos1\u2026</span>, MetaMask/EVM uses <span class="mono">0x\u2026</span>.</p>
+        <p class="soft" style="text-align:left">Same account, two encodings - share either. Cosmos wallets use <span class="mono">abakos1\u2026</span>, MetaMask/EVM uses <span class="mono">0x\u2026</span>.</p>
         <div class="rtabs"><button class="btn${receiveShowAba ? " fill" : ""}" id="rc-aba">Cosmos (abakos1)</button><button class="btn${receiveShowAba ? "" : " fill"}" id="rc-evm">EVM (0x)</button></div>
         <div id="qr"></div>
         <div class="addr" style="margin-top:12px;text-align:left"><code id="raddr"></code><span class="copy" id="rcopy">copy</span></div>
@@ -349,8 +367,8 @@ function renderTab(): void {
           <span class="badge off" id="minerbadge"><span class="pulse"></span> stopped</span>
         </div>
         <p class="soft" id="hw">Detecting hardware\u2026</p>
-        <label class="field"><span>CPU threads: <b id="thlabel">\u2013</b></span><input type="range" id="threads" min="1" max="1" value="1"></label>
-        <label class="field"><span class="toggle"><input type="checkbox" id="gpu"> Use GPU \u2014 Pearl (PearlHash; NVIDIA / AMD / Intel Arc)</span></label>
+        <label class="field"><span>CPU threads: <b id="thlabel">-</b></span><input type="range" id="threads" min="1" max="1" value="1"></label>
+        <label class="field"><span class="toggle"><input type="checkbox" id="gpu"> Use GPU - Pearl (PearlHash; NVIDIA / AMD / Intel Arc)</span></label>
         <button class="btn fill big" id="mine">Start earning</button>
         <div class="stat-grid" style="margin-top:14px">
           <div class="stat"><b id="cpuhs">0 H/s</b><span>CPU \u00b7 Monero (RandomX)</span></div>
@@ -358,15 +376,15 @@ function renderTab(): void {
           <div class="stat"><b id="vshares">0</b><span>Verified shares (proxy)</span></div>
           <div class="stat"><b id="earned">0</b><span>Earned ABA</span></div>
         </div>
-        <p class="fineprint" id="poolline">Pool: \u2013</p>
+        <p class="fineprint" id="poolline">Pool: -</p>
       </div>
       <div class="card">
         <div class="label">Network</div>
         <div class="stat-grid">
-          <div class="stat"><b id="price">\u2013</b><span>ABA price (DEX)</span></div>
-          <div class="stat"><b id="basis">\u2013</b><span>Payout basis</span></div>
+          <div class="stat"><b id="price">-</b><span>ABA price (DEX)</span></div>
+          <div class="stat"><b id="basis">-</b><span>Payout basis</span></div>
         </div>
-        <p class="fineprint">Split 88% host / 4% stakers / 4% treasury / 4% burn, paid by verified shares.
+        <p class="fineprint">Split 88% host / 4% stakers / 4% treasury / 4% burn, paid by verified shares. Payouts settle once a day (~13:00 UTC, unMineable auto-withdraw); your shares accrue until then and convert to ABA at settlement.
           <a href="${EXPLORER}">Explorer</a> \u00b7 <a href="${DEX}">DEX</a> \u00b7 <a href="${POOL}">Pool</a></p>
       </div>`;
     setupMining();
@@ -379,18 +397,16 @@ function renderTab(): void {
           <span class="badge off" id="hostbadge"><span class="pulse"></span> \u2026</span>
         </div>
         <p class="soft" id="hosthint">Checks the local <span class="mono">abakos-provider</span> service (Linux / k3s).</p>
-        <div class="addr" style="margin-top:12px"><span class="atype">host_uri</span><code id="hosturi">\u2013</code><span class="copy" id="hosturicopy">copy</span></div>
+        <div class="addr" style="margin-top:12px"><span class="atype">host_uri</span><code id="hosturi">-</code><span class="copy" id="hosturicopy">copy</span></div>
         <div class="actions" style="margin-top:14px">
           <button class="btn fill big" id="hostbtn">Start hosting</button>
         </div>
         <p class="msg" id="hostmsg"></p>
         <p class="fineprint" id="hostline">Unit: abakos-provider</p>
       </div>
-      <div class="card">
-        <div class="label">Bid deposit</div>
-        <p class="fineprint">Each compute bid escrows <b>${BID_DEPOSIT_ABA} ABA</b> from the provider account as a refundable deposit — it is returned when the bid or lease closes. There is no faucet funding for providers: keep at least <b>${BID_DEPOSIT_ABA + 1} ABA</b> spendable so your provider keeps bidding.</p>
-        <p class="msg" id="bidwarn"></p>
-        <div id="provlink"></div>
+      <div class="card" id="provcard">
+        <div class="label">Your provider</div>
+        <div id="provbody"><p class="fineprint">loading…</p></div>
       </div>
       <div class="card">
         <div class="label">How hosting works</div>
@@ -398,9 +414,14 @@ function renderTab(): void {
       </div>`;
     setupHost();
     refreshHost();
-    refreshBidWarning();
+    renderProviderDashboard();
   } else if (activeTab === "settings") {
     c.innerHTML = `
+      <div class="card">
+        <div class="label">Support the project</div>
+        <p class="fineprint">Abakos is open source. A GitHub star is the single biggest help - it's how the next person earning on idle hardware finds it.</p>
+        <div class="actions" style="margin-top:8px"><button class="btn" id="starbtn">⭐ Star on GitHub</button> <a class="btn" href="https://discord.gg/zBxNvdMjtM">Discord</a></div>
+      </div>
       <div class="card">
         <div class="label">Security</div>
         <label class="field"><span>Password (to reveal secrets)</span><input id="spw" type="password" placeholder="password"></label>
@@ -411,12 +432,16 @@ function renderTab(): void {
       </div>
       <div class="card">
         <div class="label">Address book</div>
-        <div id="booklist" class="fineprint">loading\u2026</div>
+        <label class="field"><span>Name</span><input id="bookname" placeholder="e.g. My provider VM" maxlength="40"></label>
+        <label class="field" style="margin-top:6px"><span>Address (0x or abakos1)</span><input id="bookaddr" placeholder="0x\u2026 or abakos1\u2026"></label>
+        <div class="actions" style="margin-top:8px"><button class="btn" id="booksave">Save address</button></div>
+        <p class="msg" id="bookmsg"></p>
+        <div id="booklist" class="fineprint" style="margin-top:10px">loading\u2026</div>
       </div>
       <div class="card">
         <div class="label">Appearance</div>
         <h2>Theme</h2>
-        <p class="fineprint" style="margin-top:0">Pick a look \u2014 it's saved and stays after you reopen the app.</p>
+        <p class="fineprint" style="margin-top:0">Pick a look - it's saved and stays after you reopen the app.</p>
         <div class="themegrid" id="themegrid">
           ${THEMES.map((t) => `<button class="themeswatch" data-theme-id="${t.id}"><span class="themedot" style="background:${t.swatch}"></span>${t.label}</button>`).join("")}
         </div>
@@ -429,11 +454,6 @@ function renderTab(): void {
       <div class="card">
         <div class="label">Network</div>
         <p class="fineprint">Abakos sandbox \u00b7 EVM chain 9721 \u00b7 <a href="${EXPLORER}">Explorer</a> \u00b7 <a href="${DEX}">DEX</a> \u00b7 <a href="${POOL}">Pool</a></p>
-      </div>
-      <div class="card">
-        <div class="label">Support the project</div>
-        <p class="fineprint">Abakos is open source. A GitHub star is the single biggest help \u2014 it's how the next person earning on idle hardware finds it.</p>
-        <div class="actions" style="margin-top:8px"><button class="btn" id="starbtn">\u2b50 Star on GitHub</button> <a class="btn" href="https://discord.gg/zBxNvdMjtM">Discord</a></div>
       </div>
       <div class="card warn">
         <div class="label">Danger zone</div>
@@ -456,7 +476,7 @@ async function refreshBalance(): Promise<void> {
     try {
       el.textContent = fmtAba(await wallet.balanceAba());
     } catch {
-      el.textContent = "\u2013";
+      el.textContent = "-";
     }
   }
   const cos = document.getElementById("cosbal");
@@ -464,10 +484,9 @@ async function refreshBalance(): Promise<void> {
     try {
       cos.textContent = fmtAba(await wallet.balanceCosmos());
     } catch {
-      cos.textContent = "\u2013";
+      cos.textContent = "-";
     }
   }
-  refreshBidWarning();
 }
 
 // ---------------------------------------------------------------- transactions
@@ -555,48 +574,179 @@ async function setupTxs(): Promise<void> {
   await load();
 }
 
+// --- Send tab -----------------------------------------------------------------
+const isValidAddr = (v: string): boolean =>
+  /^0x[0-9a-fA-F]{40}$/.test(v) || /^abakos1[0-9a-z]{38,}$/.test(v);
+
+async function setupSend(): Promise<void> {
+  const to = document.getElementById("to") as HTMLInputElement;
+  if (pendingRecipient) {
+    to.value = pendingRecipient;
+    pendingRecipient = "";
+  }
+  to.oninput = updateToHint;
+  (document.getElementById("send") as HTMLButtonElement).onclick = doSend;
+  (document.getElementById("savec") as HTMLButtonElement).onclick = openSaveRow;
+  (document.getElementById("savego") as HTMLButtonElement).onclick = saveContactInline;
+  (document.getElementById("savecancel") as HTMLButtonElement).onclick = closeSaveRow;
+  (document.getElementById("sendmax") as HTMLElement).onclick = async (e) => {
+    e.preventDefault();
+    try {
+      (document.getElementById("amt") as HTMLInputElement).value = String(await wallet.balanceAba());
+    } catch {
+      /* ignore */
+    }
+  };
+  await refreshBookNames();
+  loadContacts();
+  updateToHint();
+  refreshSendBalance();
+}
+
+async function refreshSendBalance(): Promise<void> {
+  const el = document.getElementById("sendbal");
+  if (!el) return;
+  try {
+    el.textContent = `${fmtAba(await wallet.balanceAba())} available`;
+  } catch {
+    el.textContent = "";
+  }
+}
+
+function updateToHint(): void {
+  const to = (document.getElementById("to") as HTMLInputElement).value.trim();
+  const hint = document.getElementById("tohint");
+  if (!hint) return;
+  if (!to) {
+    hint.textContent = "";
+    hint.className = "tohint";
+  } else if (!isValidAddr(to)) {
+    hint.textContent = "Keep typing a full abakos1\u2026 or 0x\u2026 address";
+    hint.className = "tohint";
+  } else {
+    const name = bookNames.get(to);
+    hint.textContent = name ? `\u2713 ${name}` : "\u2713 Valid address";
+    hint.className = "tohint ok";
+  }
+}
+
 async function loadContacts(): Promise<void> {
   const el = document.getElementById("contacts");
   if (!el) return;
   const book = await wallet.getContacts();
-  el.innerHTML = book.length
-    ? book.map((c) => `<button class="chip" data-addr="${c.addr}">${c.name || short(c.addr, 8)}</button>`).join("")
-    : "";
+  if (!book.length) {
+    el.innerHTML = "";
+    return;
+  }
+  el.innerHTML = book
+    .map((c, i) => `<button class="chip" data-i="${i}" title="${c.addr}">${esc(c.name) || short(c.addr, 6)}</button>`)
+    .join("");
   el.querySelectorAll(".chip").forEach((b) =>
     ((b as HTMLElement).onclick = () => {
-      (document.getElementById("to") as HTMLInputElement).value = (b as HTMLElement).dataset.addr as string;
+      (document.getElementById("to") as HTMLInputElement).value = book[Number((b as HTMLElement).dataset.i)].addr;
+      updateToHint();
     }),
   );
 }
 
-async function saveContact(): Promise<void> {
+function showSendMsg(text: string, kind: "ok" | "err" | ""): void {
+  const el = document.getElementById("sendresult");
+  if (el) el.innerHTML = `<p class="msg ${kind}">${text}</p>`;
+}
+
+function openSaveRow(): void {
   const to = (document.getElementById("to") as HTMLInputElement).value.trim();
-  if (!to) return;
-  const name = prompt("Name for this address?", short(to, 8)) || "";
+  if (!isValidAddr(to)) {
+    showSendMsg("Enter a valid address first.", "err");
+    return;
+  }
+  const name = document.getElementById("savename") as HTMLInputElement;
+  name.value = bookNames.get(to) || "";
+  (document.getElementById("saverow") as HTMLElement).style.display = "flex";
+  name.focus();
+}
+
+function closeSaveRow(): void {
+  (document.getElementById("saverow") as HTMLElement).style.display = "none";
+}
+
+async function saveContactInline(): Promise<void> {
+  const to = (document.getElementById("to") as HTMLInputElement).value.trim();
+  const name = (document.getElementById("savename") as HTMLInputElement).value.trim();
+  if (!isValidAddr(to)) {
+    showSendMsg("Enter a valid address first.", "err");
+    return;
+  }
+  if (!name) {
+    showSendMsg("Enter a name.", "err");
+    return;
+  }
   await wallet.addContact(name, to);
+  await refreshBookNames();
+  closeSaveRow();
   loadContacts();
+  updateToHint();
+  showSendMsg(`Saved "${esc(name)}".`, "ok");
 }
 
 async function doSend(): Promise<void> {
-  const msg = document.getElementById("sendmsg") as HTMLElement;
-  const to = (document.getElementById("to") as HTMLInputElement).value;
-  const amt = (document.getElementById("amt") as HTMLInputElement).value;
-  if (!to || !amt) {
-    msg.className = "msg err";
-    msg.textContent = "enter a recipient and amount";
+  const to = (document.getElementById("to") as HTMLInputElement).value.trim();
+  const amtEl = document.getElementById("amt") as HTMLInputElement;
+  const amt = amtEl.value.trim();
+  const btn = document.getElementById("send") as HTMLButtonElement;
+  const res = document.getElementById("sendresult") as HTMLElement;
+  if (!isValidAddr(to)) {
+    showSendMsg("Enter a valid abakos1\u2026 or 0x\u2026 address.", "err");
     return;
   }
-  msg.className = "msg";
-  msg.textContent = "sending\u2026";
-  try {
-    const tx = await wallet.sendAba(to, amt);
-    msg.className = "msg ok";
-    msg.innerHTML = `sent \u00b7 <a href="${EXPLORER}#tx/${tx}">${short(tx)}</a>`;
-    setTimeout(refreshBalance, 2500);
-  } catch (e) {
-    msg.className = "msg err";
-    msg.textContent = (e as Error).message || String(e);
+  const n = Number(amt);
+  if (!amt || !Number.isFinite(n) || n <= 0) {
+    showSendMsg("Enter an amount greater than 0.", "err");
+    return;
   }
+  btn.disabled = true;
+  res.innerHTML = `<p class="msg">Sending ${fmtAba(n)} ABA\u2026</p>`;
+  try {
+    const evmHash = await wallet.sendAba(to, amt);
+    const name = bookNames.get(to);
+    const dest = name ? `"${esc(name)}"` : short(to, 6);
+    res.innerHTML = `
+      <div class="sent">
+        <div class="sent-top"><span class="sent-check">\u2713</span> Sent <b>${fmtAba(n)} ABA</b> to ${dest}</div>
+        <div class="addr" style="margin-top:10px"><span class="atype">tx</span><code>${short(evmHash, 8)}</code><span class="copy" data-copy="${evmHash}">copy</span> <a id="sentlink" class="mono" href="${EXPLORER}#acct/${(addresses as Addresses).aba}">Explorer \u2197</a></div>
+      </div>`;
+    wireCopy();
+    amtEl.value = "";
+    setTimeout(() => {
+      refreshBalance();
+      refreshSendBalance();
+    }, 2500);
+    void upgradeSentLink(evmHash);
+  } catch (e) {
+    showSendMsg((e as Error).message || String(e), "err");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// The Explorer indexes by Cosmos hash; sendAba returns the EVM hash. Point the link
+// at the account page immediately (always resolves), then upgrade it to the exact tx
+// once the wrapping Cosmos tx indexes.
+async function upgradeSentLink(evmHash: string): Promise<void> {
+  for (let i = 0; i < 6; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const cosmos = await cosmosHashForEvmTx(evmHash);
+    if (cosmos) {
+      const link = document.getElementById("sentlink") as HTMLAnchorElement | null;
+      if (link) link.href = `${EXPLORER}#tx/${cosmos}`;
+      return;
+    }
+  }
+}
+
+function sendTo(addr: string): void {
+  pendingRecipient = addr;
+  switchTab("send");
 }
 
 function wireSettings(): void {
@@ -631,9 +781,36 @@ function wireSettings(): void {
     }
   };
   const ver = document.getElementById("appver");
-  if (ver) getVersion().then((v) => (ver.textContent = v)).catch(() => (ver.textContent = "\u2013"));
+  if (ver) getVersion().then((v) => (ver.textContent = v)).catch(() => (ver.textContent = "-"));
   const cu = document.getElementById("checkupd") as HTMLButtonElement | null;
   if (cu) cu.onclick = () => checkForUpdate({ silent: false });
+  const booksave = document.getElementById("booksave") as HTMLButtonElement | null;
+  if (booksave) {
+    booksave.onclick = async () => {
+      const bmsg = document.getElementById("bookmsg") as HTMLElement;
+      const nameEl = document.getElementById("bookname") as HTMLInputElement;
+      const addrEl = document.getElementById("bookaddr") as HTMLInputElement;
+      const name = nameEl.value.trim();
+      const addr = addrEl.value.trim();
+      const valid = /^0x[0-9a-fA-F]{40}$/.test(addr) || /^abakos1[0-9a-z]{38,}$/.test(addr);
+      if (!valid) {
+        bmsg.className = "msg err";
+        bmsg.textContent = "Enter a valid 0x or abakos1 address.";
+        return;
+      }
+      if (!name) {
+        bmsg.className = "msg err";
+        bmsg.textContent = "Enter a name for this address.";
+        return;
+      }
+      await wallet.addContact(name, addr);
+      nameEl.value = "";
+      addrEl.value = "";
+      bmsg.className = "msg ok";
+      bmsg.textContent = "Saved.";
+      loadBook();
+    };
+  }
   wireThemes();
   loadBook();
 }
@@ -661,16 +838,32 @@ async function loadBook(): Promise<void> {
   const el = document.getElementById("booklist");
   if (!el) return;
   const book = await wallet.getContacts();
-  el.innerHTML = book.length
-    ? book
-        .map((c, i) => `<div class="actrow"><b>${c.name || "(unnamed)"}</b> <span class="mono">${short(c.addr, 10)}</span> <a href="#" data-rm="${i}">remove</a></div>`)
-        .join("")
-    : "No saved addresses yet. Save recipients from the Send tab.";
+  if (!book.length) {
+    el.innerHTML = `<p class="fineprint">No saved addresses yet - add one above.</p>`;
+    return;
+  }
+  el.innerHTML = book
+    .map((c, i) => {
+      const initial = (c.name || "?").trim().charAt(0).toUpperCase() || "?";
+      return `<div class="bookrow">
+        <div class="bookav">${esc(initial)}</div>
+        <div class="bookmeta"><b>${esc(c.name) || "(unnamed)"}</b><span class="mono" title="${c.addr}">${short(c.addr, 10)}</span></div>
+        <div class="bookact"><span class="copy" data-copy="${c.addr}">copy</span><a data-send="${i}">send</a><a class="rm" data-rm="${i}">remove</a></div>
+      </div>`;
+    })
+    .join("");
+  wireCopy();
   el.querySelectorAll("[data-rm]").forEach((a) =>
     ((a as HTMLElement).onclick = async (e) => {
       e.preventDefault();
       await wallet.removeContact(Number((a as HTMLElement).dataset.rm));
       loadBook();
+    }),
+  );
+  el.querySelectorAll("[data-send]").forEach((a) =>
+    ((a as HTMLElement).onclick = (e) => {
+      e.preventDefault();
+      sendTo(book[Number((a as HTMLElement).dataset.send)].addr);
     }),
   );
 }
@@ -793,7 +986,7 @@ async function toggleMining(): Promise<void> {
       // One-time: let the miner past Windows Defender via a single UAC prompt.
       if ((await kvGet("defender_ok")) !== "1") {
         const pool = document.getElementById("poolline");
-        if (pool) pool.textContent = "Allowing mining \u2014 please accept the Windows prompt\u2026";
+        if (pool) pool.textContent = "Allowing mining - please accept the Windows prompt\u2026";
         try {
           await enableMining();
           await kvSet("defender_ok", "1");
@@ -862,7 +1055,7 @@ async function refreshLive(): Promise<void> {
   if (agent) {
     set("price", "$" + Number(agent.aba_price_usd || 0).toLocaleString(undefined, { maximumFractionDigits: 6 }));
     const b = agent.payout_basis?.source;
-    set("basis", b === "proxy-shares" ? "verified shares" : b || "\u2013");
+    set("basis", b === "proxy-shares" ? "verified shares" : b || "-");
   }
   if (activeTab === "host") refreshHost();
 }
@@ -870,61 +1063,169 @@ async function refreshLive(): Promise<void> {
 // ---------------------------------------------------------------- host (compute provider)
 let hosting_ = false;
 
-// Bid deposits come out of the Cosmos-side spendable balance of this wallet.
-async function refreshBidWarning(): Promise<void> {
-  const el = document.getElementById("bidwarn");
-  if (!el) return;
-  try {
-    const bal = await wallet.balanceCosmos();
-    if (bal < BID_DEPOSIT_ABA + 1) {
-      el.className = "msg err";
-      el.textContent = `Balance too low for bids: ${fmtAba(bal)} ABA spendable — send this wallet at least ${BID_DEPOSIT_ABA + 1} ABA.`;
-    } else {
-      el.className = "msg ok";
-      el.textContent = `${fmtAba(bal)} ABA spendable — enough for bid deposits.`;
-    }
-  } catch {
-    el.className = "msg";
-    el.textContent = "";
+// Lease-income earnings from the provider account's tx history (in-direction "lease" txs).
+function computeEarnings(txs: TxInfo[]): { d7: number; d30: number; perDay: number } {
+  const now = Date.now();
+  let d7 = 0;
+  let d30 = 0;
+  for (const t of txs) {
+    if (t.direction !== "in" || !/lease/i.test(t.label)) continue;
+    const age = t.ts ? now - new Date(t.ts).getTime() : Infinity;
+    if (age <= 7 * 864e5) d7 += t.amountAba;
+    if (age <= 30 * 864e5) d30 += t.amountAba;
   }
+  return { d7, d30, perDay: d30 > 0 ? d30 / 30 : d7 > 0 ? d7 / 7 : 0 };
 }
 
-// The provider daemon signs with its own key (created by the registration
-// script), so its account is separate from this wallet. Linking it here merges
-// its history (bids, 5 ABA deposits, refunds) into the Transactions tab.
-async function setupProviderLink(): Promise<void> {
-  const box = document.getElementById("provlink");
-  if (!box || !addresses) return;
+// Unified provider dashboard. The wallet (this app) and the on-chain provider
+// account are DIFFERENT addresses; this shows the provider's holdings, active
+// leases and earnings, plus the optional wallet sponsorship of its bid deposits.
+async function renderProviderDashboard(): Promise<void> {
+  const body = document.getElementById("provbody");
+  if (!body || !addresses) return;
+  let provs: { owner: string; host_uri: string }[] = [];
   try {
-    const provs = await chainProviders();
-    if (!provs.length) return;
-    const mine = provs.find((p) => p.owner === addresses?.aba);
-    if (mine) {
-      box.innerHTML = `<p class="fineprint">This wallet is the registered provider — bids and deposits appear in your Transactions tab automatically.</p>`;
-      return;
-    }
-    const p = provs[0];
-    const watched = (await kvGet("watch_provider")) === p.owner;
-    box.innerHTML = `
-      <p class="fineprint" style="margin-top:10px">On-chain provider account (own key, created at registration):<br><span class="mono">${p.owner}</span></p>
-      <label class="field" style="margin-top:6px"><span class="toggle"><input type="checkbox" id="watchprov" ${watched ? "checked" : ""}> Show its bids &amp; deposits in my Transactions tab</span></label>`;
-    (document.getElementById("watchprov") as HTMLInputElement).onchange = async (e) => {
-      const on = (e.target as HTMLInputElement).checked;
-      await kvSet("watch_provider", on ? p.owner : "");
-    };
+    provs = await chainProviders();
   } catch {
-    /* card is optional */
+    /* ignore */
+  }
+  const walletAddr = addresses.aba;
+  const provider = provs.find((p) => p.owner === walletAddr) || provs[0];
+  if (!provider) {
+    body.innerHTML = `<p class="fineprint">No compute provider is registered on-chain yet. Start hosting above and run the one-time registration, then it shows up here. Each bid escrows ${BID_DEPOSIT_ABA} ABA as a refundable deposit.</p>`;
+    return;
+  }
+  const provAddr = provider.owner;
+  const isSelf = provAddr === walletAddr;
+  if (!isSelf) void kvSet("watch_provider", provAddr); // surface its bids/earnings in Transactions
+
+  const [provBal, walletBal, leases, txs, limit, res] = await Promise.all([
+    cosmosBalanceAba(provAddr).catch(() => 0),
+    wallet.balanceCosmos().catch(() => 0),
+    activeLeases(provAddr).catch(() => ({ count: 0, owners: [] as string[] })),
+    fetchTxs(provAddr, 100).catch(() => [] as TxInfo[]),
+    isSelf ? Promise.resolve(0) : wallet.hostingLimitAba(provAddr).catch(() => 0),
+    providerResources().catch(() => null),
+  ]);
+  const earn = computeEarnings(txs);
+  const sponsored = (limit ?? 0) > 0;
+  const fundBal = sponsored ? (limit as number) : provBal;
+  const capacity = Math.max(0, Math.floor(fundBal / BID_DEPOSIT_ABA));
+  const renting = leases.count;
+
+  const sponsor = isSelf
+    ? `<p class="fineprint">This wallet <b>is</b> the provider account, so bid deposits come from its own balance. Keep at least ${BID_DEPOSIT_ABA + 1} ABA here so it keeps bidding.</p>`
+    : `
+      <div class="provsub">Sponsor from your wallet (optional)</div>
+      <p class="fineprint">Let <b>your wallet</b> cover the provider's ${BID_DEPOSIT_ABA} ABA bid deposits, capped and revolving (freed when each bid or lease closes). The provider key then holds nothing.</p>
+      <p class="fineprint">Your wallet: <span class="mono">${short(walletAddr, 10)}</span> · ${fmtAba(walletBal)} ABA</p>
+      <label class="field" style="margin-top:8px"><span>Max ABA for hosting (spend cap)</span>
+        <input type="number" id="sponsormax" min="${BID_DEPOSIT_ABA}" step="${BID_DEPOSIT_ABA}" value="${sponsored ? Math.round(limit as number) : 25}" inputmode="numeric"></label>
+      <div class="actions" style="margin-top:10px">
+        <button class="btn fill" id="sponsorbtn">${sponsored ? "Update limit" : "Activate sponsorship"}</button>
+        ${sponsored ? '<button class="btn danger" id="sponsorrevoke">Revoke</button>' : ""}
+      </div>
+      <p class="msg ${sponsored ? "ok" : ""}" id="sponsormsg">${sponsored ? `Active · up to ${fmtAba(limit as number)} ABA sponsored (revolving).` : ""}</p>`;
+
+  body.innerHTML = `
+    <p class="fineprint">Two accounts are involved: <b>your wallet</b> (this app) and the <b>provider account</b> below. They are different on-chain addresses; the provider is the operator key the daemon signs with.</p>
+    <div class="provsub">Provider account (on-chain, earns lease income)</div>
+    <div class="addr"><span class="atype">provider</span><code>${provAddr}</code><span class="copy" data-copy="${provAddr}">copy</span></div>
+    <div class="provstats">
+      <div class="pstat"><b>${fmtAba(provBal)}</b><span>ABA held</span></div>
+      <div class="pstat"><b>${renting}</b><span>active lease${renting === 1 ? "" : "s"}</span></div>
+      <div class="pstat"><b>~${capacity}</b><span>bids fundable</span></div>
+    </div>
+    ${
+      res
+        ? `<div class="provsub">Resources free / total</div>
+    <div class="provstats">
+      <div class="pstat"><b>${res.cpuFree.toFixed(1)}</b><span>of ${res.cpuTotal.toFixed(0)} CPU cores free</span></div>
+      <div class="pstat"><b>${res.memFree.toFixed(1)}</b><span>of ${res.memTotal.toFixed(0)} GB RAM free</span></div>
+      <div class="pstat"><b>${res.storFree.toFixed(0)}</b><span>of ${res.storTotal.toFixed(0)} GB disk free</span></div>
+      ${res.gpuTotal > 0 ? `<div class="pstat"><b>${res.gpuFree}</b><span>of ${res.gpuTotal} GPU free</span></div>` : ""}
+    </div>`
+        : ""
+    }
+    <div class="provsub">Earnings (lease payouts)</div>
+    <div class="provstats">
+      <div class="pstat"><b>${fmtAba(earn.d7)}</b><span>last 7 days</span></div>
+      <div class="pstat"><b>${fmtAba(earn.d30)}</b><span>last 30 days</span></div>
+      <div class="pstat"><b>~${fmtAba(earn.perDay)}</b><span>ABA / day</span></div>
+      <div class="pstat"><b>~${fmtAba(earn.perDay * 30)}</b><span>ABA / month</span></div>
+    </div>
+    <p class="fineprint">Per-day/month are estimates from the last 30 days of lease payouts. Each bid escrows ${BID_DEPOSIT_ABA} ABA as a refundable deposit, returned when the bid or lease closes.</p>
+    ${sponsor}`;
+
+  wireCopy();
+  if (isSelf) return;
+
+  const g = provAddr;
+  const msg = document.getElementById("sponsormsg") as HTMLElement;
+  const btn = document.getElementById("sponsorbtn") as HTMLButtonElement | null;
+  if (btn) {
+    btn.onclick = async () => {
+      const max = Number((document.getElementById("sponsormax") as HTMLInputElement).value);
+      if (!Number.isFinite(max) || max < BID_DEPOSIT_ABA) {
+        msg.className = "msg err";
+        msg.textContent = `Enter at least ${BID_DEPOSIT_ABA} ABA.`;
+        return;
+      }
+      if (!wallet.isUnlocked()) {
+        msg.className = "msg err";
+        msg.textContent = "Unlock your wallet first.";
+        return;
+      }
+      btn.disabled = true;
+      msg.className = "msg";
+      msg.textContent = "Signing grant…";
+      try {
+        const hash = await wallet.grantHosting(g, max);
+        msg.className = "msg ok";
+        msg.textContent = `Sponsorship set to ${max} ABA · ${hash.slice(0, 10)}…`;
+        setTimeout(() => void renderProviderDashboard(), 3000);
+      } catch (e) {
+        msg.className = "msg err";
+        msg.textContent = (e as Error).message || String(e);
+      } finally {
+        btn.disabled = false;
+      }
+    };
+  }
+  const rev = document.getElementById("sponsorrevoke") as HTMLButtonElement | null;
+  if (rev) {
+    rev.onclick = async () => {
+      if (!wallet.isUnlocked()) {
+        msg.className = "msg err";
+        msg.textContent = "Unlock your wallet first.";
+        return;
+      }
+      rev.disabled = true;
+      msg.className = "msg";
+      msg.textContent = "Revoking…";
+      try {
+        const hash = await wallet.revokeHosting(g);
+        msg.className = "msg ok";
+        msg.textContent = `Revoked · ${hash.slice(0, 10)}…`;
+        setTimeout(() => void renderProviderDashboard(), 3000);
+      } catch (e) {
+        msg.className = "msg err";
+        msg.textContent = (e as Error).message || String(e);
+      } finally {
+        rev.disabled = false;
+      }
+    };
   }
 }
 
 async function setupHost(): Promise<void> {
   (document.getElementById("hostbtn") as HTMLButtonElement).onclick = toggleHost;
-  setupProviderLink();
+  renderProviderDashboard();
   const uriCopy = document.getElementById("hosturicopy");
   if (uriCopy) {
     uriCopy.onclick = () => {
       const u = (document.getElementById("hosturi") as HTMLElement)?.textContent || "";
-      if (u && u !== "\u2013") void copy(u);
+      if (u && u !== "-") void copy(u);
     };
   }
   try {
@@ -987,7 +1288,7 @@ async function refreshHost(): Promise<void> {
     badge.className = "badge " + (liveState ? "live" : "off");
     badge.innerHTML = `<span class="pulse"></span> ${daemon.state}`;
   }
-  const uri = chainHostUri || daemon.host_uri || "\u2013";
+  const uri = chainHostUri || daemon.host_uri || "-";
   const uriEl = document.getElementById("hosturi");
   if (uriEl) uriEl.textContent = uri;
 
@@ -995,7 +1296,7 @@ async function refreshHost(): Promise<void> {
   if (hint) {
     if (!daemon.platform_ok) {
       hint.textContent =
-        "This PC cannot run the provider daemon. Open Abakos on your Linux provider VM to start/stop hosting.";
+        "This machine can't run the provider daemon (it needs Linux). Open Abakos on your Linux host to start or stop it. See How hosting works below.";
     } else if (daemon.error) {
       hint.textContent = daemon.error;
     } else {
@@ -1007,17 +1308,14 @@ async function refreshHost(): Promise<void> {
   }
   const line = document.getElementById("hostline");
   if (line) {
-    const parts = [
-      `Unit: ${daemon.unit || "abakos-provider"}`,
-      chainHostUri ? "on-chain registered" : "not registered on-chain for this wallet",
-    ];
+    const parts = [`Local unit: ${daemon.unit || "abakos-provider"} \u00b7 ${daemon.state}`];
     if (daemon.error) parts.push(daemon.error);
     line.textContent = parts.join(" \u00b7 ");
   }
   const btn = document.getElementById("hostbtn") as HTMLButtonElement | null;
   if (btn && !daemon.platform_ok) {
     btn.disabled = true;
-    btn.textContent = "Hosting needs Linux VM";
+    btn.textContent = "Hosting needs Linux";
     btn.classList.remove("fill", "danger");
   }
 }
