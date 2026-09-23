@@ -87,7 +87,8 @@ PAY_SOURCE = os.environ.get("ABA_PAY_SOURCE", "shares")     # "shares" | "hashra
 PROXY_TTL = int(os.environ.get("ABA_PROXY_TTL", "20"))
 _shares_cache = {"ts": 0.0, "data": None}
 
-SPLIT = {"host": 0.88, "stakers": 0.04, "treasury": 0.04, "burn": 0.04}
+SPLIT_PERCENT = {"host": 88, "stakers": 4, "treasury": 4, "burn": 4}
+SPLIT = {key: percent / 100 for key, percent in SPLIT_PERCENT.items()}
 BURN_EVM = os.environ.get("ABA_BURN_EVM", "0x000000000000000000000000000000000000dEaD")  # de-facto burn (no key)
 FEE = "0uaba"
 GAS = "220000"
@@ -692,6 +693,14 @@ def fetch_proxy_shares():
     return out
 
 
+def split_amount(uaba: int) -> dict[str, int]:
+    """Split integer micro-units, assigning rounding remainder to treasury."""
+    host = uaba * SPLIT_PERCENT["host"] // 100
+    stakers = uaba * SPLIT_PERCENT["stakers"] // 100
+    burn = uaba * SPLIT_PERCENT["burn"] // 100
+    return {"host": host, "stakers": stakers, "treasury": uaba - host - stakers - burn, "burn": burn}
+
+
 def pay_provider(addr, pusd, coin, use_buyback, aba_price):
     """Pay ONE provider `pusd` USD for this epoch, split 88 / 4 / 4 / 4.
 
@@ -701,8 +710,8 @@ def pay_provider(addr, pusd, coin, use_buyback, aba_price):
     if pusd <= 0 or aba_price <= 0:
         return
     ptot = int(round(pusd / aba_price * 1e6))
-    ph = int(ptot * SPLIT["host"]); ps = int(ptot * SPLIT["stakers"])
-    pb = int(ptot * SPLIT["burn"]); pt = ptot - ph - ps - pb
+    parts = split_amount(ptot)
+    ph, ps, pt, pb = (parts[key] for key in ("host", "stakers", "treasury", "burn"))
     if ph <= 0:
         return
     with _lock:
@@ -878,7 +887,8 @@ def step():
         usd = oracle["fleet_gross_usd_day"] * (EPOCH_SECONDS / 86400.0)
         aba = usd / aba_price
         total_uaba = int(round(aba * 1e6))
-        hu = int(total_uaba * SPLIT["host"]); su = int(total_uaba * SPLIT["stakers"]); bu = int(total_uaba * SPLIT["burn"]); tu = total_uaba - hu - su - bu
+        parts = split_amount(total_uaba)
+        hu, su, tu, bu = (parts[key] for key in ("host", "stakers", "treasury", "burn"))
         with _lock:
             _state["totals"]["mined_usd"] = round(_state["totals"]["mined_usd"] + usd, 6)
             _state["totals"]["aba_bought"] = round(_state["totals"]["aba_bought"] + aba, 6)
