@@ -1,0 +1,26 @@
+# systemd unit for the Abakos Discord bot (VPS/bare-metal, like the provider agent).
+# Install:
+#   sudo cp -r discord-bot /opt/abakos-bot && cd /opt/abakos-bot
+#   sudo -u <user> npm ci --omit=dev
+#   # put secrets in /opt/abakos-bot/.env
+#   sudo cp abakos-bot.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now abakos-bot
+#   journalctl -u abakos-bot -f     # logs
+[Unit]
+Description=Abakos Discord Bot (verified roles + live stat channels)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/abakos-bot
+# Adjust the node path if needed:  which node
+ExecStartPre=/usr/bin/node --env-file=.env register-commands.mjs
+ExecStart=/usr/bin/node --env-file=.env bot.mjs
+Restart=always
+RestartSec=5
+# Optional: run as a non-root user you created
+# User=abakos
+
+[Install]
+WantedBy=multi-user.target

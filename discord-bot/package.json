@@ -1,0 +1,19 @@
+{
+  "name": "abakos-discord-bot",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Abakos community bot — on-chain verified role sync (Holder/Provider/Trader) + hourly ABA price feed.",
+  "main": "bot.mjs",
+  "scripts": {
+    "register": "node --env-file=.env register-commands.mjs",
+    "start": "node --env-file=.env bot.mjs"
+  },
+  "dependencies": {
+    "@cosmjs/encoding": "^0.32.4",
+    "discord.js": "^14.16.3",
+    "ethers": "^6.13.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
