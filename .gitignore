@@ -27,6 +27,7 @@ model/model_output.csv
 __pycache__/
 *.pyc
 .venv/
+.venv-*/
 venv/
 
 # --- Node / web ---
@@ -36,8 +37,23 @@ dist/
 /site/test-results/
 /site/playwright-report/
 
+# --- newsroom/ (AI news Shorts pipeline) ---
+/newsroom/secrets/
+/newsroom/state/
+/newsroom/data/
+/newsroom/models/
+/newsroom/config/music/*
+!/newsroom/config/music/README.md
+/newsroom/video/avatar/reference/*
+!/newsroom/video/avatar/reference/README.md
+
 # --- OS / editor ---
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
+
+# --- local tooling ---
+.claude/
+.cursor/
+_403.mjs
