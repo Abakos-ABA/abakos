@@ -8,9 +8,12 @@
 [![License](https://img.shields.io/github/license/Abakos-ABA/abakos?color=blue)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/Abakos-ABA/abakos?style=social)](https://github.com/Abakos-ABA/abakos/stargazers)
 
-![Abakos — zero-fee PoS compute chain. Rent out CPU, RAM, GPU and storage; idle capacity mines the best coin and buys ABA on the market.](docs/img/social-preview.png)
+![Abakos — idle CPU/GPU to on-chain payouts. Desktop app rents out hardware first, mines the most profitable coin when idle, converts to Circle USDC over IBC and buys ABA on an on-chain DEX.](docs/img/social-preview.png)
 
-**Abakos turns idle hardware into income.** The desktop app mines the **most profitable coin** on your idle **CPU (Monero/RandomX)** and **GPU** — profit-switching like NiceHash — converts the proceeds into **real Circle USDC** and **buys ABA on the on-chain DEX**, paid straight to your wallet by verified shares. Underneath runs a **zero-fee, EVM-compatible Proof-of-Stake blockchain** for decentralized compute (**DePIN**), forked from the proven [Akash](https://akash.network) stack (Cosmos SDK + CometBFT).
+**Abakos puts idle hardware to work.** The desktop app mines the **most profitable coin** on your idle **CPU (Monero/RandomX)** and **GPU** — profit-switching like NiceHash — converts the proceeds into **real Circle USDC** and **buys ABA on the on-chain DEX**, paid straight to your wallet by verified shares. Underneath runs a **zero-fee, EVM-compatible Proof-of-Stake blockchain** for decentralized compute (**DePIN**), forked from the proven [Akash](https://akash.network) stack (Cosmos SDK + CometBFT).
+
+> [!WARNING]
+> **Public sandbox — experimental.** Payouts, swaps and USDC on the sandbox are real, but the network is pre-audit and pre-mainnet. **Only use amounts you can afford to lose.** No airdrop, no yield promise — mining on an ordinary PC earns small amounts.
 
 > **Name** from the Greek *ábax / abakos* (abacus, the oldest computing device). **Ticker `ABA`.** Live at **[abakos.ai](https://abakos.ai)**. *Hardware that stays fully used.*
 
@@ -30,15 +33,25 @@ If Abakos is useful or interesting to you, **[⭐ star this repo](https://github
 
 - **Open source, top to bottom.** The app, the payout engine and the chain live in this repo. The total protocol cut is **12% (88% goes to you)** — hardcoded in the [payout engine](provider-agent/agent.py) and documented in the [fee model](docs/fee-model.md). You are paid in **ABA**; mined value is converted to real USDC and buys ABA on the public on-chain DEX first (every buyback is visible in the [explorer](https://abakos.ai/explorer/)).
 - **Signed auto-updates.** Updates are cryptographically signed (Tauri updater / minisign); the app only installs updates that match the embedded public key.
-- **SHA-256 checksums — v0.1.24:**
+- **SHA-256 checksums — v0.1.29** (GitHub also shows the digest next to every asset on the [release page](https://github.com/Abakos-ABA/abakos/releases/tag/v0.1.29)):
 
   ```
-  593205f57d6357a822a294054727339fc04ab1910231a8fe5287623261e1e540  Abakos.Provider_0.1.24_x64-setup.exe
-  1d27737a9563f3860e6e4e0dd84557542343c99052dee7663fb3cfe0ccfca111  Abakos.Provider_0.1.24_x64_en-US.msi
+  7da73e08b562c7bb0e2fcd973dc367a17dccc1526d14be751d5c846a45e1b0c2  Abakos.Provider_0.1.29_x64-setup.exe
+  421f92bd2c4fcb023505f9e2ffe268393d221cfe34d5d21de170bf5945c3fada  Abakos.Provider_0.1.29_x64_en-US.msi
+  0bd003ec665f81898324f494b9cf2c5b68d51801b482c903ea154cd97b6bb084  Abakos.Provider_0.1.29_amd64.AppImage
+  b75109f81fd33aaae499b2f5a64c4c680263bbb1fa20a8e4c7eac7d30d84683d  Abakos.Provider_0.1.29_amd64.deb
+  9afba3ade1efe55569dcef861c2e6c0d92de1ea5a593c5601d3e84102c89908b  Abakos.Provider-0.1.29-1.x86_64.rpm
   ```
 
-  Verify on Windows: `certutil -hashfile Abakos.Provider_0.1.24_x64-setup.exe SHA256`. Full verification guide, signing status and reporting: **[abakos.ai/security](https://abakos.ai/security/)**.
+  Verify on Windows: `certutil -hashfile Abakos.Provider_0.1.29_x64-setup.exe SHA256` · Linux: `sha256sum Abakos.Provider_0.1.29_amd64.AppImage`. Full verification guide, signing status and reporting: **[abakos.ai/security](https://abakos.ai/security/)**. Windows code signing is not in place yet, so SmartScreen may show "unknown publisher".
 - **Why do some antivirus tools flag mining apps?** The app bundles the stock miners (XMRig / SRBMiner family), which many AV engines generically flag as *"PUA / Coinminer"* — that heuristic hits every mining tool, including the most established ones (XMRig, SRBMiner, lolMiner). No code signature removes it; it is inherent to bundling a miner. The miner code is open, mining only runs when you start it, and 88% of the mined value is paid to you. If your AV blocks the install, allow-list the install folder. Only ever download Abakos from this repository or [abakos.ai/download](https://abakos.ai/download/).
+
+## What's new (September 2026)
+
+- **Console deployments signed with MetaMask work again.** The validator build had lost our cosmos-sdk fork's EIP-191 `personal_sign` fallback; fixed and now guarded by regression tests that replay a real console transaction byte-for-byte, plus an end-to-end sandbox suite (cert → deployment → bid → lease → manifest → close). Details in the [release notes](https://github.com/Abakos-ABA/abakos/releases).
+- Services without exposed ports no longer break the amino sign doc (empty `endpoints` are omitted).
+- `abakosd version` now reports the running build (`sandbox-20260923-eip191`).
+- Where this is heading: **[ROADMAP.md](ROADMAP.md)** · want to help? **[good first issues](https://github.com/Abakos-ABA/abakos/labels/good%20first%20issue)**
 
 ## How the payout pipeline works (all of it is live)
 
@@ -130,6 +143,8 @@ abakos/
   pool-proxy/     # Stratum proxy: per-address share attribution (unMineable multi-pool)
   bridge-relayer/ # Mining payout forwarder (Skip/CCTP/IBC) + Noble forwarding accounts
   desktop/        # Abakos Provider desktop app (Tauri): wallet + miner + live stats
+  discord-bot/    # community bot: wallet link, roles, live stats, leaderboard
+  provider-compute/ # scripts + systemd units to run a compute provider on vanilla Linux
   site/           # built site mirror (source of truth: abakos.ai repo)
   docs/           # litepaper + whitepaper + fee-model (canonical)
   legacy/         # ARCHIVED research, not the product
@@ -158,6 +173,9 @@ No. All 10,000,000,000 ABA exist at genesis; none are ever minted. Stakers are p
 **Can I use MetaMask or Keplr?**
 Both. Native Ethereum JSON-RPC at `evm-rpc.abakos.ai`, EIP-155 chain id **9721**; the DEX supports any EVM wallet via EIP-6963, Keplr/Leap/Cosmostation work on the Cosmos side.
 
+**Is this a way to make money?**
+Treat it as an experiment, not income. On an ordinary CPU the mined amounts are small, the sandbox is pre-audit, and ABA carries no guarantees. There is no airdrop and no reward for stars, upvotes or follows.
+
 **Is this mainnet?**
 Not yet. The public **sandbox** is live with real value rails but no guarantees. Mainnet follows after a security audit and external validator onboarding — canonical status: [status.abakos.ai](https://status.abakos.ai/).
 
@@ -173,6 +191,7 @@ The sandbox intentionally runs **real value rails** as a proving ground. Found s
 
 - ⭐ **[Star this repo](https://github.com/Abakos-ABA/abakos/stargazers)** — the single strongest signal that makes Abakos discoverable.
 - 🌐 Website: [abakos.ai](https://abakos.ai)
+- 🗺️ [Roadmap](ROADMAP.md) · 🤝 [Contributing](CONTRIBUTING.md) · 🟢 [Good first issues](https://github.com/Abakos-ABA/abakos/labels/good%20first%20issue)
 - 💬 Discord: [discord.gg/zBxNvdMjtM](https://discord.gg/zBxNvdMjtM) · [GitHub Discussions](https://github.com/Abakos-ABA/abakos/discussions)
 - 🐦 Updates: [@Abakos_ai on X](https://x.com/Abakos_ai)
 
