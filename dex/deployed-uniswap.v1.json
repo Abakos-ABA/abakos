@@ -1,25 +1,10 @@
 {
   "chainId": 9721,
   "rpc": "https://evm-rpc.abakos.ai",
-  "factory": "0x5022f3F6C54dd05ccB28e51806bA64061F4523b9",
-  "router": "0xa1F065A4f30B06945D54c164861c54390B925c1F",
+  "factory": "0x6DbEBba2FA0A536909500cC5fc3D790Da03f1bEA",
+  "router": "0xAA6c934d3eaD6677C54F6B6e44777bE1653Bc306",
   "waba": "0x380Dc585E9437362821F55d6237090Db9BF67c73",
-  "usdcIbc": {
-    "denom": "ibc/8E27BA2D5493AF5636760E354E46004562C46AB7EC0CC4C1CA14E9E20E2545B5",
-    "erc20": "0x4E46004562C46AB7EC0cC4C1ca14E9e20E2545B5",
-    "pair": "0x270F1f5B2192C418B76F2555bDae9352004986f2"
-  },
-  "initHash": "1b35c23088cdc780dd300120a41ea03c654c616026837b59109999216b95ce71",
-  "legacy": {
-    "factory": "0x6DbEBba2FA0A536909500cC5fc3D790Da03f1bEA",
-    "router": "0xAA6c934d3eaD6677C54F6B6e44777bE1653Bc306",
-    "pair": "0x233cCefd6ea87a3987B13D948117Ec51957F960b"
-  },
-  "lpToken": {
-    "name": "Abakos LP",
-    "symbol": "ABA-LP",
-    "decimals": 12
-  },
+  "initHash": "f40783a955a9be9bf11de05e90244c2b6394edc5f348e5dcd168dba8661a95d2",
   "routerAbi": [
     {
       "inputs": [
@@ -992,5 +977,10 @@
       "stateMutability": "payable",
       "type": "receive"
     }
-  ]
+  ],
+  "usdcIbc": {
+    "denom": "ibc/8E27BA2D5493AF5636760E354E46004562C46AB7EC0CC4C1CA14E9E20E2545B5",
+    "erc20": "0x4E46004562C46AB7EC0cC4C1ca14E9e20E2545B5",
+    "pair": "0x233cCefd6ea87a3987B13D948117Ec51957F960b"
+  }
 }
