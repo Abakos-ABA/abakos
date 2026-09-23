@@ -23,6 +23,16 @@ supply-reducing burn via module/precompile is a mainnet TODO).
 | API usage             | 12%                 | 4% / 4% / 4%                      | 88%                    |
 | Console / Marketplace | 3%                  | 1% / 1% / 1%                      | 97%                    |
 
+For the provider agent's integer `uaba` accounting, `split_amount()` rounds the
+host (88%), staker (4%) and burn (4%) portions down to whole micro-units. Treasury
+receives the remainder, preserving the existing rounding policy and ensuring the
+four amounts sum to the input exactly. Integer percentage arithmetic avoids
+floating-point precision loss for large amounts. Both individual-provider and
+simulated-fleet accounting use this helper; USD conversion and buyback execution
+are separate from this calculation.
+
+Offline arithmetic tests: `python -m pytest provider-agent/tests/test_split.py`.
+
 ## 3. DEX + stablecoin
 - **Stablecoin standard: USDC (Circle-issued on Noble, over IBC) — since 2026-07-25.**
   There is exactly ONE canonical USDC on Abakos: the Noble IBC voucher
