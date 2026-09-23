@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the Abakos provider earnings sweep on a schedule
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

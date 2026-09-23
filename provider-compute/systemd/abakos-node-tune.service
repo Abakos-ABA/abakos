@@ -1,0 +1,21 @@
+[Unit]
+Description=Abakos node tuning — Transparent Huge Pages + msr so every tenant/Console pod mines RandomX at full speed
+# Run after the filesystem is up; before the kubelet schedules tenant workloads.
+After=local-fs.target
+Wants=local-fs.target
+Before=k3s.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Universal + vanilla Linux: enable Transparent Huge Pages (the kernel then hands
+# 2 MiB pages to ANY pod / ANY of the 391 Console templates transparently — no SDL
+# hugepages resource, no added capabilities, no per-template command) and load the
+# msr module. Deliberately reserves NO fixed huge pages: that would remove RAM from
+# what the provider can rent out. THP promotes on demand instead.
+Environment=ABA_HUGEPAGES_2M=0
+Environment=ABA_THP=always
+ExecStart=/usr/bin/env bash __HERE__/scripts/60-hugepages.sh
+
+[Install]
+WantedBy=multi-user.target

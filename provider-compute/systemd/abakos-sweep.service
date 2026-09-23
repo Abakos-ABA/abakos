@@ -1,0 +1,13 @@
+[Unit]
+Description=Abakos provider earnings sweep (operator key -> main account)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=__USER__
+# Config lives outside the repo so your main address isn't committed. Create it
+# with scripts/51-install-sweep.sh (writes ABA_SWEEP_DEST, ABA_SWEEP_APPLY=1, ...).
+EnvironmentFile=/etc/abakos/sweep.env
+Environment=ABA_NETWORK=__ABA_NETWORK__
+ExecStart=/usr/bin/env bash __HERE__/scripts/50-sweep-earnings.sh

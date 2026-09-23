@@ -12,19 +12,19 @@
 # install the provider chart (we run provider-services from source - see step 2/3).
 set -euo pipefail
 
-echo "== [1/6] install k3s (traefik disabled) =="
+echo "== [1/7] install k3s (traefik disabled) =="
 if ! command -v k3s >/dev/null 2>&1; then
   curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--disable=traefik" sh -s -
 fi
 
-echo "== [2/6] kubeconfig =="
+echo "== [2/7] kubeconfig =="
 mkdir -p "$HOME/.kube"
 sudo cat /etc/rancher/k3s/k3s.yaml | tee "$HOME/.kube/config" >/dev/null
 sudo chown "$(id -u):$(id -g)" "$HOME/.kube/config"
 export KUBECONFIG="$HOME/.kube/config"
 kubectl get nodes
 
-echo "== [3/6] helm + akash repo =="
+echo "== [3/7] helm + akash repo =="
 if ! command -v helm >/dev/null 2>&1; then
   curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 fi
@@ -33,14 +33,14 @@ helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx >/dev/nul
 helm repo add jetstack https://charts.jetstack.io >/dev/null 2>&1 || true
 helm repo update
 
-echo "== [4/6] namespaces =="
+echo "== [4/7] namespaces =="
 kubectl create ns lease 2>/dev/null || true
 kubectl create ns akash-services 2>/dev/null || true
 kubectl label ns akash-services akash.network=true --overwrite
 kubectl create ns ingress-nginx 2>/dev/null || true
 kubectl label ns ingress-nginx app.kubernetes.io/name=ingress-nginx --overwrite
 
-echo "== [5/6] ingress-nginx (akash gateway) + cert-manager =="
+echo "== [5/7] ingress-nginx (akash gateway) + cert-manager =="
 # Akash deployments are exposed through an ingress-nginx configured as the akash gateway.
 helm upgrade --install akash-ingress ingress-nginx/ingress-nginx -n ingress-nginx \
   --set controller.ingressClassResource.name=akash-ingress-class \
@@ -53,7 +53,7 @@ kubectl label ingressclass akash-ingress-class akash.network=true --overwrite 2>
 helm upgrade --install cert-manager jetstack/cert-manager -n cert-manager --create-namespace \
   --set installCRDs=true 2>/dev/null || echo "   (cert-manager install returned non-zero)"
 
-echo "== [6/6] Akash CRDs + operators (hostname, inventory) =="
+echo "== [6/7] Akash CRDs + operators (hostname, inventory) =="
 # Hostname operator chart requires Gateway API HTTPRoute CRDs.
 if ! kubectl get crd httproutes.gateway.networking.k8s.io >/dev/null 2>&1; then
   curl -fsSL https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/standard-install.yaml \
@@ -63,6 +63,11 @@ helm upgrade --install akash-hostname-operator akash/akash-hostname-operator -n 
   echo "   (hostname-operator: check chart availability / values)"
 helm upgrade --install inventory-operator akash/akash-inventory-operator -n akash-services 2>/dev/null || \
   echo "   (inventory-operator: check chart availability / values)"
+
+echo "== [7/7] node tuning: THP + msr so every tenant/Console deployment mints RandomX fast =="
+# Universal + automatic: no per-template config, no SDL changes, vanilla Linux. See HUGEPAGES.md.
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+bash "$HERE/scripts/62-install-node-tune.sh" || echo "   (node-tune returned non-zero — run scripts/62-install-node-tune.sh manually)"
 
 echo
 echo "== done. verify: =="

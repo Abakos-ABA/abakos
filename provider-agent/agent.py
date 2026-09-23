@@ -129,6 +129,11 @@ _state = {
     # BSC treasury inflow watch (kryptex-bsc mode). Persisted via save_state so
     # undistributed inflow survives restarts (the old in-RAM baseline did not).
     "bsc_watch": {"last_block": 0, "pending6": 0, "seen": []},
+    # ibc-mode buyback inflow accounting: credited6 = cumulative bridged USDC
+    # already counted as revenue; swapped6 = cumulative USDC spent on buyback
+    # swaps. cumulative_inflow = live_balance + swapped6, so only genuinely new
+    # USDC is ever distributed (no re-count of the standing balance).
+    "ibc_watch": {"credited6": 0, "swapped6": 0},
     "addresses": {},
     "host": {"address": None, "balance_aba": None},
     "recent_payouts": [],
@@ -240,7 +245,7 @@ def _balance_of_data(holder: str) -> str:
 # libraries or the buyback key are missing, BUYBACK stays disabled and payouts
 # fall back to the cosmos bank send from the liquidity account.
 BUYBACK_KEYFILE = os.environ.get("ABA_BUYBACK_KEYFILE", "/opt/abakos-agent/buyback.key")
-MIN_SWAP_USDT = int(os.environ.get("ABA_MIN_SWAP_USDT", "100"))     # 0.0001 USDT (6-dec) dust floor; pay ~everyone. Raise later.
+MIN_SWAP_USDT = int(os.environ.get("ABA_MIN_SWAP_USDT", "50000"))   # 0.05 USDC (6-dec) floor: batch buybacks so tiny swaps do not flood the DEX/explorer. buyback_swap also hard-caps every swap to the live wallet balance.
 SWAP_SLIPPAGE = float(os.environ.get("ABA_SWAP_SLIPPAGE", "0.02"))
 SWAP_GAS = int(os.environ.get("ABA_SWAP_GAS", "300000"))
 EVM_CHAIN_ID = int(os.environ.get("ABA_EVM_CHAIN_ID", "9721"))
@@ -379,29 +384,38 @@ def _send_evm_tx(to_addr: str, data: str, gas: int, value: int = 0):
 
 
 def buyback_swap(usdt_in: int, to_evm: str):
-    """Market-buy native ABA with `usdt_in` (6-dec) USDT on the DEX, delivered to `to_evm`.
+    """Market-buy native ABA with up to `usdt_in` (6-dec) USDC on the DEX,
+    delivered to `to_evm`. Returns (txhash, aba_out_wei, spent6).
 
-    Returns (txhash, aba_out_wei). Approves the router once (max allowance)."""
+    The amount is HARD-CAPPED to the wallet's live USDC balance, so a pending
+    accounting sum that outruns the bridged balance can never send a
+    TransferHelper: TRANSFER_FROM_FAILED revert to the chain. Below the dust
+    floor nothing is swapped and (None, 0, 0) is returned; the caller keeps the
+    un-spent pending. Approves the router once (max allowance)."""
     from eth_abi import encode as abi_encode, decode as abi_decode  # noqa: PLC0415
     acct = _load_buyback()
     if acct is None:
         raise RuntimeError("buyback disabled")
+    live = usdt_balance_of(acct.address)
+    spend = min(int(usdt_in), live) if live >= 0 else 0
+    if spend < MIN_SWAP_USDT:
+        return None, 0, 0
     allowance = int(_eth_call(USDT, _SEL_ALLOWANCE + _addr32(acct.address) + _addr32(ROUTER)), 16)
-    if allowance < usdt_in:
+    if allowance < spend:
         data = _SEL_APPROVE + abi_encode(["address", "uint256"], [ROUTER, (1 << 256) - 1]).hex()
         _send_evm_tx(USDT, data, gas=80000)
     path = [USDT, WABA]
-    ao = _eth_call(ROUTER, _SEL_GET_AMOUNTS_OUT + abi_encode(["uint256", "address[]"], [usdt_in, path]).hex())
+    ao = _eth_call(ROUTER, _SEL_GET_AMOUNTS_OUT + abi_encode(["uint256", "address[]"], [spend, path]).hex())
     amounts = abi_decode(["uint256[]"], bytes.fromhex(ao[2:]))[0]
     expected = int(amounts[-1])
     min_out = int(expected * (1.0 - SWAP_SLIPPAGE))
     deadline = int(time.time()) + 300
     data = _SEL_SWAP_T4ETH + abi_encode(
         ["uint256", "uint256", "address[]", "address", "uint256"],
-        [usdt_in, min_out, path, to_evm, deadline],
+        [spend, min_out, path, to_evm, deadline],
     ).hex()
     txh, _ = _send_evm_tx(ROUTER, data, gas=SWAP_GAS)
-    return txh, expected
+    return txh, expected, spend
 
 
 def usdt_balance_of(addr: str) -> int:
@@ -697,18 +711,21 @@ def pay_provider(addr, pusd, coin, use_buyback, aba_price):
         if use_buyback:
             with _lock:
                 pend = int(_providers.get(addr, {}).get("pending_host_usdt", 0)) + int(pusd * SPLIT["host"] * 1e6)
-            if pend >= MIN_SWAP_USDT:
-                txh, out_wei = buyback_swap(pend, bech32_to_evm(addr))
-                with _lock:
+            # buyback_swap caps to the live balance and reports what it actually
+            # spent (0 below the dust floor), so a pending sum larger than the
+            # bridged balance simply carries forward instead of reverting on-chain.
+            txh, out_wei, spent = buyback_swap(pend, bech32_to_evm(addr)) if pend >= MIN_SWAP_USDT else (None, 0, 0)
+            with _lock:
+                if spent > 0 and txh:
                     if addr in _providers:
                         _providers[addr]["earned_aba"] = round(_providers[addr].get("earned_aba", 0.0) + out_wei / 1e18, 6)
-                        _providers[addr]["pending_host_usdt"] = 0
+                        _providers[addr]["pending_host_usdt"] = max(0, pend - spent)
                     _state["totals"]["host_aba"] = round(_state["totals"]["host_aba"] + out_wei / 1e18, 6)
+                    if USDT_SOURCE == "ibc":
+                        _state["ibc_watch"]["swapped6"] = int(_state["ibc_watch"].get("swapped6", 0)) + spent
                     add_payout("buyback", int(out_wei / 1e12), txh, coin)
-            else:
-                with _lock:
-                    if addr in _providers:
-                        _providers[addr]["pending_host_usdt"] = pend
+                elif addr in _providers:
+                    _providers[addr]["pending_host_usdt"] = pend
             with _lock:
                 _state["totals"]["mined_usd"] = round(_state["totals"]["mined_usd"] + pusd, 6)
                 _state["totals"]["aba_bought"] = round(_state["totals"]["aba_bought"] + ptot / 1e6, 6)
@@ -816,7 +833,7 @@ def load_state():
             if k in saved:
                 _state[k] = saved[k]
         # Merge (don't replace) so newly added keys like burn_aba/burn_uaba keep defaults.
-        for k in ("totals", "pending", "bsc_watch"):
+        for k in ("totals", "pending", "bsc_watch", "ibc_watch"):
             if isinstance(saved.get(k), dict):
                 _state[k].update(saved[k])
         for a, p in (saved.get("providers_persist") or {}).items():
@@ -872,10 +889,12 @@ def step():
             host_addr = _state["host"]["address"]
             try:
                 host_usdt = int(usd * SPLIT["host"] * 1e6)
-                if use_buyback and host_usdt >= MIN_SWAP_USDT:
-                    txh, out_wei = buyback_swap(host_usdt, bech32_to_evm(host_addr))
+                txh, out_wei, spent = buyback_swap(host_usdt, bech32_to_evm(host_addr)) if (use_buyback and host_usdt >= MIN_SWAP_USDT) else (None, 0, 0)
+                if spent > 0 and txh:
                     with _lock:
                         _state["totals"]["host_aba"] = round(_state["totals"]["host_aba"] + out_wei / 1e18, 6)
+                        if USDT_SOURCE == "ibc":
+                            _state["ibc_watch"]["swapped6"] = int(_state["ibc_watch"].get("swapped6", 0)) + spent
                         add_payout("buyback", int(out_wei / 1e12), txh, coin)
                 else:
                     r = send(SOURCE_KEY, host_addr, hu)
@@ -905,8 +924,22 @@ def step():
         # current balance this epoch; the per-provider USDC->ABA swaps consume it, so
         # it drains naturally and any leftover dust is swept next epoch. No remote
         # treasury watch, no drip -- the wallet only holds what the bridge delivered.
+        # Count only NEW bridged USDC, never the standing balance. cumulative
+        # inflow = live balance + everything already swapped out; subtract what was
+        # credited in earlier epochs. (The old code re-read the full balance every
+        # epoch and re-attributed it until a swap drained it, inflating each
+        # provider's pending host USDC past the balance and reverting on-chain.)
         bal6 = usdt_balance_of(_load_buyback().address) if buyback_enabled() else -1
-        epoch_usd = bal6 / 1e6 if (bal6 and bal6 > 0) else 0.0
+        if bal6 is not None and bal6 >= 0:
+            iw = _state["ibc_watch"]
+            cumulative6 = bal6 + int(iw.get("swapped6", 0))
+            new6 = max(0, cumulative6 - int(iw.get("credited6", 0)))
+            epoch_usd = new6 / 1e6
+            with _lock:
+                iw["credited6"] = cumulative6
+                _state.setdefault("buyback", {})["usdc_balance"] = round(bal6 / 1e6, 6)
+        else:
+            epoch_usd = 0.0
         value_src = "ibc-usdc"
     elif USDT_SOURCE == "kryptex-bsc":
         epoch_usd = real_usdt_epoch_value()
@@ -959,9 +992,14 @@ def step():
                 if epoch_usd > 0:
                     attribution[a] = epoch_usd * vf
         attr_src = value_src if epoch_usd > 0 else "shares-pending"
-    if not attribution and USDT_SOURCE != "kryptex-bsc":
-        # Self-reported hashrate fallback (oracle mode only; real-USDT mode pays
-        # strictly by verified proxy shares against real inflow).
+    if not attribution and USDT_SOURCE not in ("kryptex-bsc", "ibc"):
+        # Self-reported hashrate fallback -- ORACLE (pure-estimate) mode only.
+        # Real-value modes (ibc, kryptex-bsc) MUST pay strictly against real
+        # inflow: when no USDC arrived this epoch (epoch_usd == 0) there is no
+        # attribution and NOTHING is paid out. Paying here from oracle revenue
+        # estimates would fabricate host/staker/treasury/burn payouts every epoch
+        # that never came from a real unMineable payout -- exactly the phantom
+        # "burn/stakers/treasury every 2 min" the pool payout feed showed.
         now = time.time()
         with _lock:
             active = [dict(p) for p in _providers.values() if now - p.get("last_report", 0) < 180]
@@ -989,7 +1027,10 @@ def step():
                 reserved = sum(int(p.get("pending_host_usdt", 0)) for p in _providers.values())
             sweep6 = rest6 - reserved
             if sweep6 >= MIN_SWAP_USDT:
-                buyback_swap(sweep6, bech32_to_evm(key_addr(SOURCE_KEY)))
+                _sw_txh, _sw_out, sweep_spent = buyback_swap(sweep6, bech32_to_evm(key_addr(SOURCE_KEY)))
+                if sweep_spent > 0:
+                    with _lock:
+                        _state["ibc_watch"]["swapped6"] = int(_state["ibc_watch"].get("swapped6", 0)) + sweep_spent
         except Exception as e:
             with _lock:
                 _state["last_error"] = "rest sweep: " + str(e)[:200]
@@ -1077,14 +1118,24 @@ class Handler(BaseHTTPRequestHandler):
                 now = time.time()
                 provs = []
                 for p in _providers.values():
-                    # CURRENT hashrate comes ONLY from a fresh app report (it drops to 0
-                    # the moment a device stops). The proxy's rolling window drives shares
-                    # /payout, NOT the live hashrate -- using it here made the pool show a
-                    # decaying hashrate + "active" for up to an hour after mining stopped.
+                    # Live hashrate: prefer a fresh app self-report (it drops to 0 the moment a
+                    # device stops). But a rig that mines straight through the proxy sends no
+                    # app report, so fall back to the proxy's share-derived hashrate while it is
+                    # still submitting shares (last_report is refreshed every epoch shares land,
+                    # same 180s "active" window the payout logic uses). Without this a real,
+                    # share-earning miner showed 0 H/s and "idle".
                     rep_recent = (now - p.get("rep_ts", 0)) < 90
-                    cpu_hs = float(p.get("rep_cpu_hs", 0.0)) if rep_recent else 0.0
-                    gpu_hs = float(p.get("rep_gpu_hs", 0.0)) if rep_recent else 0.0
-                    mining_now = rep_recent and (cpu_hs > 0 or gpu_hs > 0)
+                    shares_recent = (now - p.get("last_report", 0)) < 180
+                    if rep_recent:
+                        cpu_hs = float(p.get("rep_cpu_hs", 0.0))
+                        gpu_hs = float(p.get("rep_gpu_hs", 0.0))
+                    elif shares_recent:
+                        cpu_hs = float(p.get("cpu_hs", 0.0))
+                        gpu_hs = float(p.get("gpu_hs", 0.0))
+                    else:
+                        cpu_hs = gpu_hs = 0.0
+                    mining_now = (rep_recent or shares_recent) and (cpu_hs > 0 or gpu_hs > 0)
+                    last_ts = max(float(p.get("rep_ts", 0) or 0), float(p.get("last_report", 0) or 0))
                     provs.append({
                         "address": p["address"],
                         "cpu_hs": cpu_hs, "gpu_hs": gpu_hs,
@@ -1094,7 +1145,7 @@ class Handler(BaseHTTPRequestHandler):
                         "os": p.get("os"), "earned_aba": p.get("earned_aba", 0.0),
                         "share_hs": p.get("share_hs", 0.0), "window_shares": p.get("window_shares", 0.0),
                         "share_fraction": p.get("share_fraction", 0.0),
-                        "last_seen_s": int(now - p.get("rep_ts", 0)),
+                        "last_seen_s": int(now - last_ts) if last_ts > 0 else -1,
                         "active": mining_now,
                     })
                 resp["providers"] = provs

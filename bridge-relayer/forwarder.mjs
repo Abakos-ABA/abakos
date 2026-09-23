@@ -18,8 +18,8 @@ import { ethers } from "ethers";
 import fs from "node:fs";
 import http from "node:http";
 import { execFile } from "node:child_process";
-import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
-import { SigningStargateClient, GasPrice } from "@cosmjs/stargate";
+import { DirectSecp256k1HdWallet, Registry } from "@cosmjs/proto-signing";
+import { SigningStargateClient, GasPrice, defaultRegistryTypes } from "@cosmjs/stargate";
 
 const env = (k, d) => process.env[k] ?? d;
 // shared
@@ -48,6 +48,12 @@ const POLY_RPCS = env("ABA_FWD_POLY_RPC", "https://polygon-bor-rpc.publicnode.co
 const KEYFILE = env("ABA_FWD_KEY", "/opt/abakos-forwarder/hot.key");
 const MIN_POL = ethers.parseEther(env("ABA_FWD_MIN_POL", "150"));       // fixed $0.11 relay fee -> batch big
 const RESERVE_POL = ethers.parseEther(env("ABA_FWD_RESERVE_POL", "1.5"));
+// Noble forwarding accounts (DEX in-app deposits: CCTP mints to a per-user Noble
+// address that auto-forwards over channel-600 to the user's own Abakos account)
+const NOBLE_RPCS = env("ABA_FWD_NOBLE_RPC", "https://noble-rpc.polkachu.com,https://rpc.cosmos.directory/noble").split(",");
+const FWD_FEE = { amount: [{ denom: "uusdc", amount: env("ABA_FWD_REG_FEE_UUSDC", "25000") }], gas: env("ABA_FWD_REG_GAS", "250000") };
+const FWD_MAX_PER_DAY = Number(env("ABA_FWD_REG_PER_DAY", "300"));
+const FWD_RATE_PER_MIN = Number(env("ABA_FWD_REG_PER_MIN_IP", "10"));
 
 const log = (...a) => console.log(new Date().toISOString(), ...a);
 let state = fs.existsSync(STATE) ? JSON.parse(fs.readFileSync(STATE, "utf8")) : {};
@@ -56,6 +62,9 @@ if (state.phase !== undefined && !state.pol) state = { pol: { phase: state.phase
 state.pol ??= { phase: "idle", cycle: null };
 state.atom ??= { phase: "idle", cycle: null };
 state.history ??= []; state.errors ??= [];
+state.fwd ??= {};                                  // abakos addr -> registered noble forwarding account
+state.fwdPending ??= {};                           // abakos addr -> derived-but-unregistered account (lazy)
+state.fwdStats ??= { day: "", count: 0 };
 const save = () => fs.writeFileSync(STATE, JSON.stringify(state, null, 2));
 const pushErr = (lane, m) => { state.errors.unshift({ t: new Date().toISOString(), lane, m: String(m).slice(0, 300) }); state.errors.length = Math.min(state.errors.length, 20); save(); };
 
@@ -252,17 +261,159 @@ async function polTick() {
   await awaitNobleAndDeliver(lane, c);
 }
 
+// ---------- Noble forwarding accounts (DEX deposit endpoint) ----------
+// GET /forwarding?recipient=abakos1...  ->  { noble_address, channel, registered }
+// The address is derived on Noble from (channel-600, recipient, no fallback); anything
+// minted/sent there is auto-forwarded over IBC to the recipient. Registration is a
+// one-time Noble tx paid by the relayer account (~0.025 USDC).
+
+const B32 = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+function b32polymod(vals) {
+  const GEN = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
+  let chk = 1;
+  for (const v of vals) {
+    const b = chk >> 25;
+    chk = ((chk & 0x1ffffff) << 5) ^ v;
+    for (let i = 0; i < 5; i++) if ((b >> i) & 1) chk ^= GEN[i];
+  }
+  return chk;
+}
+function validAbakosAddr(addr) {
+  if (typeof addr !== "string" || !/^abakos1[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{38}$/.test(addr)) return false;
+  const hrp = "abakos", data = [];
+  for (const c of addr.slice(7)) data.push(B32.indexOf(c));
+  const exp = [];
+  for (const c of hrp) exp.push(c.charCodeAt(0) >> 5);
+  exp.push(0);
+  for (const c of hrp) exp.push(c.charCodeAt(0) & 31);
+  return b32polymod(exp.concat(data)) === 1;
+}
+
+// hand-rolled protobuf for noble.forwarding.v1.MsgRegisterAccount (4 string fields)
+const varint = (n) => { const out = []; while (n > 127) { out.push((n & 127) | 128); n >>= 7; } out.push(n); return out; };
+const MsgRegisterAccount = {
+  encode(m) {
+    const parts = [];
+    const put = (field, str) => {
+      if (!str) return;
+      const b = Buffer.from(str, "utf8");
+      parts.push(Buffer.from([(field << 3) | 2, ...varint(b.length)]), b);
+    };
+    put(1, m.signer); put(2, m.recipient); put(3, m.channel); put(4, m.fallback);
+    const buf = Buffer.concat(parts);
+    return { finish: () => new Uint8Array(buf) };
+  },
+  decode() { throw new Error("decode not supported"); },
+  fromPartial: (m) => m,
+};
+const nobleRegistry = new Registry(defaultRegistryTypes);
+nobleRegistry.register("/noble.forwarding.v1.MsgRegisterAccount", MsgRegisterAccount);
+
+let nobleClient = null;
+async function nobleConnect() {
+  if (nobleClient) return nobleClient;
+  const wallet = await DirectSecp256k1HdWallet.fromMnemonic(fs.readFileSync(MNEMONIC_FILE, "utf8").trim(), { prefix: "noble" });
+  const [acct] = await wallet.getAccounts();
+  if (acct.address !== NOBLE_ADDR) throw new Error("noble address mismatch: " + acct.address);
+  for (const url of NOBLE_RPCS) {
+    try {
+      nobleClient = await SigningStargateClient.connectWithSigner(url.trim(), wallet, { registry: nobleRegistry });
+      return nobleClient;
+    } catch (e) { log("noble rpc failed:", url, e.message); }
+  }
+  throw new Error("no noble rpc reachable");
+}
+
+async function fwdQuery(recipient) {
+  const r = await fetch(`${NOBLE_REST}/noble/forwarding/v1/address/${SRC_CHANNEL}/${recipient}/`);
+  const j = await r.json();
+  if (!r.ok || !j.address) throw new Error("forwarding query failed: " + JSON.stringify(j).slice(0, 160));
+  return j; // { address, exists }
+}
+
+async function registerForwarding(recipient, address) {
+  const day = new Date().toISOString().slice(0, 10);
+  if (state.fwdStats.day !== day) { state.fwdStats.day = day; state.fwdStats.count = 0; }
+  if (state.fwdStats.count >= FWD_MAX_PER_DAY) throw new Error("daily registration cap reached");
+  const client = await nobleConnect();
+  const msg = { typeUrl: "/noble.forwarding.v1.MsgRegisterAccount", value: { signer: NOBLE_ADDR, recipient, channel: SRC_CHANNEL, fallback: "" } };
+  const res = await client.signAndBroadcast(NOBLE_ADDR, [msg], FWD_FEE, "abakos dex deposit");
+  if (res.code !== 0 && !/already/i.test(res.rawLog || "")) throw new Error("register failed code " + res.code + ": " + String(res.rawLog || "").slice(0, 160));
+  state.fwdStats.count++;
+  state.fwd[recipient] = { address, registered: true, t: new Date().toISOString(), tx: res.transactionHash };
+  delete state.fwdPending[recipient];
+  save();
+  log("forwarding registered:", recipient, "->", address, res.transactionHash);
+}
+
+// Lazy: the endpoint only derives (free); the actual registration tx is sent by
+// fwdPendingTick once a deposit really landed on the derived account — so spam
+// costs nothing and the relayer only pays ~0.025 USDC per genuine new user.
+// Funds waiting on an unregistered account are flushed by the registration itself.
+async function handleForwarding(recipient) {
+  const hit = state.fwd[recipient];
+  if (hit?.registered) return { noble_address: hit.address, channel: SRC_CHANNEL, registered: true };
+  const q = await fwdQuery(recipient);
+  if (q.exists) {
+    state.fwd[recipient] = { address: q.address, registered: true, t: new Date().toISOString() };
+    delete state.fwdPending[recipient]; save();
+    return { noble_address: q.address, channel: SRC_CHANNEL, registered: true };
+  }
+  if (!state.fwdPending[recipient]) {
+    const keys = Object.keys(state.fwdPending);
+    if (keys.length >= 1000) delete state.fwdPending[keys[0]];
+    state.fwdPending[recipient] = { address: q.address, t: new Date().toISOString() };
+    save();
+  }
+  return { noble_address: q.address, channel: SRC_CHANNEL, registered: false, note: "registers automatically on first deposit" };
+}
+
+async function fwdPendingTick() {
+  for (const [recipient, e] of Object.entries(state.fwdPending)) {
+    if (Date.now() - Date.parse(e.t) > 45 * 24 * 3600 * 1000) { delete state.fwdPending[recipient]; save(); continue; }
+    try {
+      if (await bankBalance(NOBLE_REST, e.address, "uusdc") > 0n) await registerForwarding(recipient, e.address);
+    } catch (err) { nobleClient = null; log("fwd pending error:", recipient, err.message); pushErr("fwd", err.message); }
+  }
+}
+
+const fwdRate = new Map();                      // ip -> { n, t }
+function rateOk(ip) {
+  const now = Date.now(), e = fwdRate.get(ip);
+  if (!e || now - e.t > 60000) { fwdRate.set(ip, { n: 1, t: now }); return true; }
+  e.n++;
+  return e.n <= FWD_RATE_PER_MIN;
+}
+
 // ---------- main ----------
 async function main() {
   log("forwarder v2 up. hub:", HUB_ADDR, "| receiver:", RECEIVER, "| atom:", state.atom.phase, "| pol:", state.pol.phase);
   http.createServer(async (req, res) => {
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    const u = new URL(req.url, "http://localhost");
+    if (u.pathname === "/forwarding") {
+      const recipient = (u.searchParams.get("recipient") || "").trim().toLowerCase();
+      if (!validAbakosAddr(recipient)) { res.statusCode = 400; return res.end(JSON.stringify({ error: "invalid abakos address" })); }
+      const ip = String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "?").split(",")[0].trim();
+      if (!rateOk(ip)) { res.statusCode = 429; return res.end(JSON.stringify({ error: "rate limited — try again in a minute" })); }
+      try {
+        return res.end(JSON.stringify(await handleForwarding(recipient)));
+      } catch (e) {
+        nobleClient = null;                      // reconnect after sequence/rpc errors
+        pushErr("fwd", e.message);
+        res.statusCode = 502;
+        return res.end(JSON.stringify({ error: String(e.message || e).slice(0, 200) }));
+      }
+    }
     let pol = null, atom = null;
     try { if (polyProvider) pol = ethers.formatEther(await polyProvider.getBalance(polyWallet.address)); } catch {}
     try { atom = (Number(await hubUatom()) / 1e6).toFixed(6); } catch {}
-    res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({
       hub: HUB_ADDR, atom_balance: atom, atom_phase: state.atom.phase,
       pol_hot: polyWallet?.address ?? null, pol_balance: pol, pol_phase: state.pol.phase,
+      forwarding_accounts: Object.keys(state.fwd).length,
+      forwarding_pending: Object.keys(state.fwdPending).length,
       last: state.history[0] ?? null, errors: state.errors.slice(0, 5),
     }));
   }).listen(PORT, "127.0.0.1");
@@ -270,6 +421,7 @@ async function main() {
   while (true) {
     try { await atomTick(); } catch (e) { log("atom tick error:", e.message); pushErr("atom", e.message); }
     try { await polTick(); } catch (e) { log("pol tick error:", e.message); pushErr("pol", e.message); }
+    try { await fwdPendingTick(); } catch (e) { log("fwd tick error:", e.message); pushErr("fwd", e.message); }
     await new Promise((r) => setTimeout(r, POLL_SEC * 1000));
   }
 }

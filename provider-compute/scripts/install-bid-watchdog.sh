@@ -27,8 +27,8 @@ if [ "${open:-0}" -gt 0 ] && [ "${tracked:-0}" -eq 0 ]; then
   last=$(cat "$STAMP" 2>/dev/null || echo 0)
   if [ $((now - last)) -ge 900 ]; then
     echo "$now" > "$STAMP"
-    logger -t abakos-bid-watchdog "chain has $open open orders, bid engine tracks 0 - restarting provider-services"
-    systemctl restart provider-services
+    logger -t abakos-bid-watchdog "chain has $open open orders, bid engine tracks 0 - restarting abakos-provider"
+    systemctl restart abakos-provider
   fi
 fi
 WATCHDOG

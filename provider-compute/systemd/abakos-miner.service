@@ -1,0 +1,25 @@
+[Unit]
+Description=Abakos host miner (xmrig -> mine.abakos.ai, RandomX fast + huge pages + MSR mod)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# root is required for the MSR mod (writes model-specific registers via /dev/cpu/*/msr)
+# and to lock the huge-page dataset in RAM. Installed by scripts/61-install-miner.sh,
+# which also reserves the pages (scripts/60-hugepages.sh) and renders the config below.
+User=__USER__
+# Let xmrig mlock the huge-page dataset without hitting the default RLIMIT_MEMLOCK.
+LimitMEMLOCK=infinity
+# Config carries the pool, the ABA payout address (user = abakos1....<worker>), and
+# the RandomX tuning (mode=fast, 1gb-pages, rdmsr/wrmsr). Edit /etc/abakos/xmrig.json
+# and `systemctl restart abakos-miner` to change address / worker / tuning.
+ExecStart=__XMRIG__ -c /etc/abakos/xmrig.json
+Restart=always
+RestartSec=5
+# Yield to paid tenant leases: the miner is what's left over, never a priority.
+Nice=10
+CPUWeight=20
+OOMScoreAdjust=500
+
+[Install]
+WantedBy=multi-user.target
