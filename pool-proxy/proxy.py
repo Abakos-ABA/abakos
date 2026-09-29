@@ -59,6 +59,44 @@ SHARES_DB = os.environ.get("ABA_SHARES_DB", os.path.join(os.path.dirname(os.path
 PPLNS_WINDOW = int(os.environ.get("ABA_PPLNS_WINDOW", "3600"))
 
 ABA_RE = re.compile(r"^abakos1[0-9a-z]{6,}$")
+EVM_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
+
+# bech32 (BIP173): an Abakos account is ONE keypair with two encodings (0x <-> abakos1),
+# so a miner may log in with either. We normalise a 0x EVM address to abakos1 here.
+_B32 = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+def _b32_polymod(v):
+    g = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3]; c = 1
+    for x in v:
+        b = c >> 25; c = ((c & 0x1ffffff) << 5) ^ x
+        for i in range(5):
+            c ^= g[i] if ((b >> i) & 1) else 0
+    return c
+def _b32_encode(hrp, data):
+    exp = [ord(x) >> 5 for x in hrp] + [0] + [ord(x) & 31 for x in hrp]
+    pm = _b32_polymod(exp + data + [0] * 6) ^ 1
+    cks = [(pm >> 5 * (5 - i)) & 31 for i in range(6)]
+    return hrp + "1" + "".join(_B32[x] for x in data + cks)
+def _to5(data):
+    acc = 0; bits = 0; out = []
+    for val in data:
+        acc = (acc << 8) | val; bits += 8
+        while bits >= 5:
+            bits -= 5; out.append((acc >> bits) & 31)
+    if bits:
+        out.append((acc << (5 - bits)) & 31)
+    return out
+def resolve_addr(s):
+    """Canonical abakos1 address for a login: accept an abakos1... address OR a 0x EVM
+    address (same account). Returns None if neither."""
+    s = (s or "").strip()
+    if ABA_RE.match(s):
+        return s
+    if EVM_RE.match(s):
+        try:
+            return _b32_encode("abakos", _to5(list(bytes.fromhex(s[2:]))))
+        except Exception:
+            return None
+    return None
 
 _lock = threading.Lock()
 _state = {"totals": {}, "events": [], "started": int(time.time()), "conns": 0}
@@ -214,10 +252,10 @@ async def handle_miner(down_reader, down_writer, first_line=None):
 
             if msg.get("method") == "login" and up_writer is None:
                 login = str((msg.get("params") or {}).get("login") or "").strip()
-                base = login.split(".")[0]
-                if not ABA_RE.match(base):
+                base = resolve_addr(login.split(".")[0])   # accept abakos1... or 0x EVM
+                if not base:
                     down_writer.write((json.dumps({"id": msg.get("id"), "jsonrpc": "2.0",
-                                                   "error": {"code": -1, "message": "login must be your abakos1 address"},
+                                                   "error": {"code": -1, "message": "login must be your abakos1 or 0x address"},
                                                    "result": None}) + "\n").encode())
                     await down_writer.drain()
                     log("rejected login: " + login[:24])
@@ -296,7 +334,9 @@ async def handle_gpu_miner(down_reader, down_writer, first_line=None):
     with _lock:
         _state["conns"] += 1
     aba = {"addr": None}
-    pending = {}           # rpc id -> difficulty (credit on accept)
+    pending = {}           # str(rpc id) -> difficulty (credit on accept)
+    handshake_ids = set()  # str ids of non-submit rpcs (authorize/subscribe/...) -> not shares
+    ctr = {"submitted": 0, "credited": 0, "miss": 0}
 
     def log(m):
         print("[gpu %s%s] %s" % (peer, (" " + aba["addr"][:12]) if aba["addr"] else "", m), flush=True)
@@ -324,11 +364,20 @@ async def handle_gpu_miner(down_reader, down_writer, first_line=None):
                     try:
                         msg = json.loads(s)
                         mid = msg.get("id")
-                        if mid is not None and mid in pending:
-                            diff = pending.pop(mid)
+                        k = str(mid) if mid is not None else None
+                        if k is not None and k in pending:
+                            diff = pending.pop(k)
                             ok = (msg.get("error") in (None, False)) and (msg.get("result") is True)
                             if ok and aba["addr"]:
                                 record_share(aba["addr"], diff, "Pearl", "gpu")
+                                ctr["credited"] += 1
+                        elif k is not None and k in handshake_ids:
+                            handshake_ids.discard(k)
+                        elif k is not None and "result" in msg and "method" not in msg:
+                            # an rpc ack we never tagged -> would have been a lost share
+                            ctr["miss"] += 1
+                            if ctr["miss"] <= 3:
+                                log("untracked ack: " + s[:160])
                     except Exception:
                         pass
                 down_writer.write(line)
@@ -353,8 +402,8 @@ async def handle_gpu_miner(down_reader, down_writer, first_line=None):
             wallet = str(p[0] or "").strip()
         else:
             wallet = ""
-        base = wallet.split(".")[0]  # SRBMiner may glue wallet.worker
-        if not ABA_RE.match(base):
+        base = resolve_addr(wallet.split(".")[0])  # accept abakos1... or 0x EVM (SRBMiner may glue wallet.worker)
+        if not base:
             return None
         worker = "gpu" + (re.sub(r"[^a-z0-9]", "", base[7:])[:9] or "abk")
         up_base = KRYPTEX_USER or POOL_WALLET or wallet
@@ -402,16 +451,36 @@ async def handle_gpu_miner(down_reader, down_writer, first_line=None):
                     log("rejected wallet")
                     break
                 aba["addr"] = base
+                if msg.get("id") is not None:
+                    handshake_ids.add(str(msg.get("id")))
                 up_writer.write((json.dumps(msg) + "\n").encode())
                 await up_writer.drain()
                 wl = msg["params"]["wallet"] if isinstance(msg["params"], dict) else msg["params"][0]
                 log("authorize ok -> %s:%d as %s" % (GPU_UP_HOST, GPU_UP_PORT, str(wl)[:24]))
                 continue
 
-            if method == "mining.submit" and isinstance(msg.get("params"), dict):
+            if method == "mining.submit":
+                # Tag EVERY submit, object params ({"job_id": ...}) AND classic array
+                # params ([worker, job_id, nonce, ...]) -- SRBMiner versions differ; an
+                # untagged form silently forwarded upstream (credited there) but never
+                # counted here, under-crediting that miner's whole rig.
                 mid = msg.get("id")
+                p = msg.get("params")
                 if mid is not None:
-                    pending[mid] = _pearl_job_diff(msg["params"].get("job_id"))
+                    if isinstance(p, dict):
+                        jid = p.get("job_id")
+                    elif isinstance(p, list) and len(p) >= 2:
+                        jid = p[1]
+                    else:
+                        jid = None
+                    pending[str(mid)] = _pearl_job_diff(jid)
+                    ctr["submitted"] += 1
+                    if ctr["submitted"] % 50 == 0:
+                        log("share counters: submitted=%d credited=%d miss=%d" % (ctr["submitted"], ctr["credited"], ctr["miss"]))
+            elif msg.get("id") is not None:
+                handshake_ids.add(str(msg.get("id")))
+                if len(handshake_ids) > 64:
+                    handshake_ids.clear()
             up_writer.write((json.dumps(msg) + "\n").encode())
             await up_writer.drain()
     except Exception:
