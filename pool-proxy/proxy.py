@@ -183,13 +183,44 @@ def window_shares():
     return {"total": total, "per_address": out, "cpu": dev["cpu"], "gpu": dev["gpu"]}
 
 
+class UpstreamIds:
+    """Proxy-owned JSON-RPC ids for everything a miner sends upstream.
+
+    Share credit must be bound to the pool's answer to THAT submit. Miner-chosen ids
+    are not unique (a miner may reuse the id of its authorize/login, or of any other
+    request the pool acks with true/OK), so matching acks by the miner's id let a
+    rejected share be credited by an unrelated ack (security report 2026-09-29). Every
+    miner request goes upstream under a fresh proxy id; the ack is mapped back to the
+    miner's original id and only credits if it answers a submit we registered."""
+
+    MAX = 1024  # unanswered entries kept per session (oldest dropped)
+
+    def __init__(self):
+        self._next = 1
+        self._map = {}  # upstream id -> (miner id, difficulty or None if not a share)
+
+    def issue(self, miner_id, diff=None):
+        uid = self._next
+        self._next += 1
+        self._map[uid] = (miner_id, diff)
+        if len(self._map) > self.MAX:
+            self._map.pop(next(iter(self._map)))
+        return uid
+
+    def resolve(self, up_id):
+        if isinstance(up_id, bool) or not isinstance(up_id, int):
+            return None
+        return self._map.pop(up_id, None)
+
+
 async def handle_miner(down_reader, down_writer, first_line=None):
     peer = down_writer.get_extra_info("peername")
     with _lock:
         _state["conns"] += 1
     aba = {"addr": None, "coin": None}
-    job_diff = {}          # job_id -> difficulty
-    pending = {}           # rpc id -> difficulty (credit on OK)
+    job_diff = {}          # job_id -> difficulty, only jobs the upstream issued
+    ids = UpstreamIds()    # credit only on the upstream ack of that exact submit
+    unknown = {"n": 0}     # submits for jobs we never saw issued
     up_reader = up_writer = None
 
     def log(m):
@@ -211,20 +242,25 @@ async def handle_miner(down_reader, down_writer, first_line=None):
                     await down_writer.drain()
                     continue
                 res = msg.get("result")
+                jobs = []
                 if isinstance(res, dict) and isinstance(res.get("job"), dict):
-                    j = res["job"]
-                    if j.get("job_id"):
-                        job_diff[j["job_id"]] = diff_from_target(j.get("target"))
+                    jobs.append(res["job"])                      # login result
+                if isinstance(res, dict) and res.get("job_id") and "blob" in res:
+                    jobs.append(res)                             # getjob result
                 if msg.get("method") == "job" and isinstance(msg.get("params"), dict):
-                    j = msg["params"]
+                    jobs.append(msg["params"])                   # job notification
+                for j in jobs:
                     if j.get("job_id"):
                         job_diff[j["job_id"]] = diff_from_target(j.get("target"))
-                mid = msg.get("id")
-                if mid is not None and mid in pending:
-                    diff = pending.pop(mid)
-                    ok = (not msg.get("error")) and (res == True or (isinstance(res, dict) and res.get("status") == "OK"))
-                    if ok and aba["addr"]:
-                        record_share(aba["addr"], diff, aba["coin"])
+                        if len(job_diff) > 256:
+                            job_diff.pop(next(iter(job_diff)))
+                if "method" not in msg:
+                    ent = ids.resolve(msg.get("id"))
+                    if ent is not None:
+                        msg["id"], diff = ent
+                        ok = (not msg.get("error")) and (res is True or (isinstance(res, dict) and res.get("status") == "OK"))
+                        if ok and diff is not None and aba["addr"]:
+                            record_share(aba["addr"], diff, aba["coin"])
                 down_writer.write((json.dumps(msg) + "\n").encode())
                 await down_writer.drain()
         except Exception:
@@ -283,17 +319,26 @@ async def handle_miner(down_reader, down_writer, first_line=None):
                 params["login"] = up_login
                 params["pass"] = UP_PASS
                 msg["params"] = params
+                if msg.get("id") is not None:
+                    msg["id"] = ids.issue(msg["id"])
                 up_writer.write((json.dumps(msg) + "\n").encode())
                 await up_writer.drain()
                 log("login ok -> upstream %s:%d as %s" % (UP_HOST, UP_PORT, up_login[:32]))
                 asyncio.ensure_future(pump_up_to_down())
                 continue
 
-            if msg.get("method") == "submit" and isinstance(msg.get("params"), dict):
-                jid = msg["params"].get("job_id")
-                mid = msg.get("id")
-                if mid is not None:
-                    pending[mid] = job_diff.get(jid, 1)
+            if msg.get("method") is not None and msg.get("id") is not None:
+                diff = None
+                if msg["method"] == "submit" and isinstance(msg.get("params"), dict):
+                    # weight only from a job this upstream issued; the pool stays the
+                    # judge (unknown jobs are forwarded, it rejects them) -> no credit
+                    diff = job_diff.get(msg["params"].get("job_id"))
+                    if diff is None:
+                        unknown["n"] += 1
+                        if unknown["n"] <= 3 or unknown["n"] % 100 == 0:
+                            log("submit for unknown job_id %r -> not credited (n=%d)"
+                                % (str(msg["params"].get("job_id"))[:40], unknown["n"]))
+                msg["id"] = ids.issue(msg["id"], diff)
             if up_writer:
                 up_writer.write((json.dumps(msg) + "\n").encode())
                 await up_writer.drain()
@@ -327,16 +372,22 @@ async def handle_gpu_miner(down_reader, down_writer, first_line=None):
     handshake completes and the connection stays up instead of reconnect-looping). We
     only special-case two methods: mining.authorize (the miner sends its abakos1 address
     as the wallet; we swap in our unMineable "Alias.Worker" login so shares are credited
-    to the account) and mining.submit (tag the id to attribute the accepted share).
+    to the account) and mining.submit (attribute the accepted share).
     Pearl accept == result:true; difficulty is the integer suffix of the job_id. Handles
-    both object and array authorize params (SRBMiner uses either depending on version)."""
+    both object and array authorize params (SRBMiner uses either depending on version).
+
+    Share weight is never taken from what the miner sends: a submit is only relayed if
+    its job_id was issued by the upstream on THIS connection (mining.notify), the weight
+    comes from that issued job, and the credit is bound to the pool's ack of that exact
+    submit via proxy-owned upstream ids (UpstreamIds). Submits for unknown job_ids are
+    rejected locally and never credited (security report 2026-09-29)."""
     peer = down_writer.get_extra_info("peername")
     with _lock:
         _state["conns"] += 1
     aba = {"addr": None}
-    pending = {}           # str(rpc id) -> difficulty (credit on accept)
-    handshake_ids = set()  # str ids of non-submit rpcs (authorize/subscribe/...) -> not shares
-    ctr = {"submitted": 0, "credited": 0, "miss": 0}
+    ids = UpstreamIds()    # credit only on the upstream ack of that exact submit
+    issued = {}            # job_id -> difficulty, jobs the upstream sent on this connection
+    ctr = {"submitted": 0, "credited": 0, "unknown_job": 0}
 
     def log(m):
         print("[gpu %s%s] %s" % (peer, (" " + aba["addr"][:12]) if aba["addr"] else "", m), flush=True)
@@ -363,23 +414,25 @@ async def handle_gpu_miner(down_reader, down_writer, first_line=None):
                 if s:
                     try:
                         msg = json.loads(s)
-                        mid = msg.get("id")
-                        k = str(mid) if mid is not None else None
-                        if k is not None and k in pending:
-                            diff = pending.pop(k)
-                            ok = (msg.get("error") in (None, False)) and (msg.get("result") is True)
-                            if ok and aba["addr"]:
-                                record_share(aba["addr"], diff, "Pearl", "gpu")
-                                ctr["credited"] += 1
-                        elif k is not None and k in handshake_ids:
-                            handshake_ids.discard(k)
-                        elif k is not None and "result" in msg and "method" not in msg:
-                            # an rpc ack we never tagged -> would have been a lost share
-                            ctr["miss"] += 1
-                            if ctr["miss"] <= 3:
-                                log("untracked ack: " + s[:160])
                     except Exception:
-                        pass
+                        msg = None
+                    if isinstance(msg, dict):
+                        if msg.get("method") == "mining.notify":
+                            p = msg.get("params")
+                            jid = p.get("job_id") if isinstance(p, dict) else (p[0] if isinstance(p, list) and p else None)
+                            if isinstance(jid, str) and jid:
+                                issued[jid] = _pearl_job_diff(jid)
+                                if len(issued) > 64:
+                                    issued.pop(next(iter(issued)))
+                        elif "method" not in msg:
+                            ent = ids.resolve(msg.get("id"))
+                            if ent is not None:
+                                msg["id"], diff = ent
+                                ok = (msg.get("error") in (None, False)) and (msg.get("result") is True)
+                                if ok and diff is not None and aba["addr"]:
+                                    record_share(aba["addr"], diff, "Pearl", "gpu")
+                                    ctr["credited"] += 1
+                                line = (json.dumps(msg) + "\n").encode()
                 down_writer.write(line)
                 await down_writer.drain()
         except Exception:
@@ -452,7 +505,7 @@ async def handle_gpu_miner(down_reader, down_writer, first_line=None):
                     break
                 aba["addr"] = base
                 if msg.get("id") is not None:
-                    handshake_ids.add(str(msg.get("id")))
+                    msg["id"] = ids.issue(msg["id"])
                 up_writer.write((json.dumps(msg) + "\n").encode())
                 await up_writer.drain()
                 wl = msg["params"]["wallet"] if isinstance(msg["params"], dict) else msg["params"][0]
@@ -466,21 +519,31 @@ async def handle_gpu_miner(down_reader, down_writer, first_line=None):
                 # counted here, under-crediting that miner's whole rig.
                 mid = msg.get("id")
                 p = msg.get("params")
+                if isinstance(p, dict):
+                    jid = p.get("job_id")
+                elif isinstance(p, list) and len(p) >= 2:
+                    jid = p[1]
+                else:
+                    jid = None
+                if not isinstance(jid, str) or jid not in issued:
+                    # forged / foreign / expired job_id: the difficulty suffix is miner
+                    # controlled here -> reject locally, never relay, never credit
+                    ctr["unknown_job"] += 1
+                    if ctr["unknown_job"] <= 3 or ctr["unknown_job"] % 100 == 0:
+                        log("rejected submit for unknown job_id %r (n=%d)" % (str(jid)[:40], ctr["unknown_job"]))
+                    if mid is not None:
+                        down_writer.write((json.dumps({"id": mid, "error": {"code": 21, "message": "job not found"},
+                                                       "result": None}) + "\n").encode())
+                        await down_writer.drain()
+                    continue
                 if mid is not None:
-                    if isinstance(p, dict):
-                        jid = p.get("job_id")
-                    elif isinstance(p, list) and len(p) >= 2:
-                        jid = p[1]
-                    else:
-                        jid = None
-                    pending[str(mid)] = _pearl_job_diff(jid)
+                    msg["id"] = ids.issue(mid, issued[jid])
                     ctr["submitted"] += 1
                     if ctr["submitted"] % 50 == 0:
-                        log("share counters: submitted=%d credited=%d miss=%d" % (ctr["submitted"], ctr["credited"], ctr["miss"]))
-            elif msg.get("id") is not None:
-                handshake_ids.add(str(msg.get("id")))
-                if len(handshake_ids) > 64:
-                    handshake_ids.clear()
+                        log("share counters: submitted=%d credited=%d unknown_job=%d"
+                            % (ctr["submitted"], ctr["credited"], ctr["unknown_job"]))
+            elif method is not None and msg.get("id") is not None:
+                msg["id"] = ids.issue(msg["id"])
             up_writer.write((json.dumps(msg) + "\n").encode())
             await up_writer.drain()
     except Exception:
