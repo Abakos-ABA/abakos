@@ -486,7 +486,8 @@ def lipsync_freisteller(pose: str, wav: Path, start: float, length: float, work:
     if check and len({c.shape for c in check}) == 1:
         cv2.imwrite(str(work / f"{name}_vergleich_gesicht.png"), cv2.cvtColor(np.concatenate(check, 0), cv2.COLOR_RGB2BGR))
     (work / f"{name}_fenster.json").write_text(json.dumps({"pose": pose, "f0": f0, "cuts": cuts, "windows": wins,
-                                                           "steps": STEPS, "guidance": GUIDANCE}), encoding="utf-8")
+                                                           "steps": STEPS, "guidance": GUIDANCE, "hd": HD,
+                                                           "zoom": ZOOM}), encoding="utf-8")
     return fs_out, n
 
 

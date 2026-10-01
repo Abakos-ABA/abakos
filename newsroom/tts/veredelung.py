@@ -1,6 +1,6 @@
 """Stimm-Veredelung Variante A, Schritt 2 (Marlons Wahl 01.10.2026, Task 20261001-165559-5e26/180145-c47f):
-Resemble Enhance (MIT, .venv-enhance, tts/_enhance_worker.py, CPU) holt die Hoehen zurueck, die Chatterbox nicht
-liefert, danach eine leichte Klangkette (Mulm raus, Praesenz, Zischlaute daempfen, sanft komprimieren, 10 % Raum).
+Resemble Enhance (MIT, .venv-enhance, tts/_enhance_worker.py) holt die Hoehen zurueck, die Chatterbox nicht liefert,
+danach eine leichte Klangkette (Mulm raus, Praesenz, Zischlaute daempfen, sanft komprimieren, 10 % Raum).
 Schritt 1 (satzweise Pausen + Atmer) passiert in tts/chatterbox_worker.py selbst (--veredeln).
 
 Aufgerufen von tts/tts_client.py nach _tempo(); Ausgabe bleibt wie vorher 24 kHz mono 16 bit (STIMME_SR in
@@ -8,13 +8,21 @@ tools/weltlage_tts.py), deshalb bleiben Stimmpruefung und Abnahme unveraendert. 
 normalisiert - das macht weiterhin tools/weltlage_rohschnitt.py im Master (loudnorm nur linear).
 
 Schalter: config/settings.NEWS_WELTLAGE_STIMME_VEREDELN (Default an).
-Rechenzeit (CPU, kein CUDA-Torch in .venv-enhance): rund 2 Minuten je 14 Sekunden Ton.
+Seit 01.10.2026 (Task 98b7) auf der GPU ueber gpu_budget.slot("enhance") (zentrale Warteschlange, ~4,2 GB VRAM,
+gemessen auf der RTX 4090) statt CPU: rund 1-2 s Rechenzeit je Sekunde Ton statt vorher ~8 s/s auf der CPU. A/B-Probe
+desselben Satzes CPU vs. GPU: Pegel (RMS/Peak) innerhalb 0.2 dB, Hochton-Anteil >8 kHz innerhalb 0.3 dB - die
+Unterschiede liegen im selben Rahmen wie zwei CPU-Laeufe desselben Satzes (das Modell samplet stochastisch), die GPU
+veraendert die Klangqualitaet also nicht. Faellt automatisch auf CPU zurueck, wenn .venv-enhance kein CUDA hat.
 """
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 from config.settings import BASE_DIR, ENHANCE_PYTHON
+
+sys.path.insert(0, str(BASE_DIR))
+import gpu_budget  # noqa: E402
 
 ROOM_IR = BASE_DIR / "config" / "brand" / "stimme" / "veredelung_room_ir.wav"
 SR = 24000
@@ -48,7 +56,8 @@ def veredeln(wav_path: Path, log=print) -> None:
         raise FileNotFoundError(f"{ENHANCE_PYTHON} fehlt - .venv-enhance nicht eingerichtet")
     enhanced = wav_path.with_name(wav_path.stem + "_enh.wav")
     t = __import__("time").time()
-    _run([ENHANCE_PYTHON, BASE_DIR / "tts" / "_enhance_worker.py", wav_path, enhanced, "enhance", "0.5"])
+    with gpu_budget.slot("enhance", name=f"Stimm-Veredelung {wav_path.stem}"):
+        _run([ENHANCE_PYTHON, BASE_DIR / "tts" / "_enhance_worker.py", wav_path, enhanced, "enhance", "0.5"])
     out = wav_path.with_name(wav_path.stem + "_ver.wav")
     f = (f"[0:a]{AUDIO_CHAIN}[dry];[dry]asplit=2[dry1][dry2];"
          f"[dry2][1:a]afir=dry=0:wet=10[wet];"
