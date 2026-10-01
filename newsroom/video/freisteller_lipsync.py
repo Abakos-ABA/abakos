@@ -50,6 +50,10 @@ WIN = 2.2                     # Fensterkante in Gesichtsgroessen (eng: Gesicht f
 STEPS = 20
 GUIDANCE = 2.5                # Probe 29.09. (Task 1fa2): Mund bewegt sich rund 50 % staerker als mit 1,5, ohne Fehler
 GREY = 128
+try:                          # Gesichtsfenster KI-hochskaliert statt Lanczos (video/gesicht_hd.py), Default aus
+    from config.settings import NEWS_WELTLAGE_LIPSYNC_HD as HD
+except Exception:
+    HD = False
 SHADOW_REF = 0.32             # Referenzskala, auf die der Schlagschatten abgestimmt ist (composite_host.py)
 
 # Pro Pose: Freisteller-Quelle, Keyer, Gesichtssuche (min/max Groesse in Quellpixeln, Gesichtsmitte oberhalb y-Anteil),
@@ -305,6 +309,14 @@ def _lock_free() -> bool:
     return True
 
 
+def _hold_gpu(log):
+    """Nur den Platz in der GPU-Warteschlange holen (bis Prozessende, idempotent), ohne VRAM-Check."""
+    sys.path.insert(0, str(ROOT))
+    import gpu_budget
+    return gpu_budget.hold("lipsync", name=f"lipsync freisteller ({Path(sys.argv[0]).stem})",
+                           progress=lambda w, m: log(f"  GPU-Warteschlange ({m:.0f} min): {w}"))
+
+
 def _wait_gpu(log):
     """Spielregel (gpu_budget.policy) hart; danach warten, bis kein anderer Lipsync-Lauf die Sperre haelt und kein
     anderer grosser GPU-Job (ComfyUI, fremdes LatentSync) laeuft, d.h. LS_FREE_MB frei plus Reserve, zwei Messungen."""
@@ -339,15 +351,23 @@ def sync_chunk(tag, wav, grey_scene, a, b, box, cache: Path, ident: str, log) ->
     run([FFMPEG, "-y", "-v", "error", "-i", wav, "-ss", f"{a / FPS:.3f}", "-to", f"{b / FPS:.3f}", "-ar", "16000",
          "-ac", "1", seg_wav])
     h = hashlib.sha1(seg_wav.read_bytes())
-    h.update(json.dumps([ident, a, b, box, ZOOM, STEPS, GUIDANCE, "refclosed"]).encode())
+    h.update(json.dumps([ident, a, b, box, ZOOM, STEPS, GUIDANCE, "refclosed"] + (["hd1"] if HD else [])).encode())
     out = SHARED_CACHE / f"{tag}_{h.hexdigest()[:10]}_synced.mp4"
     SHARED_CACHE.mkdir(parents=True, exist_ok=True)
     if not out.exists():
         seg_vid = cache / f"{tag}_zoom.mp4"
         # +5 Bilder Reserve wie video/lipsync._cut_master (+0,2 s); LatentSync liefert gelegentlich 1-2 Bilder weniger
-        run([FFMPEG, "-y", "-v", "error", "-i", grey_scene, "-vf",
-             f"trim=start_frame={a}:end_frame={b + 5},setpts=PTS-STARTPTS,crop={s}:{s}:{x}:{y},"
-             f"scale={ZOOM}:{ZOOM}:flags=lanczos", "-an", "-c:v", "libx264", "-crf", "10", "-pix_fmt", "yuv420p", seg_vid])
+        if HD:                                             # Real-ESRGAN + GFPGAN statt Lanczos (braucht die GPU)
+            from video import gesicht_hd
+            _wait_gpu(log)
+            t = time.time()
+            gesicht_hd.zoom_window(FFMPEG, Path(grey_scene), a, b + 5, x, y, s, ZOOM, seg_vid, FPS)
+            log(f"  {tag}: Gesichtsfenster {s} px KI-hochskaliert auf {ZOOM} in {time.time() - t:.0f} s")
+        else:
+            run([FFMPEG, "-y", "-v", "error", "-i", grey_scene, "-vf",
+                 f"trim=start_frame={a}:end_frame={b + 5},setpts=PTS-STARTPTS,crop={s}:{s}:{x}:{y},"
+                 f"scale={ZOOM}:{ZOOM}:flags=lanczos", "-an", "-c:v", "libx264", "-crf", "10", "-pix_fmt", "yuv420p",
+                 seg_vid])
         tmp = out.with_suffix(".tmp.mp4")
         # bis zu 3 Versuche: am 29.09. lief ein Stueck ueber den VRAM, als Jarvis mittendrin seine Stimme neu in die GPU
         # lud (60 s pro Schritt statt 0,5 s) -> nach 15 min abbrechen, wieder auf freie GPU warten, neu versuchen
@@ -382,7 +402,15 @@ def sync_chunk(tag, wav, grey_scene, a, b, box, cache: Path, ident: str, log) ->
             log(f"  {tag}: von einem anderen Lauf gerechnet")
     else:
         log(f"  {tag}: aus dem Zwischenspeicher")
-    frames = [cv2.resize(fr, (s, s), interpolation=cv2.INTER_AREA) for fr in _read_rgb(out, ZOOM, ZOOM)][:n]
+    frames = list(_read_rgb(out, ZOOM, ZOOM))[:n]
+    if HD and frames:                                      # Mundpartie der Ausgabe nachzeichnen (GFPGAN)
+        from video import gesicht_hd
+        _hold_gpu(log)                                     # wenig VRAM: Platz reicht, kein 14-GB-Check
+        t = time.time()
+        frames = gesicht_hd.restore(frames, gesicht_hd.GFP_OUT)
+        gesicht_hd.free()
+        log(f"  {tag}: Mund nachgezeichnet (GFPGAN) in {time.time() - t:.0f} s")
+    frames = [cv2.resize(fr, (s, s), interpolation=cv2.INTER_AREA) for fr in frames]
     if not frames:
         raise SystemExit(f"LatentSync-Ausgabe leer ({out})")
     frames += [frames[-1]] * (n - len(frames))

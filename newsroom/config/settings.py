@@ -229,6 +229,12 @@ NEWS_WELTLAGE_BROLL_MODELL_WAHL = os.environ.get("NEWS_WELTLAGE_BROLL_MODELL_WAH
 # der Sitz-Pose verdeckt das Pult die Fuesse). Default an.
 NEWS_WELTLAGE_COMPOSITE_FX = os.environ.get("NEWS_WELTLAGE_COMPOSITE_FX", "1") == "1"
 
+# --- Weltlage Kompakt: Lipsync-Gesicht KI-hochskaliert (Task 20261001-184254-d71b, video/gesicht_hd.py): das enge
+# Gesichtsfenster geht mit Real-ESRGAN + GFPGAN (untere Gesichtshaelfte) statt Lanczos in LatentSync, die Mundpartie der
+# Ausgabe wird nochmals mit GFPGAN nachgezeichnet. Kostet ~1-2 min GPU pro 7-s-Stueck zusaetzlich. Default aus, bis
+# Marlon den Vergleichsclip abgenommen hat (dann "1").
+NEWS_WELTLAGE_LIPSYNC_HD = os.environ.get("NEWS_WELTLAGE_LIPSYNC_HD", "0") == "1"
+
 # --- Weltlage Kompakt: taeglicher Lauf zu fixen Zeiten (tools/weltlage_tageslauf.py, Marlon 01.10.2026) ---
 # Die resident laufende Pipeline (Aufgabe AbakosNewsroomPipeline, orchestrator/pipeline.py) startet pro Slot einen
 # Tageslauf: Skript -> Bilder -> Stimme -> Rohschnitt/Lipsync -> B-Roll -> Abnahme -> Thumbnail -> Upload. Slots =
