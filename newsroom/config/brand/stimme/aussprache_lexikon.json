@@ -1,0 +1,208 @@
+{
+ "_hinweis": "Nur fuer die Stimme (TTS-Eingabe vor normalize_for_tts), nie fuer Untertitel oder Bildschirmtext. Pflege: tts/aussprache_lexikon.py bzw. tools/weltlage_tageslauf.py Schritt 'aussprache'.",
+ "eintraege": {
+  "Selenskyj": {
+   "sprich": "Selenski",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-02"
+  },
+  "Wolodymyr Selenskyj": {
+   "sprich": "Wolodymyr Selenski",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-02"
+  },
+  "Erdoğan": {
+   "sprich": "Erdoan",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-02"
+  },
+  "Recep Tayyip Erdoğan": {
+   "sprich": "Redschep Tayyip Erdoan",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-02"
+  },
+  "Xi Jinping": {
+   "sprich": "Schi Dschinping",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-02"
+  },
+  "Sarkozy": {
+   "sprich": "Sarkosi",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-02"
+  },
+  "Nicolas Sarkozy": {
+   "sprich": "Nicolas Sarkosi",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-02"
+  },
+  "Macron": {
+   "sprich": "Makrong",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-02"
+  },
+  "Emmanuel Macron": {
+   "sprich": "Emmanuel Makrong",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-02"
+  },
+  "Fed": {
+   "sprich": "Fedd",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-02"
+  },
+  "Andy Burnham": {
+   "sprich": "Ändi Börnem",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_folge"
+  },
+  "Burnham": {
+   "sprich": "Börnem",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_folge"
+  },
+  "Fairford": {
+   "sprich": "Fährford",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_folge"
+  },
+  "Abbas Araghchi": {
+   "sprich": "Abbas Araktschi",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_folge"
+  },
+  "Araghchi": {
+   "sprich": "Araktschi",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_folge"
+  },
+  "Vicki Evans": {
+   "sprich": "Wicki Ewwens",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_folge"
+  },
+  "France 24": {
+   "sprich": "Frangs Wängt-Katr",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_folge"
+  },
+  "Jeff Kilburg": {
+   "sprich": "Dscheff Kilbörg",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_folge"
+  },
+  "Kilburg": {
+   "sprich": "Kilbörg",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_folge"
+  },
+  "KKM Financial": {
+   "sprich": "Ka Ka Em Fainänschel",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_folge"
+  },
+  "CNBC": {
+   "sprich": "Ssi En Bi Ssi",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_folge"
+  },
+  "Guardian": {
+   "sprich": "Gardien",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_folge"
+  },
+  "Tommy Pigott": {
+   "sprich": "Tommi Piggett",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_folge"
+  },
+  "Wells Fargo": {
+   "sprich": "Wells Fargo",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_folge"
+  },
+  "John Healey": {
+   "sprich": "Dschon Hieli",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_folge"
+  },
+  "BBC": {
+   "sprich": "Bi Bi Ssi",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_folge"
+  },
+  "Donald Trump": {
+   "sprich": "Donnald Tramp",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_folge"
+  },
+  "Trump": {
+   "sprich": "Tramp",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_folge"
+  },
+  "Kiew": {
+   "sprich": "Kijef",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-02"
+  },
+  "Kiev": {
+   "sprich": "Kijef",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-02"
+  },
+  "Kyiv": {
+   "sprich": "Kijef",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-02"
+  },
+  "Kyjiw": {
+   "sprich": "Kijef",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-02"
+  },
+  "Charkiw": {
+   "sprich": "Charkif",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-02"
+  },
+  "Kharkiv": {
+   "sprich": "Charkif",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-02"
+  },
+  "Beijing": {
+   "sprich": "Peking",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-02"
+  },
+  "Pyongyang": {
+   "sprich": "Pjöngjang",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-02"
+  },
+  "Taipei": {
+   "sprich": "Taipeh",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-02"
+  }
+ }
+}
