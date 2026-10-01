@@ -11,7 +11,8 @@ FESTE REGEL (Marlon, 29.09.2026), gilt fuer alle Weltlage-Videos:
 Ablauf pro Szene (render_scene):
   Freisteller-Bilder lesen -> auf neutralem Grau als LatentSync-Eingang schreiben + Gesicht verfolgen (Haar, geglaettet)
   -> Ton an leisen Stellen in ~7-s-Stuecke teilen -> je Stueck ein enges Gesichtsfenster (2,2x Gesicht) auf 768x768
-  hochskalieren und mit LatentSync 1.6 syncen (20 Schritte, guidance 2.5) -> Mundpartie weich in den Freisteller
+  hochskalieren und mit LatentSync 1.6 syncen (20 Schritte, guidance config.settings.NEWS_WELTLAGE_LIPSYNC_GUIDANCE,
+  Standard 2.0) -> Mundpartie weich in den Freisteller
   zurueck (<name>_freisteller_lipsync_prores4444.mov, mit Alpha) -> Studio-Composite 1920x1080/25 fps (<name>_studio.mp4).
 LatentSync-Stuecke werden nach Inhalt (Ton, Bildausschnitt, Einstellungen) in data/_latentsync_cache zwischengespeichert,
 gemeinsam fuer alle Laeufe: bei einer neuen Folge wird nur neu gesynct, was sich geaendert hat.
@@ -48,7 +49,10 @@ CHUNK = 7.0                   # laengere Stuecke liefen am 29.09. ueber den VRAM
 ZOOM = 768                    # Kantenlaenge des hochskalierten Gesichtsfensters
 WIN = 2.2                     # Fensterkante in Gesichtsgroessen (eng: Gesicht fuellt den LatentSync-Eingang)
 STEPS = 20
-GUIDANCE = 2.5                # Probe 29.09. (Task 1fa2): Mund bewegt sich rund 50 % staerker als mit 1,5, ohne Fehler
+try:                          # Mundbewegungs-Staerke konfigurierbar (config.settings), Standard 2.0 (Task 0180,
+    from config.settings import NEWS_WELTLAGE_LIPSYNC_GUIDANCE as GUIDANCE   # 01.10. abends: 2.5 wirkte uebertrieben)
+except Exception:
+    GUIDANCE = 2.0
 GREY = 128
 try:                          # Gesichtsfenster KI-hochskaliert statt Lanczos (video/gesicht_hd.py), Default aus
     from config.settings import NEWS_WELTLAGE_LIPSYNC_HD as HD

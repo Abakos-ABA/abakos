@@ -12,6 +12,9 @@ Prueft und schreibt <master>_abnahme.json + <master>_begleittext.txt (Themen, Zi
   4b. Lipsync-Aufloesung: bei NEWS_WELTLAGE_LIPSYNC_HD an (Standard seit 01.10., Task d71b) muss jedes
      <name>_fenster.json unter <ordner>/_schnitt/_freisteller mit "hd": true gerechnet worden sein (Real-ESRGAN +
      GFPGAN statt Lanczos) und "zoom" >= 768 erreichen, sonst lief die Szene unbemerkt im alten Lanczos-Pfad.
+  4c. Feste Szenen (Intro/Reinlaufen/Begruessung/Logo-Wisch/Outro-Grafik): ihre Laenge im Video muss zur aktuell
+     aktiven Fassung (jeweilige aktiv.json) passen, sonst steckt eine veraltete Fassung aus einem Render drin, der
+     vor einer spaeteren Aenderung losgelaufen ist.
   5. Zitate: alle Zitate aus skript.json geprueft («ok»), jedes steht wortgleich im Sprechtext von texte.json.
   5b. Orte: jeder in texte.json benutzte "ort"-Slug muss in config/brand/orte/orte.json existieren (video/orte.py).
 Exit 1, sobald etwas durchfaellt. Veroeffentlicht und verschickt nichts.
@@ -26,7 +29,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from weltlage_rohschnitt import FFMPEG, FFPROBE, MASTER_LUFS, MASTER_TP, MARKE_UEBER_SPRACHE_DB  # noqa: E402
+from weltlage_rohschnitt import (FFMPEG, FFPROBE, MASTER_LUFS, MASTER_TP, MARKE_UEBER_SPRACHE_DB,  # noqa: E402
+                                  dur, INTRO, SZENE3, BEGRUESSUNG, UEBERGANG, OUTRO)
 from video import orte as orte_mod  # noqa: E402
 from config.settings import NEWS_WELTLAGE_LIPSYNC_HD  # noqa: E402
 
@@ -120,6 +124,22 @@ def pruefen(ordner: Path, video: Path) -> dict:
     for d, label, start in spruenge:
         if abs(d) > SPRUNG_DB:
             fehler.append(f"Lautstaerkesprung {d:+.1f} dB beim Uebergang zu {label} ({start:.1f} s)")
+    # 4c. Feste, eingefrorene Szenen (Intro/Reinlaufen/Begruessung/Logo-Wisch/Outro-Grafik): ihre Laenge im Video
+    #     muss zur aktuell aktiven Fassung passen. Weicht sie ab, lief der Render vor einer spaeteren Aenderung an
+    #     der jeweiligen aktiv.json los und hat die alte Fassung eingebacken (Task 20261001-202910-0180: Szene
+    #     Reinlaufen lief ungekuerzt mit, obwohl szene3_auftritt/aktiv.json laengst die gekuerzte Fassung zeigte).
+    fest = {"Szene Intro": INTRO, "Szene Reinlaufen": SZENE3, "Szene Begrüssung": BEGRUESSUNG,
+            "Logo-Wisch": UEBERGANG, "Szene Outro-Grafik": OUTRO}
+    laenge_im_video = {s["label"]: s["laenge"] for s in szenen}
+    info["feste_szenen"] = {}
+    for label, pfad in fest.items():
+        if not (pfad and pfad.exists()) or label not in laenge_im_video:
+            continue
+        soll, ist = round(dur(pfad), 2), laenge_im_video[label]
+        info["feste_szenen"][label] = {"soll": soll, "ist": ist}
+        if abs(ist - soll) > 0.1:
+            fehler.append(f"{label}: {ist:.2f} s im Video, aktuell eingefroren sind {soll:.2f} s ({pfad.name}) - "
+                          f"Render lief vor einer Aenderung an der zugehoerigen aktiv.json, Folge neu rendern")
     # 4. Ton
     t = _ton(video)
     info["ton"] = t

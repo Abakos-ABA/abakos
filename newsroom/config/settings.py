@@ -236,6 +236,13 @@ NEWS_WELTLAGE_COMPOSITE_FX = os.environ.get("NEWS_WELTLAGE_COMPOSITE_FX", "1") =
 # jedes _fenster.json unter <ordner>/_schnitt/_freisteller tatsaechlich mit HD gerechnet wurde.
 NEWS_WELTLAGE_LIPSYNC_HD = os.environ.get("NEWS_WELTLAGE_LIPSYNC_HD", "1") == "1"
 
+# --- Weltlage Kompakt: LatentSync-Staerke der Mundbewegung (video/freisteller_lipsync.py GUIDANCE, Task
+# 20261001-202910-0180): die Probe vom 29.09. (Task 1fa2) hatte bewusst auf 2,5 erhoeht (Mund ~50 % staerker als mit
+# LatentSync-Standard 1,5), zusammen mit dem HD-Hochskalieren (seit 01.10.) wirkte das auf Marlon uebertrieben.
+# Gesenkt auf 2,0 (deutlich ruhiger als 2,5, noch klarer artikuliert als der 1,5-Standard). Bei erneuten Beschwerden
+# ueber zu starke/zu schwache Mundbewegung hier weiterdrehen statt den Code zu aendern.
+NEWS_WELTLAGE_LIPSYNC_GUIDANCE = float(os.environ.get("NEWS_WELTLAGE_LIPSYNC_GUIDANCE", "2.0"))
+
 # --- Weltlage Kompakt: taeglicher Lauf zu fixen Zeiten (tools/weltlage_tageslauf.py, Marlon 01.10.2026) ---
 # Die resident laufende Pipeline (Aufgabe AbakosNewsroomPipeline, orchestrator/pipeline.py) startet pro Slot einen
 # Tageslauf: Skript -> Bilder -> Stimme -> Rohschnitt/Lipsync -> B-Roll -> Abnahme -> Thumbnail -> Upload. Slots =
