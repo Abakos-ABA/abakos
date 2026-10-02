@@ -286,7 +286,10 @@ def windows_for(faces: np.ndarray, cuts: list[int], w: int, h: int) -> list[tupl
 # Folge mehrere Stunden toter Wartezeit und Hauptursache der 8-Stunden-Zeitueberschreitungen der Folgen vom 02.10.
 # (Task 20261002-002703-5973 + die automatische 07:00-Folge, beide nach 28800 s abgebrochen). Gesenkt auf 13000, naeher
 # am tatsaechlich gemessenen Bedarf (~8,5 GB Modell) mit Sicherheitsabstand.
-LS_FREE_MB = 13000   # LatentSync mit VAE-Slicing braucht ~8,5 GB (ohne ~17 GB); Jarvis' Stimmen/TTS halten
+# 02.10.2026 nachmittags (Task 20261002-131755-44f2): auch 13000 lag ueber dem dauerhaft freien VRAM (12,7 GB nach
+# Reserve, Jarvis/Beta halten ~8,6 GB) -> jedes Stueck wartete wieder die 3-min-Soft-Wartezeit (~2 h je Folge). Bedarf
+# gemessen ~8,5 GB, der Warteschlangen-Platz schliesst zweite schwere Jobs aus: 11000 reicht mit Abstand.
+LS_FREE_MB = 11000   # LatentSync mit VAE-Slicing braucht ~8,5 GB (ohne ~17 GB); Jarvis' Stimmen/TTS halten
                      # dauerhaft ~6 GB, darum nicht gpu_budget.check (18 GB + Reserve waere hier nie erfuellt)
 
 
