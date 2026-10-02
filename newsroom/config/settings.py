@@ -156,6 +156,15 @@ NEWS_BREAKING_MIN_SOURCES = int(os.environ.get("NEWS_BREAKING_MIN_SOURCES", "4")
 NEWS_BREAKING_WINDOW_HOURS = float(os.environ.get("NEWS_BREAKING_WINDOW_HOURS", "3"))
 NEWS_BREAKING_MIN_SCORE = int(os.environ.get("NEWS_BREAKING_MIN_SCORE", "7"))
 NEWS_BREAKING_MAX_PER_DAY = int(os.environ.get("NEWS_BREAKING_MAX_PER_DAY", "2"))
+# Gleiche Idee, aber fuer eine ZUSAETZLICHE Weltlage-Kompakt-Langformfolge (orchestrator/breaking_weltlage.py):
+# hoehere Schwelle und eigenes, kleineres Tages-Limit, weil eine Sonder-Folge teurer und oeffentlicher ist
+# als ein zusaetzlicher Short. NEWS_BREAKING_WELTLAGE_AUTOSTART=0 (Standard): nur Telegram-Alarm, kein
+# automatischer Produktionsstart, bis Marlon per /breaking_weltlage an scharf schaltet (Entwurfsmodus-Regel).
+NEWS_BREAKING_WELTLAGE_MIN_SOURCES = int(os.environ.get("NEWS_BREAKING_WELTLAGE_MIN_SOURCES", "4"))
+NEWS_BREAKING_WELTLAGE_WINDOW_HOURS = float(os.environ.get("NEWS_BREAKING_WELTLAGE_WINDOW_HOURS", "3"))
+NEWS_BREAKING_WELTLAGE_MIN_SCORE = int(os.environ.get("NEWS_BREAKING_WELTLAGE_MIN_SCORE", "8"))
+NEWS_BREAKING_WELTLAGE_MAX_PER_DAY = int(os.environ.get("NEWS_BREAKING_WELTLAGE_MAX_PER_DAY", "1"))
+NEWS_BREAKING_WELTLAGE_AUTOSTART = os.environ.get("NEWS_BREAKING_WELTLAGE_AUTOSTART", "0") == "1"
 
 # --- Pacing / autonomy ---
 NEWS_REVIEW_WINDOW_MINUTES = int(os.environ.get("NEWS_REVIEW_WINDOW_MINUTES", "120"))
@@ -220,6 +229,7 @@ NEWS_WELTLAGE_COLDOPEN_MUSIKBETT_FADE_OUT = float(os.environ.get("NEWS_WELTLAGE_
 # nur gruene Quellen stehen hier in der Standardliste; gelbe/rote Quellen werden nie automatisch ergaenzt - eine gelbe
 # Quelle duerfte erst nach eigenem Code UND expliziter Nennung hier aktiv werden (kein Schalter ohne Gegenstueck).
 NEWS_WELTLAGE_BROLL = os.environ.get("NEWS_WELTLAGE_BROLL", "1") == "1"                 # an/aus
+NEWS_WELTLAGE_BROLL_OHNE_KI = os.environ.get("NEWS_WELTLAGE_BROLL_OHNE_KI", "1") == "1"   # nie Wan-Ersatzgrafiken
 NEWS_WELTLAGE_BROLL_ABSTAND = float(os.environ.get("NEWS_WELTLAGE_BROLL_ABSTAND", "30"))   # Ziel-Abstand in s (20-40)
 NEWS_WELTLAGE_BROLL_VARIANTEN = os.environ.get("NEWS_WELTLAGE_BROLL_VARIANTEN", "wand,pip,voll")   # Reihenfolge = Rotation
 NEWS_WELTLAGE_BROLL_QUELLEN = os.environ.get("NEWS_WELTLAGE_BROLL_QUELLEN", "pexels,pixabay,commons,nasa,dvids")
@@ -252,12 +262,22 @@ NEWS_WELTLAGE_LIPSYNC_GUIDANCE = float(os.environ.get("NEWS_WELTLAGE_LIPSYNC_GUI
 # Veroeffentlichungszeiten (lokal, HH:MM, Komma-Liste; Vorschlag Vorbild-Analyse 01.10.: erst 07:00, spaeter
 # 07:00,18:00). Die Produktion beginnt VORLAUF Stunden vorher; ist sie frueher fertig, wartet der Upload bis zum Slot.
 NEWS_WELTLAGE_TAEGLICH = os.environ.get("NEWS_WELTLAGE_TAEGLICH", "0") == "1"
-NEWS_WELTLAGE_SLOTS = [s.strip() for s in os.environ.get("NEWS_WELTLAGE_SLOTS", "07:00").split(",") if s.strip()]
+NEWS_WELTLAGE_SLOTS = [s.strip() for s in os.environ.get("NEWS_WELTLAGE_SLOTS", "11:00,19:00").split(",") if s.strip()]
 NEWS_WELTLAGE_VORLAUF_STUNDEN = float(os.environ.get("NEWS_WELTLAGE_VORLAUF_STUNDEN", "4"))
 # Sichtbarkeit nur fuer Weltlage-Folgen (die Shorts-Pipeline behaelt NEWS_UPLOAD_VISIBILITY): public|unlisted|private
 NEWS_WELTLAGE_UPLOAD_VISIBILITY = os.environ.get("NEWS_WELTLAGE_UPLOAD_VISIBILITY", "public").lower()
 # spaetestens so viele Stunden nach dem Slot noch veroeffentlichen, sonst Folge verwerfen (veraltet) + Meldung
 NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN = float(os.environ.get("NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN", "5"))
+# Zweimal taeglich mit Themenwahl und Freigabe (Marlon 02.10.2026 23:03, dauerhafte Freigabe): pro Slot zuerst drei
+# Storylines A/B/C an Telegram + Beta-App, THEMENWAHL Minuten auf Marlons Wahl warten (sonst Empfehlung), dann
+# Produktion (Dauer PRODUKTION_STUNDEN; "auto" = gemessen aus den letzten *_renderzeiten.json + Zuschlag), zum Slot
+# Video + Knoepfe Freigeben/Feedback/Stopp, FREIGABE Minuten warten, ohne Reaktion oeffentlich veroeffentlichen.
+# TROCKENLAUF=1: alles wie echt, aber nie ein YouTube-Upload (Tests).
+NEWS_WELTLAGE_THEMENWAHL_MINUTEN = float(os.environ.get("NEWS_WELTLAGE_THEMENWAHL_MINUTEN", "60"))
+NEWS_WELTLAGE_FREIGABE_MINUTEN = float(os.environ.get("NEWS_WELTLAGE_FREIGABE_MINUTEN", "60"))
+NEWS_WELTLAGE_PRODUKTION_STUNDEN = os.environ.get("NEWS_WELTLAGE_PRODUKTION_STUNDEN", "auto").strip().lower()
+NEWS_WELTLAGE_TROCKENLAUF = os.environ.get("NEWS_WELTLAGE_TROCKENLAUF", "0") == "1"
+NEWS_WELTLAGE_MAX_FEEDBACK_RUNDEN = int(os.environ.get("NEWS_WELTLAGE_MAX_FEEDBACK_RUNDEN", "3"))
 # Upload im Browser: so lange auf 100 Prozent Dateitransfer + Verarbeitungsstart warten (Minuten)
 NEWS_UPLOAD_TIMEOUT_MINUTEN = float(os.environ.get("NEWS_UPLOAD_TIMEOUT_MINUTEN", "60"))
 

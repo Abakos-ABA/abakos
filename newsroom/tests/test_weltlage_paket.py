@@ -142,11 +142,12 @@ class UploadFortschritt(unittest.TestCase):
 
 class SlotPlanung(unittest.TestCase):
     def setUp(self):
-        self._alt = (wt.NEWS_WELTLAGE_SLOTS, wt.NEWS_WELTLAGE_VORLAUF_STUNDEN, wt.NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN)
-        wt.NEWS_WELTLAGE_SLOTS, wt.NEWS_WELTLAGE_VORLAUF_STUNDEN, wt.NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN = ["07:00"], 4, 5
+        # seit Task fa4b (03.10.): Vorlauf = vorlauf_stunden() (Themenwahl + gemessene Produktion), hier fest 4 h
+        self._alt = (wt.NEWS_WELTLAGE_SLOTS, wt.vorlauf_stunden, wt.NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN)
+        wt.NEWS_WELTLAGE_SLOTS, wt.vorlauf_stunden, wt.NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN = ["07:00"], lambda *a: 4, 5
 
     def tearDown(self):
-        wt.NEWS_WELTLAGE_SLOTS, wt.NEWS_WELTLAGE_VORLAUF_STUNDEN, wt.NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN = self._alt
+        wt.NEWS_WELTLAGE_SLOTS, wt.vorlauf_stunden, wt.NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN = self._alt
 
     def test_fenster(self):
         t = wt.slot_zeit("2026-10-02", "07:00")
