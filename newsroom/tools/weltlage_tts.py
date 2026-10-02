@@ -83,6 +83,19 @@ def pruefe_stimme(wav: Path) -> str | None:
     return None
 
 
+def sprechtext_veraltet(text: str, wav: Path) -> str | None:
+    """Meldung, wenn audio/<id>.wav aus einem anderen TTS-Text stammt als dem, den normalize_for_tts (inkl.
+    Aussprache-Lexikon) heute aus dem Szenentext macht. Vorfall 02.10.2026: die Stimme der Folge war um 00:38-01:11
+    gerechnet, das Lexikon (u.a. Trump -> Tramp) haengt erst seit 01:15 in normalize_for_tts - ein Neustart des Laufs
+    hielt die alten Dateien fuer gueltig, weil nur Engine/Profil/Hash der wav geprueft wurden."""
+    from tts.normalize_de import normalize_for_tts
+    meta = json.loads(_nachweis(wav).read_text(encoding="utf-8"))
+    soll = hashlib.sha256(normalize_for_tts(text).encode("utf-8")).hexdigest()
+    if meta.get("text_sha256") != soll:
+        return f"{wav.name}: Sprechtext/Aussprache-Lexikon seit dem Rendern geaendert"
+    return None
+
+
 def _pruefe_einstellung():
     ref = _P["ref_pfad"]
     if not ref.exists() or sha256(ref) != REF_SHA256:
@@ -173,7 +186,10 @@ def main():
     for s in szenen:
         out = audio / f"{s['id']}.wav"
         if out.exists() and s["id"] not in neu and not pruefe_stimme(out):
-            continue
+            veraltet = sprechtext_veraltet(s["text"], out)
+            if not veraltet:
+                continue
+            print(f"  {s['id']}: {veraltet} - neu sprechen", flush=True)
         meta = sprich(s["text"], out)
         print(f"Chatterbox: {s['id']} {meta['laenge_s']} s, Versuche {meta['versuche']}, "
               f"Kontrolle {meta['kontrolle'].get('quote')}", flush=True)

@@ -12,9 +12,14 @@ Prueft und schreibt <master>_abnahme.json + <master>_begleittext.txt (Themen, Zi
   4b. Lipsync-Aufloesung: bei NEWS_WELTLAGE_LIPSYNC_HD an (Standard seit 01.10., Task d71b) muss jedes
      <name>_fenster.json unter <ordner>/_schnitt/_freisteller mit "hd": true gerechnet worden sein (Real-ESRGAN +
      GFPGAN statt Lanczos) und "zoom" >= 768 erreichen, sonst lief die Szene unbemerkt im alten Lanczos-Pfad.
+     Dazu muss "guidance" jedes _fenster.json dem Standard NEWS_WELTLAGE_LIPSYNC_GUIDANCE entsprechen (02.10.2026:
+     Stuecke mit 1,5 aus einem abgebrochenen Lauf duerfen nie in einer 2,0-Folge landen).
   4c. Feste Szenen (Intro/Reinlaufen/Begruessung/Logo-Wisch/Outro-Grafik): ihre Laenge im Video muss zur aktuell
      aktiven Fassung (jeweilige aktiv.json) passen, sonst steckt eine veraltete Fassung aus einem Render drin, der
      vor einer spaeteren Aenderung losgelaufen ist.
+  4d. Welt-Bumper: der Ton am Ende der Szene "Cold Open + Welt-Bumper" muss der aktiven Bumper-Datei
+     (bumper/aktiv.json) entsprechen (Kreuzkorrelation >= BUMPER_MIN_KORR). 4c sieht das nicht: ein neuer Bumper-Ton
+     hat dieselbe Bildlaenge (Vorfall 02.10.2026: Marlon bekam eine Folge mit dem alten Bumper-Ton).
   5. Zitate: alle Zitate aus skript.json geprueft («ok»), jedes steht wortgleich im Sprechtext von texte.json.
   5b. Orte: jeder in texte.json benutzte "ort"-Slug muss in config/brand/orte/orte.json existieren (video/orte.py).
 Exit 1, sobald etwas durchfaellt. Veroeffentlicht und verschickt nichts.
@@ -30,14 +35,15 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from weltlage_rohschnitt import (FFMPEG, FFPROBE, MASTER_LUFS, MASTER_TP, MARKE_UEBER_SPRACHE_DB,  # noqa: E402
-                                  dur, INTRO, SZENE3, BEGRUESSUNG, UEBERGANG, OUTRO)
+                                  dur, INTRO, SZENE3, BEGRUESSUNG, UEBERGANG, OUTRO, BUMPER, FPS)
 from video import orte as orte_mod  # noqa: E402
-from config.settings import NEWS_WELTLAGE_LIPSYNC_HD  # noqa: E402
+from config.settings import NEWS_WELTLAGE_LIPSYNC_HD, NEWS_WELTLAGE_LIPSYNC_GUIDANCE  # noqa: E402
 
 SPRUNG_DB = 4.0          # benachbarte hoerbare Szenen duerfen sich hoechstens so stark unterscheiden
 SZENE_MAX_UEBER_DB = MARKE_UEBER_SPRACHE_DB + 1.5   # Szene lauter als Sprache
 SZENE_MAX_UNTER_DB = 6.0                            # Sprechszene leiser als die mittlere Sprache
 TON_MIN_KBPS = 230
+BUMPER_MIN_KORR = 0.6    # Bumper-Ton im Master vs. aktive Bumper-Datei (Pegel/Crossfade aendern wenig, fremder Ton < 0,3)
 
 
 def _lautheit(video: Path, start: float | None = None, dauer: float | None = None) -> dict:
@@ -140,6 +146,18 @@ def pruefen(ordner: Path, video: Path) -> dict:
         if abs(ist - soll) > 0.1:
             fehler.append(f"{label}: {ist:.2f} s im Video, aktuell eingefroren sind {soll:.2f} s ({pfad.name}) - "
                           f"Render lief vor einer Aenderung an der zugehoerigen aktiv.json, Folge neu rendern")
+    # 4d. Welt-Bumper-Ton: gleiche Laenge wie frueher, darum per Kreuzkorrelation gegen die aktive Datei pruefen
+    cob = next((s for s in szenen if "Welt-Bumper" in s["label"]), None)
+    if BUMPER and BUMPER.exists() and cob:
+        from weltlage_stimmpruefung import _lade, korrelation
+        Lb = round(dur(BUMPER) * FPS) / FPS
+        k = korrelation(_lade(video), cob["start"] + cob["laenge"] - Lb, Lb, _lade(BUMPER), 0.0)
+        info["bumper"] = {"datei": BUMPER.name, "korrelation": round(k, 3)}
+        if k < BUMPER_MIN_KORR:
+            fehler.append(f"Welt-Bumper: Ton im Video passt nicht zur aktiven Fassung {BUMPER.name} (Korrelation "
+                          f"{k:.2f} < {BUMPER_MIN_KORR}) - Render lief vor einem Bumper-Wechsel, Folge neu rendern")
+    elif BUMPER and BUMPER.exists():
+        fehler.append("Welt-Bumper aktiv, aber keine Szene 'Welt-Bumper' in den Zeitmarken")
     # 4. Ton
     t = _ton(video)
     info["ton"] = t
@@ -158,6 +176,12 @@ def pruefen(ordner: Path, video: Path) -> dict:
                 fehler.append(f"{fp.name}: ohne HD-Hochskalierung gerechnet (Lanczos statt Real-ESRGAN/GFPGAN)")
             elif int(fj.get("zoom") or 0) < 768:
                 fehler.append(f"{fp.name}: Gesichtsfenster nur {fj.get('zoom')} px statt mind. 768 px")
+    info["lipsync_guidance"] = {"erwartet": NEWS_WELTLAGE_LIPSYNC_GUIDANCE, "szenen": {}}
+    for fp in fenster_dateien:
+        g = json.loads(fp.read_text(encoding="utf-8")).get("guidance")
+        info["lipsync_guidance"]["szenen"][fp.name] = g
+        if g is None or abs(float(g) - NEWS_WELTLAGE_LIPSYNC_GUIDANCE) > 1e-6:
+            fehler.append(f"{fp.name}: Lipsync-Guidance {g} statt Standard {NEWS_WELTLAGE_LIPSYNC_GUIDANCE:g}")
     # 5. Zitate
     skp = ordner / "skript.json"
     sk = json.loads(skp.read_text(encoding="utf-8")) if skp.exists() else {"meta": {}, "skript": {}}

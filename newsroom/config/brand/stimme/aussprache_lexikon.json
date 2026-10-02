@@ -88,10 +88,10 @@
    "folge": "weltlage_20261002_folge"
   },
   "France 24": {
-   "sprich": "Frangs Wängt-Katr",
-   "quelle": "llm",
+   "sprich": "Frans vierundzwanzig",
+   "quelle": "manuell",
    "hinzugefuegt": "2026-10-02",
-   "folge": "weltlage_20261002_folge"
+   "grund": "Whisper-Probe 02.10. (Task 20261002-131755-44f2): LLM-Form klang verunglueckt"
   },
   "Jeff Kilburg": {
    "sprich": "Dscheff Kilbörg",
@@ -118,10 +118,10 @@
    "folge": "weltlage_20261002_folge"
   },
   "Guardian": {
-   "sprich": "Gardien",
-   "quelle": "llm",
+   "sprich": "Gahdien",
+   "quelle": "manuell",
    "hinzugefuegt": "2026-10-02",
-   "folge": "weltlage_20261002_folge"
+   "grund": "Whisper-Probe 02.10. (Task 20261002-131755-44f2): LLM-Form klang verunglueckt"
   },
   "Tommy Pigott": {
    "sprich": "Tommi Piggett",

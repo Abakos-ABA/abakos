@@ -237,11 +237,11 @@ NEWS_WELTLAGE_COMPOSITE_FX = os.environ.get("NEWS_WELTLAGE_COMPOSITE_FX", "1") =
 NEWS_WELTLAGE_LIPSYNC_HD = os.environ.get("NEWS_WELTLAGE_LIPSYNC_HD", "1") == "1"
 
 # --- Weltlage Kompakt: LatentSync-Staerke der Mundbewegung (video/freisteller_lipsync.py GUIDANCE, Task
-# 20261001-202910-0180, gesenkt auf 1,5 in Task 20261002-002731-6861): die Probe vom 29.09. (Task 1fa2) hatte bewusst
-# auf 2,5 erhoeht (Mund ~50 % staerker als mit LatentSync-Standard 1,5); auf 2,0 gesenkt wirkte Marlon am 01.10. immer
-# noch zu stark. Jetzt auf den LatentSync-Standard 1,5 gesenkt. Bei erneuten Beschwerden ueber zu starke/zu schwache
-# Mundbewegung hier weiterdrehen statt den Code zu aendern.
-NEWS_WELTLAGE_LIPSYNC_GUIDANCE = float(os.environ.get("NEWS_WELTLAGE_LIPSYNC_GUIDANCE", "1.5"))
+# 20261001-202910-0180): die Probe vom 29.09. (Task 1fa2) hatte bewusst auf 2,5 erhoeht (Mund ~50 % staerker als mit
+# LatentSync-Standard 1,5). 01.10. auf 2,0, 02.10. nachts kurz 1,5 (Task 6861), dann Marlons Entscheid 02.10. mittags
+# (Task 20261002-131755-44f2): 2,0 ist der feste Standard fuer alle Folgen. Der Wert steckt im Cache-Hash jedes
+# Lipsync-Stuecks, Stuecke mit anderem Wert werden also nie wiederverwendet; die Abnahme prueft ihn je _fenster.json.
+NEWS_WELTLAGE_LIPSYNC_GUIDANCE = float(os.environ.get("NEWS_WELTLAGE_LIPSYNC_GUIDANCE", "2.0"))
 
 # --- Weltlage Kompakt: taeglicher Lauf zu fixen Zeiten (tools/weltlage_tageslauf.py, Marlon 01.10.2026) ---
 # Die resident laufende Pipeline (Aufgabe AbakosNewsroomPipeline, orchestrator/pipeline.py) startet pro Slot einen
