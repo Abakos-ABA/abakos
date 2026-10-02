@@ -203,6 +203,30 @@
    "sprich": "Taipeh",
    "quelle": "manuell",
    "hinzugefuegt": "2026-10-02"
+  },
+  "Truth Social": {
+   "sprich": "Truhs Soschel",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_0700"
+  },
+  "New York Times": {
+   "sprich": "Nju Jork Taims",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_0700"
+  },
+  "RAF": {
+   "sprich": "Ar Ei Eff",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_0700"
+  },
+  "IG": {
+   "sprich": "Ai Dschi",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-02",
+   "folge": "weltlage_20261002_0700"
   }
  }
 }
