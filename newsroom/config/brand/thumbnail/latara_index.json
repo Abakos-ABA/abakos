@@ -1,0 +1,23 @@
+{
+  "latara_front_stehend_geschockt_hände.png": {
+    "stimmungen": ["geschockt"],
+    "quelle": "bildanalyse"
+  },
+  "latara_front_stehend_geschockt_hände_über_kopf.png": {
+    "stimmungen": ["geschockt"],
+    "quelle": "bildanalyse"
+  },
+  "latara_front_stehend_geschockt_hände_über_kopf_links.png": {
+    "stimmungen": ["geschockt"],
+    "quelle": "bildanalyse"
+  },
+  "latara_front_stehend_geschockt_hände_über_kopf_links2.png": {
+    "stimmungen": ["geschockt"],
+    "quelle": "bildanalyse",
+    "hinweis": "zeigt ein anderes Gesicht als die uebrigen Fotos (blond statt Lataras braunem Typ) - pruefen, ob das wirklich Latara sein soll"
+  },
+  "latara_with_paper_in_hand.png": {
+    "stimmungen": ["laechelnd", "nachdenklich", "papier"],
+    "quelle": "bildanalyse"
+  }
+}
