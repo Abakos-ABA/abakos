@@ -1,0 +1,10 @@
+{
+  "landscape": "szene3_auftritt_v2.mp4",
+  "seed": 7311,
+  "gebaut": "2026-09-29 21:57",
+  "verlaengert": "2026-10-02 21:50",
+  "quelle_verlaengerung": "Marlon-Feedback 02.10. abends beim Ansehen der Folge: Studio-Eingang zu kurz, man sieht zu wenig davon, besonders die letzte Sekunde. v3 (1,00 s) war genau die letzte Sekunde von v2 (Start 1,5 s, Ende 2,5 s) - dauerhaft zurueckgestellt auf v2 (2,50 s, ungeschnitten erhalten), zeigt den ganzen Lauf statt nur dessen Ende. Letzter Frame bleibt unveraendert = Zielbild (Cold-Open-/Begruessungs-Anschluss), keine neue Rendernotwendigkeit.",
+  "gekuerzt": "2026-10-02 13:10 (zurueckgenommen, siehe quelle_verlaengerung)",
+  "backup": "szene3_auftritt_v3.mp4 (02.10., 1,00 s, nur die letzte Sekunde von v2, unveraendert erhalten); szene3_auftritt_v1.mp4 (Original, 5,08 s, unveraendert erhalten)",
+  "quelle": "tools/szene3_auftritt.py + manueller ffmpeg-Nachschnitt (02.10.2026, Task 20261002-125229-cafd); Rueckstellung Task 20261002-212939-c7dd"
+}
