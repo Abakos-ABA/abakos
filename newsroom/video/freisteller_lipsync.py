@@ -279,7 +279,14 @@ def windows_for(faces: np.ndarray, cuts: list[int], w: int, h: int) -> list[tupl
 
 
 # ---------------------------------------------------------------- LatentSync pro Stueck
-LS_FREE_MB = 14000   # LatentSync mit VAE-Slicing braucht ~8,5 GB (ohne ~17 GB); Jarvis' Stimmen/TTS halten
+# 02.10.2026 (Task 20261002-125229-cafd): 14000 lag ueber dem auf dieser Maschine je erreichten freien VRAM
+# (gemessen waehrend zwei echten Folgen-Renders: frei schwankte 13,0-13,6 GB nach Reserve, also 14,0-14,6 GB
+# roh - 300-700 MB zu knapp fuer 14000, nie strikt erfuellt). Jedes NICHT zwischengespeicherte Lipsync-Stueck wartete
+# dadurch verlaesslich die volle Soft-Wartezeit unten aus, bevor es trotzdem losliefen durfte - bei ~30 Stuecken je
+# Folge mehrere Stunden toter Wartezeit und Hauptursache der 8-Stunden-Zeitueberschreitungen der Folgen vom 02.10.
+# (Task 20261002-002703-5973 + die automatische 07:00-Folge, beide nach 28800 s abgebrochen). Gesenkt auf 13000, naeher
+# am tatsaechlich gemessenen Bedarf (~8,5 GB Modell) mit Sicherheitsabstand.
+LS_FREE_MB = 13000   # LatentSync mit VAE-Slicing braucht ~8,5 GB (ohne ~17 GB); Jarvis' Stimmen/TTS halten
                      # dauerhaft ~6 GB, darum nicht gpu_budget.check (18 GB + Reserve waere hier nie erfuellt)
 
 
@@ -330,14 +337,17 @@ def _wait_gpu(log):
     if why:
         raise SystemExit(f"GPU belegt: {why}")
     # zentrale GPU-Warteschlange (29.09.): Platz bis Prozessende, der Reihe nach statt vier Laeufe, die gleichzeitig
-    # auf freien VRAM pollen; nicht erreichbar -> wie bisher. Mit Platz wird der VRAM-Check nach 15 min weich
-    # (dann haelt nur noch fremder Dauerverbrauch den Speicher, z.B. Jarvis' Stimme).
+    # auf freien VRAM pollen; nicht erreichbar -> wie bisher. Mit Platz wird der VRAM-Check weich (dann haelt nur noch
+    # fremder Dauerverbrauch den Speicher, z.B. Jarvis' Stimme). 02.10.2026 (Task 20261002-125229-cafd): von 15 min auf
+    # 3 min gesenkt - mit gehaltenem Platz in der Warteschlange ist kein zweiter schwerer GPU-Job gleichzeitig
+    # moeglich, das lange harte Warten brachte nur noch Sicherheit gegen Fremdverbrauch (Jarvis-Stimme), kostete aber
+    # bei ~30 Stuecken je Folge mehrere Stunden (Mitursache der 8-Stunden-Zeitueberschreitungen vom 02.10.).
     queued = gpu_budget.hold("lipsync", name=f"lipsync freisteller ({Path(sys.argv[0]).stem})",
                              progress=lambda w, m: log(f"  GPU-Warteschlange ({m:.0f} min): {w}")) is not None
     t0, ok, last = time.time(), 0, 0.0
     while ok < 2:
         free = gpu_budget.vram()[2] - gpu_budget.reserve_mb()
-        soft = queued and time.time() - t0 > 900
+        soft = queued and time.time() - t0 > 180
         ok = ok + 1 if (free >= LS_FREE_MB or soft) and _lock_free() else 0
         if ok < 2:
             if not ok and time.time() - last > 240:
