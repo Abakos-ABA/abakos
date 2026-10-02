@@ -10,9 +10,16 @@ im Ordner werden beim naechsten Aufruf automatisch in die Index-Datei (config/br
 aufgenommen. Erkennt der Dateiname keine Stimmung, landet das Bild unter "unbekannt" - dann traegt eine
 Bildanalyse die Stimmung einmalig von Hand in die Index-Datei ein.
 
+Marlons Korrektur (Task 20261002-222340-0165, 02.10.2026): das alte freigestellte Standardbild (jetzt nur noch
+Rueckfallebene unter config/brand/thumbnail/) war unbemerkt inhaltsgleich zu einem Bild in Marlons Pool und wurde
+dadurch trotz der neuen Auswahl immer wieder gezeigt. Jedes Pool-Bild, dessen Dateiinhalt (SHA-256) einem der alten
+Standardbilder entspricht, wird deshalb nie in den Index aufgenommen (siehe _ALTE_STANDARDBILDER_HASHES) - Marlons
+Ordner bleibt dabei unangetastet, das Bild liegt weiter dort, es wird nur nie ausgewaehlt.
+
     python -m video.latara_foto "Text der Folge"   -> zeigt gewaehltes Foto + erkannte Stimmungen (Testlauf,
                                                         schreibt NICHT in den Verlauf)
 """
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -22,6 +29,19 @@ ORDNER = Path(r"C:\Users\Marlon\Documents\WK\latara_thunbnails")   # Marlons Ord
 INDEX = ROOT / "config" / "brand" / "thumbnail" / "latara_index.json"
 VERLAUF = ROOT / "state" / "latara_verlauf.json"
 LETZTE_AUSSCHLUSS = 3   # so viele letzte Folgen duerfen dasselbe Bild nicht noch einmal bekommen
+
+# Alte feste Fotos (Rueckfallebene, siehe weltlage_thumbnail.FOTO_FUER_FARBE) - Kopien davon in Marlons Pool
+# duerfen nie ausgewaehlt werden (Task 20261002-222340-0165).
+_ALTE_STANDARDBILDER = (ROOT / "config" / "brand" / "thumbnail" / "latara.png",
+                         ROOT / "config" / "brand" / "thumbnail" / "latara_schock.png")
+
+
+def _datei_hash(pfad: Path) -> str:
+    return hashlib.sha256(pfad.read_bytes()).hexdigest()
+
+
+def _alte_standardbilder_hashes() -> set[str]:
+    return {_datei_hash(p) for p in _ALTE_STANDARDBILDER if p.exists()}
 
 # Stimmungen, die der Kanal kennt. Reihenfolge = Rangfolge bei Gleichstand (z.B. wenn der Text keine Woerter trifft).
 STIMMUNGEN = ["geschockt", "ernst", "nachdenklich", "skeptisch", "zeigend", "laechelnd", "papier"]
@@ -66,7 +86,9 @@ def lade_index(aktualisieren: bool = True) -> dict:
     daten = json.loads(INDEX.read_text(encoding="utf-8")) if INDEX.exists() else {}
     if not aktualisieren or not ORDNER.is_dir():
         return daten
-    vorhanden = {p.name for p in ORDNER.iterdir() if p.suffix.lower() in (".png", ".jpg", ".jpeg")}
+    verboten = _alte_standardbilder_hashes()
+    vorhanden = {p.name for p in ORDNER.iterdir() if p.suffix.lower() in (".png", ".jpg", ".jpeg")
+                 and not (verboten and _datei_hash(p) in verboten)}
     geaendert = False
     for name in list(daten):
         if name not in vorhanden:

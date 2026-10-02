@@ -2,6 +2,7 @@
 
     .venv\\Scripts\\python.exe -m unittest tests.test_latara_foto -v
 """
+import json
 import sys
 import tempfile
 import unittest
@@ -77,6 +78,47 @@ class LataraFoto(unittest.TestCase):
     def test_waehle_foto_ohne_ordner_gibt_none(self):
         lf.ORDNER = lf.ORDNER / "fehlt"
         self.assertIsNone(lf.waehle_foto("irgendwas"))
+
+
+class LataraFotoAltesStandardbild(unittest.TestCase):
+    """Marlons Korrektur (Task 20261002-222340-0165): eine Kopie des alten freigestellten Standardbilds lag
+    unbemerkt in seinem Pool und wurde deshalb immer wieder gezeigt. Eine Kopie (gleicher Dateiinhalt) darf nie
+    im Index landen, egal unter welchem Dateinamen."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        tmp = Path(self._tmp.name)
+        self._alt = (lf.ORDNER, lf.INDEX, lf.VERLAUF)
+        lf.ORDNER = tmp / "pool"
+        lf.INDEX = tmp / "index.json"
+        lf.VERLAUF = tmp / "verlauf.json"
+        lf.ORDNER.mkdir()
+
+    def tearDown(self):
+        lf.ORDNER, lf.INDEX, lf.VERLAUF = self._alt
+        self._tmp.cleanup()
+
+    def test_kopie_des_alten_standardbilds_wird_nie_indexiert(self):
+        alt = lf._ALTE_STANDARDBILDER[0]
+        self.assertTrue(alt.exists(), "latara.png fehlt im Repo - Testannahme verletzt")
+        kopie = lf.ORDNER / "latara_geschockt_kopie_vom_alten_bild.png"
+        kopie.write_bytes(alt.read_bytes())
+        echtes_neues_foto = lf.ORDNER / "latara_geschockt_echt.png"
+        _bild(echtes_neues_foto)
+        idx = lf.lade_index()
+        self.assertNotIn(kopie.name, idx)
+        self.assertIn(echtes_neues_foto.name, idx)
+
+    def test_bereits_indexierte_kopie_wird_beim_naechsten_laden_entfernt(self):
+        alt = lf._ALTE_STANDARDBILDER[1]
+        self.assertTrue(alt.exists(), "latara_schock.png fehlt im Repo - Testannahme verletzt")
+        kopie = lf.ORDNER / "latara_geschockt_kopie.png"
+        kopie.write_bytes(alt.read_bytes())
+        # Index von Hand so anlegen, als waere die Kopie schon vor dem Fix indexiert worden.
+        lf.INDEX.write_text(json.dumps({kopie.name: {"stimmungen": ["geschockt"], "quelle": "dateiname"}}),
+                             encoding="utf-8")
+        idx = lf.lade_index()
+        self.assertNotIn(kopie.name, idx)
 
 
 if __name__ == "__main__":

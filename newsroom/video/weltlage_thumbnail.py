@@ -10,6 +10,13 @@ waehlt daraus automatisch das Bild, das zur Stimmung des Skripttexts passt, und 
 paar Folgen. Ist der Ordner nicht da (Platte nicht eingebunden) oder liefert er nichts Passendes, faellt die
 Vorlage auf die alten festen Fotos unter config/brand/thumbnail/ zurueck (FOTO_FUER_FARBE).
 
+Feste Platzierung rechts (Task 20261002-222340-0165, 02.10.2026): Latara haengt immer am rechten Bildrand (ihre
+sichtbare Silhouette ragt um PERSON_BLEED Pixel ueber den Rand hinaus - gleich viel bei jedem Foto, unabhaengig
+von dessen eigenen Transparenzraendern) und reicht nie in die Textzone links davon. Ist die sichtbare Person
+(Alpha-Maske) breiter als MAX_PERSON_BREITE (z.B. wehendes Haar oder ausgestreckte Arme bei querformatigen
+Fotos), wird links so viel abgeschnitten, dass sie unter der Grenze bleibt - sie bleibt dabei rechts verankert.
+_platzierung_x() kapselt die Rechnung, test_weltlage_thumbnail.py prueft sie gegen alle Fotos in Marlons Ordner.
+
 Eigenes, festes Layout des Kanals (1280x720 JPG), automatisch aus dem Skript der Folge:
   - Hintergrund: das eigene Studio (config/brand/thumbnail/studio.png), weichgezeichnet, abgedunkelt und mit dem
     Farbcode der Folge eingefaerbt - keine Pressefotos, keine fremden Bilder.
@@ -45,6 +52,9 @@ GELB, WEISS, SCHWARZ = (255, 204, 0), (255, 255, 255), (0, 0, 0)
 FONTS = Path(r"C:\Windows\Fonts")
 TEXT_BREITE = 700          # Schlagwoerter bleiben links von Latara
 LEISTE = 18
+ALPHA_SCHWELLE = 128       # ab diesem Alpha-Wert gilt ein Pixel als "sichtbare Person" (Kante/Blur ausgeblendet)
+PERSON_BLEED = 40          # so viele Pixel ragt die sichtbare Person rechts ueber den Bildrand hinaus
+MAX_PERSON_BREITE = 520    # sichtbare Person darf hoechstens so breit sein, sonst reicht sie in die Textzone
 
 
 def _font(name: str, size: int) -> ImageFont.FreeTypeFont:
@@ -88,6 +98,30 @@ def _foto_pfad(farbe: str, foto: str | None, stimmungstext: str | None, merken: 
     return _foto_datei(farbe)
 
 
+def _sichtbare_breite_begrenzen(im: Image.Image, max_breite: int = MAX_PERSON_BREITE) -> Image.Image:
+    """Verkleinert das ganze Foto proportional, falls die sichtbare Person (Alpha > ALPHA_SCHWELLE) breiter als
+    max_breite ist - sie bleibt dadurch immer vollstaendig sichtbar (kein abgeschnittenes Gesicht). Ein reiner
+    Links-Zuschnitt waere hier falsch: bei Querformat-Fotos mit weit ausholender Pose (z.B. wehendes Haar) liegt
+    das Gesicht oft weiter links als die erlaubte Breite erlaubt, ein Zuschnitt wuerde dann mitten durchs Gesicht
+    schneiden. Verkleinern macht sie stattdessen nur etwas kleiner, nie verstuemmelt."""
+    bbox = im.split()[3].point(lambda v: 255 if v > ALPHA_SCHWELLE else 0).getbbox()
+    if not bbox:
+        return im
+    breite = bbox[2] - bbox[0]
+    if breite <= max_breite:
+        return im
+    faktor = max_breite / breite
+    return im.resize((round(im.width * faktor), round(im.height * faktor)), Image.LANCZOS)
+
+
+def _platzierung_x(im: Image.Image) -> int:
+    """x-Position, damit die sichtbare Person (Alpha > ALPHA_SCHWELLE) um PERSON_BLEED Pixel rechts ueber den
+    Bildrand ragt - bei jedem Foto gleich weit, unabhaengig von dessen eigenen Transparenzraendern."""
+    bbox = im.split()[3].point(lambda v: 255 if v > ALPHA_SCHWELLE else 0).getbbox()
+    rechter_rand = bbox[2] if bbox else im.width
+    return W - rechter_rand + PERSON_BLEED
+
+
 def _latara(pfad: Path, fc) -> tuple[Image.Image, Image.Image]:
     """Kopf und Schultern als RGBA plus Lichtkante (weiche, eingefaerbte Silhouette). fc ist die RGB-Farbe der
     Lichtkante."""
@@ -95,6 +129,7 @@ def _latara(pfad: Path, fc) -> tuple[Image.Image, Image.Image]:
     im = im.crop((0, 0, im.width, int(im.height * 0.66)))          # bis unter die Schultern
     hoehe = 700
     im = im.resize((round(im.width * hoehe / im.height), hoehe), Image.LANCZOS)
+    im = _sichtbare_breite_begrenzen(im)
     alpha = im.split()[3]
     kante = Image.new("RGBA", im.size, fc + (0,))
     kante.putalpha(alpha.filter(ImageFilter.MaxFilter(9)).filter(ImageFilter.GaussianBlur(18)).point(lambda v: v * 6 // 10))
@@ -123,7 +158,7 @@ def render(banderole: str, zeile1: str, zeile2: str, farbe: str, out: Path, foto
     bild = _hintergrund(fc).convert("RGBA")
     # Latara rechts, Lichtkante dahinter
     lat, kante = _latara(_foto_pfad(farbe, foto, stimmungstext, merken), fc)
-    x = W - lat.width + 40
+    x = _platzierung_x(lat)
     y = H - lat.height + 20
     bild.alpha_composite(kante, (x, y))
     bild.alpha_composite(lat, (x, y))
