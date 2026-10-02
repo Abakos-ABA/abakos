@@ -14,12 +14,17 @@ Prueft und schreibt <master>_abnahme.json + <master>_begleittext.txt (Themen, Zi
      GFPGAN statt Lanczos) und "zoom" >= 768 erreichen, sonst lief die Szene unbemerkt im alten Lanczos-Pfad.
      Dazu muss "guidance" jedes _fenster.json dem Standard NEWS_WELTLAGE_LIPSYNC_GUIDANCE entsprechen (02.10.2026:
      Stuecke mit 1,5 aus einem abgebrochenen Lauf duerfen nie in einer 2,0-Folge landen).
-  4c. Feste Szenen (Intro/Reinlaufen/Begruessung/Logo-Wisch/Outro-Grafik): ihre Laenge im Video muss zur aktuell
-     aktiven Fassung (jeweilige aktiv.json) passen, sonst steckt eine veraltete Fassung aus einem Render drin, der
-     vor einer spaeteren Aenderung losgelaufen ist.
+  4c. Feste Szenen (Intro/Reinlaufen/Begruessung/Logo-Wisch/Verabschiedung/Outro-Grafik): ihre Laenge im Video
+     muss zur aktuell aktiven Fassung (jeweilige aktiv.json) passen, sonst steckt eine veraltete Fassung aus einem
+     Render drin, der vor einer spaeteren Aenderung losgelaufen ist.
   4d. Welt-Bumper: der Ton am Ende der Szene "Cold Open + Welt-Bumper" muss der aktiven Bumper-Datei
      (bumper/aktiv.json) entsprechen (Kreuzkorrelation >= BUMPER_MIN_KORR). 4c sieht das nicht: ein neuer Bumper-Ton
      hat dieselbe Bildlaenge (Vorfall 02.10.2026: Marlon bekam eine Folge mit dem alten Bumper-Ton).
+  4e. Eingefrorene Sprechszenen (Begruessung/Verabschiedung): 4c prueft nur, ob das Video die aktuell aktive
+     Datei verwendet, nicht, mit welcher Lipsync-Staerke/HD-Stufe genau diese Datei gebaut wurde. Darum zusaetzlich
+     deren aktiv.json gegen NEWS_WELTLAGE_LIPSYNC_GUIDANCE/_HD pruefen (Task 20261002-163146-afaf, 02.10.2026):
+     sonst koennte eine mit alter Staerke (z.B. 1,5) eingefrorene Fassung unbemerkt in einer 2,0-Folge landen.
+     Fehlt das Feld (Fassung von vor diesem Datum, z.B. begruessung_v3.mp4), nur eine Warnung, kein Abbruch.
   5. Zitate: alle Zitate aus skript.json geprueft («ok»), jedes steht wortgleich im Sprechtext von texte.json.
   5b. Orte: jeder in texte.json benutzte "ort"-Slug muss in config/brand/orte/orte.json existieren (video/orte.py).
 Exit 1, sobald etwas durchfaellt. Veroeffentlicht und verschickt nichts.
@@ -35,7 +40,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from weltlage_rohschnitt import (FFMPEG, FFPROBE, MASTER_LUFS, MASTER_TP, MARKE_UEBER_SPRACHE_DB,  # noqa: E402
-                                  dur, INTRO, SZENE3, BEGRUESSUNG, UEBERGANG, OUTRO, BUMPER, FPS)
+                                  dur, INTRO, SZENE3, BEGRUESSUNG, UEBERGANG, OUTRO, BUMPER, VERABSCHIEDUNG, FPS)
 from video import orte as orte_mod  # noqa: E402
 from config.settings import NEWS_WELTLAGE_LIPSYNC_HD, NEWS_WELTLAGE_LIPSYNC_GUIDANCE  # noqa: E402
 
@@ -44,6 +49,22 @@ SZENE_MAX_UEBER_DB = MARKE_UEBER_SPRACHE_DB + 1.5   # Szene lauter als Sprache
 SZENE_MAX_UNTER_DB = 6.0                            # Sprechszene leiser als die mittlere Sprache
 TON_MIN_KBPS = 230
 BUMPER_MIN_KORR = 0.6    # Bumper-Ton im Master vs. aktive Bumper-Datei (Pegel/Crossfade aendern wenig, fremder Ton < 0,3)
+
+
+def guidance_probleme(meta: dict, guidance: float, hd: bool) -> list[str]:
+    """Vergleicht die beim Bau einer eingefrorenen Sprechszene (Begruessung/Verabschiedung) verwendete
+    Lipsync-Staerke/HD-Stufe (aktiv.json-Felder "guidance"/"hd") gegen die aktuellen Einstellungen. Leere Liste =
+    passt (oder Fassung von vor 02.10.2026 ohne die Felder, dafuer siehe Rueckgabe mit "aktiv.json ohne..."). Pure
+    Funktion (kein Dateizugriff) - direkt testbar."""
+    if "guidance" not in meta:
+        return ["aktiv.json ohne 'guidance'-Feld (gebaut vor 02.10.2026) - Staerke beim Bau nicht geprueft, "
+                "bei Zweifel neu bauen (build + freeze)"]
+    probleme = []
+    if abs(float(meta["guidance"]) - guidance) > 1e-6:
+        probleme.append(f"eingefroren mit Guidance {meta['guidance']} statt Standard {guidance:g}")
+    if bool(meta.get("hd", False)) != bool(hd):
+        probleme.append(f"eingefroren mit hd={meta.get('hd', False)} statt Standard {hd}")
+    return probleme
 
 
 def _lautheit(video: Path, start: float | None = None, dauer: float | None = None) -> dict:
@@ -79,7 +100,7 @@ def _zeitmarken(video: Path) -> list[dict]:
 
 
 def pruefen(ordner: Path, video: Path) -> dict:
-    fehler, info = [], {}
+    fehler, warnungen, info = [], [], {}
     # 1. Stimme
     profile = json.loads((ROOT / "config/brand/stimme/profile.json").read_text(encoding="utf-8"))
     aktiv = profile["profile"][profile["aktiv"]]
@@ -135,7 +156,7 @@ def pruefen(ordner: Path, video: Path) -> dict:
     #     der jeweiligen aktiv.json los und hat die alte Fassung eingebacken (Task 20261001-202910-0180: Szene
     #     Reinlaufen lief ungekuerzt mit, obwohl szene3_auftritt/aktiv.json laengst die gekuerzte Fassung zeigte).
     fest = {"Szene Intro": INTRO, "Szene Reinlaufen": SZENE3, "Szene Begrüssung": BEGRUESSUNG,
-            "Logo-Wisch": UEBERGANG, "Szene Outro-Grafik": OUTRO}
+            "Logo-Wisch": UEBERGANG, "Szene Verabschiedung": VERABSCHIEDUNG, "Szene Outro-Grafik": OUTRO}
     laenge_im_video = {s["label"]: s["laenge"] for s in szenen}
     info["feste_szenen"] = {}
     for label, pfad in fest.items():
@@ -146,6 +167,21 @@ def pruefen(ordner: Path, video: Path) -> dict:
         if abs(ist - soll) > 0.1:
             fehler.append(f"{label}: {ist:.2f} s im Video, aktuell eingefroren sind {soll:.2f} s ({pfad.name}) - "
                           f"Render lief vor einer Aenderung an der zugehoerigen aktiv.json, Folge neu rendern")
+    # 4e. Eingefrorene Sprechszenen: Lipsync-Staerke/HD-Stufe beim Bau gegen die aktuellen Einstellungen (4c sieht
+    # nur die Laenge, nicht wie die aktive Datei gebaut wurde).
+    info["feste_sprechszenen_staerke"] = {}
+    for label, ordner_name in (("Szene Begrüssung", "begruessung"), ("Szene Verabschiedung", "verabschiedung")):
+        cfg = ROOT / "config" / "brand" / ordner_name / "aktiv.json"
+        if not cfg.exists() or label not in laenge_im_video:
+            continue
+        meta = json.loads(cfg.read_text(encoding="utf-8"))
+        probleme = guidance_probleme(meta, NEWS_WELTLAGE_LIPSYNC_GUIDANCE, NEWS_WELTLAGE_LIPSYNC_HD)
+        info["feste_sprechszenen_staerke"][label] = {"guidance": meta.get("guidance"), "hd": meta.get("hd"),
+                                                      "probleme": probleme}
+        if probleme and "guidance" not in meta:
+            warnungen.append(f"{label}: {probleme[0]}")
+        elif probleme:
+            fehler.append(f"{label}: " + "; ".join(probleme) + " - neu bauen (build + freeze)")
     # 4d. Welt-Bumper-Ton: gleiche Laenge wie frueher, darum per Kreuzkorrelation gegen die aktive Datei pruefen
     cob = next((s for s in szenen if "Welt-Bumper" in s["label"]), None)
     if BUMPER and BUMPER.exists() and cob:
@@ -215,6 +251,7 @@ def pruefen(ordner: Path, video: Path) -> dict:
     info["begleittext"] = str(video.with_name(video.stem + "_begleittext.txt"))
     Path(info["begleittext"]).write_text(text, encoding="utf-8")
     info["fehler"] = fehler
+    info["warnungen"] = warnungen
     info["ok"] = not fehler
     video.with_name(video.stem + "_abnahme.json").write_text(json.dumps(info, indent=1, ensure_ascii=False),
                                                             encoding="utf-8")
@@ -226,5 +263,7 @@ if __name__ == "__main__":
     print(json.dumps({k: v for k, v in r.items() if k not in ("szenen",)}, indent=1, ensure_ascii=False))
     for s in r["szenen"]:
         print(f"  {s['start']:7.1f}s  {s['I']:6.1f} LUFS  {s['abweichung_db']:+5.1f} dB  {s['label']}")
+    if r["warnungen"]:
+        print("WARNUNG:\n  " + "\n  ".join(r["warnungen"]))
     print("ABNAHME OK" if r["ok"] else "ABNAHME FEHLER:\n  " + "\n  ".join(r["fehler"]))
     sys.exit(0 if r["ok"] else 1)

@@ -279,18 +279,18 @@ def windows_for(faces: np.ndarray, cuts: list[int], w: int, h: int) -> list[tupl
 
 
 # ---------------------------------------------------------------- LatentSync pro Stueck
-# 02.10.2026 (Task 20261002-125229-cafd): 14000 lag ueber dem auf dieser Maschine je erreichten freien VRAM
-# (gemessen waehrend zwei echten Folgen-Renders: frei schwankte 13,0-13,6 GB nach Reserve, also 14,0-14,6 GB
-# roh - 300-700 MB zu knapp fuer 14000, nie strikt erfuellt). Jedes NICHT zwischengespeicherte Lipsync-Stueck wartete
-# dadurch verlaesslich die volle Soft-Wartezeit unten aus, bevor es trotzdem losliefen durfte - bei ~30 Stuecken je
-# Folge mehrere Stunden toter Wartezeit und Hauptursache der 8-Stunden-Zeitueberschreitungen der Folgen vom 02.10.
-# (Task 20261002-002703-5973 + die automatische 07:00-Folge, beide nach 28800 s abgebrochen). Gesenkt auf 13000, naeher
-# am tatsaechlich gemessenen Bedarf (~8,5 GB Modell) mit Sicherheitsabstand.
-# 02.10.2026 nachmittags (Task 20261002-131755-44f2): auch 13000 lag ueber dem dauerhaft freien VRAM (12,7 GB nach
-# Reserve, Jarvis/Beta halten ~8,6 GB) -> jedes Stueck wartete wieder die 3-min-Soft-Wartezeit (~2 h je Folge). Bedarf
-# gemessen ~8,5 GB, der Warteschlangen-Platz schliesst zweite schwere Jobs aus: 11000 reicht mit Abstand.
-LS_FREE_MB = 11000   # LatentSync mit VAE-Slicing braucht ~8,5 GB (ohne ~17 GB); Jarvis' Stimmen/TTS halten
-                     # dauerhaft ~6 GB, darum nicht gpu_budget.check (18 GB + Reserve waere hier nie erfuellt)
+# 02.10.2026 (Task 20261002-125229-cafd, -131755-44f2): LS_FREE_MB war der Schwellwert einer eigenen
+# "ist genug VRAM frei?"-Pollschleife (_wait_gpu) ZUSAETZLICH zum Platz in der zentralen Warteschlange - genau das
+# Muster, das die Warteschlange ersetzen sollte (siehe gpu_queue.py-Kopf). Diese zweite Schleife erfuellte ihren
+# eigenen Schwellwert auf dieser Maschine nie zuverlaessig (freier VRAM schwankt +-1 GB durch Jarvis/Beta) und wartete
+# darum bei praktisch jedem Stueck die volle 3-min-Soft-Frist aus, bevor sie trotzdem losliefen - bei ~30-50 Stuecken
+# je Folge ein bis zweieinhalb Stunden toter Wartezeit obendrauf, dazu hielt der alte `hold()` den Platz ueber die
+# GANZE Folge (alle Szenen, auch CPU-Arbeit dazwischen) und blockierte damit andere Jobs wie HiDream stundenlang
+# (Task 20261002-154329-1b6a wartete so ueber 80 min). Task 20261002-170551-fe9f (02.10. abends): eigene Pollschleife
+# entfernt, Platz wird nur noch pro tatsaechlicher GPU-Operation gehalten (_run_with_gpu: Zoom-Fenster, LatentSync,
+# GFPGAN-Nachzeichnung je einzeln, sonst frei fuer andere Jobs), die zentrale Warteschlange entscheidet allein, wie
+# schon in video/lipsync.py. LS_FREE_MB bleibt nur noch die VRAM-Schaetzung, die der LatentSync-Schritt anmeldet.
+LS_FREE_MB = 11000   # LatentSync mit VAE-Slicing braucht ~8,5 GB (ohne ~17 GB)
 
 
 # gemeinsamer Zwischenspeicher aller Laeufe (Dateiname = Inhalts-Hash): jede Folge/Testfassung nutzt fertige Stuecke
@@ -323,40 +323,41 @@ def _lock_free() -> bool:
     return True
 
 
-def _hold_gpu(log):
-    """Nur den Platz in der GPU-Warteschlange holen (bis Prozessende, idempotent), ohne VRAM-Check."""
-    sys.path.insert(0, str(ROOT))
-    import gpu_budget
-    return gpu_budget.hold("lipsync", name=f"lipsync freisteller ({Path(sys.argv[0]).stem})",
-                           progress=lambda w, m: log(f"  GPU-Warteschlange ({m:.0f} min): {w}"))
+_GB = None
 
 
-def _wait_gpu(log):
-    """Spielregel (gpu_budget.policy) hart; danach warten, bis kein anderer Lipsync-Lauf die Sperre haelt und kein
-    anderer grosser GPU-Job (ComfyUI, fremdes LatentSync) laeuft, d.h. LS_FREE_MB frei plus Reserve, zwei Messungen."""
-    sys.path.insert(0, str(ROOT))
-    import gpu_budget
-    why = gpu_budget.policy("lipsync")
-    if why:
-        raise SystemExit(f"GPU belegt: {why}")
-    # zentrale GPU-Warteschlange (29.09.): Platz bis Prozessende, der Reihe nach statt vier Laeufe, die gleichzeitig
-    # auf freien VRAM pollen; nicht erreichbar -> wie bisher. Mit Platz wird der VRAM-Check weich (dann haelt nur noch
-    # fremder Dauerverbrauch den Speicher, z.B. Jarvis' Stimme). 02.10.2026 (Task 20261002-125229-cafd): von 15 min auf
-    # 3 min gesenkt - mit gehaltenem Platz in der Warteschlange ist kein zweiter schwerer GPU-Job gleichzeitig
-    # moeglich, das lange harte Warten brachte nur noch Sicherheit gegen Fremdverbrauch (Jarvis-Stimme), kostete aber
-    # bei ~30 Stuecken je Folge mehrere Stunden (Mitursache der 8-Stunden-Zeitueberschreitungen vom 02.10.).
-    queued = gpu_budget.hold("lipsync", name=f"lipsync freisteller ({Path(sys.argv[0]).stem})",
-                             progress=lambda w, m: log(f"  GPU-Warteschlange ({m:.0f} min): {w}")) is not None
-    t0, ok, last = time.time(), 0, 0.0
-    while ok < 2:
-        free = gpu_budget.vram()[2] - gpu_budget.reserve_mb()
-        soft = queued and time.time() - t0 > 180
-        ok = ok + 1 if (free >= LS_FREE_MB or soft) and _lock_free() else 0
-        if ok < 2:
-            if not ok and time.time() - last > 240:
-                last = time.time()
-                log(f"  warte auf GPU (nur {free / 1024:.1f} GB frei, {(time.time() - t0) / 60:.0f} min)")
-            time.sleep(15)
+def _gpu_budget():
+    """gpu_budget-Modul, einmal importiert (gemeinsamer Zustand mit video/lipsync.py und dem Rest der Pipeline)."""
+    global _GB
+    if _GB is None:
+        sys.path.insert(0, str(ROOT))
+        import gpu_budget
+        _GB = gpu_budget
+    return _GB
+
+
+def _wait_lock(log):
+    """Blockiert, bis kein anderer Weltlage-Lipsync-Lauf die Datei-Sperre haelt (zwei LatentSync-Prozesse
+    gleichzeitig liefen am 29.09. 15x langsamer, siehe _lock_free). Fuer den eigenen Prozess sofort frei."""
+    t0, last = time.time(), 0.0
+    while not _lock_free():
+        if time.time() - last > 240:
+            last = time.time()
+            log(f"  warte auf anderen Lipsync-Lauf ({(time.time() - t0) / 60:.0f} min)")
+        time.sleep(15)
+
+
+def _run_with_gpu(step_name: str, vram_mb: int, log, fn):
+    """Fuehrt `fn()` aus und haelt dafuer einen Platz in der zentralen GPU-Warteschlange NUR fuer diese eine
+    Operation (Zoom-Fenster, LatentSync-Aufruf oder GFPGAN-Nachzeichnung je einzeln) statt fuer die ganze Folge:
+    zwischen den Stuecken und waehrend der CPU-Arbeit (Gesichtsverfolgung, ffmpeg, Compositing) ist die Karte fuer
+    andere Jobs (HiDream, TTS, Beta-Orb) frei. Die Warteschlange (gpu_budget.slot, wie video/lipsync.py) entscheidet
+    allein ueber den Start, keine eigene VRAM-Pollschleife mehr (Task 20261002-170551-fe9f)."""
+    _wait_lock(log)
+    gb = _gpu_budget()
+    with gb.slot("lipsync", name=f"lipsync freisteller {step_name} ({Path(sys.argv[0]).stem})", vram_mb=vram_mb,
+                progress=lambda w, m: log(f"  GPU-Warteschlange ({m:.0f} min): {w}")):
+        return fn()
 
 
 def sync_chunk(tag, wav, grey_scene, a, b, box, cache: Path, ident: str, log) -> list[np.ndarray]:
@@ -376,9 +377,9 @@ def sync_chunk(tag, wav, grey_scene, a, b, box, cache: Path, ident: str, log) ->
         # +5 Bilder Reserve wie video/lipsync._cut_master (+0,2 s); LatentSync liefert gelegentlich 1-2 Bilder weniger
         if HD:                                             # Real-ESRGAN + GFPGAN statt Lanczos (braucht die GPU)
             from video import gesicht_hd
-            _wait_gpu(log)
             t = time.time()
-            gesicht_hd.zoom_window(FFMPEG, Path(grey_scene), a, b + 5, x, y, s, ZOOM, seg_vid, FPS)
+            _run_with_gpu("zoom", 3000, log,
+                          lambda: gesicht_hd.zoom_window(FFMPEG, Path(grey_scene), a, b + 5, x, y, s, ZOOM, seg_vid, FPS))
             log(f"  {tag}: Gesichtsfenster {s} px KI-hochskaliert auf {ZOOM} in {time.time() - t:.0f} s")
         else:
             run([FFMPEG, "-y", "-v", "error", "-i", grey_scene, "-vf",
@@ -390,23 +391,27 @@ def sync_chunk(tag, wav, grey_scene, a, b, box, cache: Path, ident: str, log) ->
         # lud (60 s pro Schritt statt 0,5 s) -> nach 15 min abbrechen, wieder auf freie GPU warten, neu versuchen
         for attempt in range(1, 4):
             with open(cache / f"{tag}_latentsync.log", "w") as lg:
-                _wait_gpu(log)
                 if out.exists():                               # waehrend des Wartens von einem anderen Lauf gerechnet
                     break
                 t = time.time()                                # reine Rechenzeit, ohne Warten auf die GPU
-                pr = subprocess.Popen([str(LS_PY), str(ROOT / "tools" / "latentsync_ref_inference.py"),
-                                       "--unet_config_path", "configs/unet/stage2_512.yaml", "--inference_ckpt_path",
-                                       "checkpoints/latentsync_unet.pt", "--inference_steps", str(STEPS),
-                                       "--guidance_scale", str(GUIDANCE), "--enable_deepcache", "--ref_mode", "closed",
-                                       "--video_path", str(seg_vid), "--audio_path", str(seg_wav), "--video_out_path",
-                                       str(tmp), "--temp_dir", str(cache / f"{tag}_ls")],
-                                      cwd=str(REPO), stdout=subprocess.DEVNULL, stderr=lg)
-                try:
-                    ok = pr.wait(timeout=LS_TIMEOUT) == 0 and tmp.exists()
-                except subprocess.TimeoutExpired:          # ganzer Baum: der venv-Starter hat ein Kind-Python auf der GPU
-                    subprocess.run(["taskkill", "/PID", str(pr.pid), "/T", "/F"], capture_output=True)
-                    pr.wait()
-                    ok = False
+
+                def _once():
+                    pr = subprocess.Popen([str(LS_PY), str(ROOT / "tools" / "latentsync_ref_inference.py"),
+                                           "--unet_config_path", "configs/unet/stage2_512.yaml",
+                                           "--inference_ckpt_path", "checkpoints/latentsync_unet.pt",
+                                           "--inference_steps", str(STEPS), "--guidance_scale", str(GUIDANCE),
+                                           "--enable_deepcache", "--ref_mode", "closed", "--video_path", str(seg_vid),
+                                           "--audio_path", str(seg_wav), "--video_out_path", str(tmp), "--temp_dir",
+                                           str(cache / f"{tag}_ls")],
+                                          cwd=str(REPO), stdout=subprocess.DEVNULL, stderr=lg)
+                    try:
+                        return pr.wait(timeout=LS_TIMEOUT) == 0 and tmp.exists()
+                    except subprocess.TimeoutExpired:      # ganzer Baum: der venv-Starter hat ein Kind-Python auf der GPU
+                        subprocess.run(["taskkill", "/PID", str(pr.pid), "/T", "/F"], capture_output=True)
+                        pr.wait()
+                        return False
+
+                ok = _run_with_gpu("latentsync", LS_FREE_MB, log, _once)
             if ok or out.exists():
                 break
             log(f"  {tag}: Versuch {attempt} fehlgeschlagen oder zu langsam, siehe {tag}_latentsync.log")
@@ -422,9 +427,8 @@ def sync_chunk(tag, wav, grey_scene, a, b, box, cache: Path, ident: str, log) ->
     frames = list(_read_rgb(out, ZOOM, ZOOM))[:n]
     if HD and frames:                                      # Mundpartie der Ausgabe nachzeichnen (GFPGAN)
         from video import gesicht_hd
-        _hold_gpu(log)                                     # wenig VRAM: Platz reicht, kein 14-GB-Check
         t = time.time()
-        frames = gesicht_hd.restore(frames, gesicht_hd.GFP_OUT)
+        frames = _run_with_gpu("restore", 2000, log, lambda: gesicht_hd.restore(frames, gesicht_hd.GFP_OUT))
         gesicht_hd.free()
         log(f"  {tag}: Mund nachgezeichnet (GFPGAN) in {time.time() - t:.0f} s")
     frames = [cv2.resize(fr, (s, s), interpolation=cv2.INTER_AREA) for fr in frames]

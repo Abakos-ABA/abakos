@@ -214,12 +214,15 @@ NEWS_WELTLAGE_COLDOPEN_MUSIKBETT_FADE_IN = float(os.environ.get("NEWS_WELTLAGE_C
 NEWS_WELTLAGE_COLDOPEN_MUSIKBETT_FADE_OUT = float(os.environ.get("NEWS_WELTLAGE_COLDOPEN_MUSIKBETT_FADE_OUT", "1.5"))
 
 # --- Weltlage Kompakt: B-Roll / Symbolclips (tools/weltlage_broll.py, Marlon 01.10.2026) ---
-# Nur frei lizenzierte Clips (Pexels, Pixabay, Wikimedia Commons CC0/PD/CC-BY/CC-BY-SA, NASA), nie Sender, Agenturen,
-# Social Media oder YouTube. Lizenz pro Clip in <folge>/broll_lizenzen.json, Attribution in broll_attribution.txt.
+# Nur frei lizenzierte Clips (Pexels, Pixabay, Wikimedia Commons CC0/PD/CC-BY/CC-BY-SA, NASA, DVIDS), nie Sender,
+# Agenturen, Social Media oder YouTube. Lizenz pro Clip in <folge>/broll_lizenzen.json, Attribution in
+# broll_attribution.txt. Quellen-Ampel (Recherche 02.10.2026, jarvis/reports/quellen_netzwerk_newsroom_20261002.md):
+# nur gruene Quellen stehen hier in der Standardliste; gelbe/rote Quellen werden nie automatisch ergaenzt - eine gelbe
+# Quelle duerfte erst nach eigenem Code UND expliziter Nennung hier aktiv werden (kein Schalter ohne Gegenstueck).
 NEWS_WELTLAGE_BROLL = os.environ.get("NEWS_WELTLAGE_BROLL", "1") == "1"                 # an/aus
 NEWS_WELTLAGE_BROLL_ABSTAND = float(os.environ.get("NEWS_WELTLAGE_BROLL_ABSTAND", "30"))   # Ziel-Abstand in s (20-40)
 NEWS_WELTLAGE_BROLL_VARIANTEN = os.environ.get("NEWS_WELTLAGE_BROLL_VARIANTEN", "wand,pip,voll")   # Reihenfolge = Rotation
-NEWS_WELTLAGE_BROLL_QUELLEN = os.environ.get("NEWS_WELTLAGE_BROLL_QUELLEN", "pexels,pixabay,commons,nasa")
+NEWS_WELTLAGE_BROLL_QUELLEN = os.environ.get("NEWS_WELTLAGE_BROLL_QUELLEN", "pexels,pixabay,commons,nasa,dvids")
 NEWS_WELTLAGE_BROLL_MODELL = os.environ.get("NEWS_WELTLAGE_BROLL_MODELL", "sonnet")   # Suchbegriffe (Claude-CLI)
 NEWS_WELTLAGE_BROLL_MODELL_WAHL = os.environ.get("NEWS_WELTLAGE_BROLL_MODELL_WAHL", "opus")   # strenge Clipwahl
 
