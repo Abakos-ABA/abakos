@@ -25,6 +25,20 @@ Prueft und schreibt <master>_abnahme.json + <master>_begleittext.txt (Themen, Zi
      deren aktiv.json gegen NEWS_WELTLAGE_LIPSYNC_GUIDANCE/_HD pruefen (Task 20261002-163146-afaf, 02.10.2026):
      sonst koennte eine mit alter Staerke (z.B. 1,5) eingefrorene Fassung unbemerkt in einer 2,0-Folge landen.
      Fehlt das Feld (Fassung von vor diesem Datum, z.B. begruessung_v3.mp4), nur eine Warnung, kein Abbruch.
+  4f. Pipeline-Signatur (Task 20261003-165139-41e9, 03.10.2026, Nachfolger von 4e): 4e prueft nur zwei einzeln
+     benannte Felder (guidance/hd) - ein neuer Pipeline-Schalter wie NEWS_WELTLAGE_COMPOSITE_FX (Schatten/
+     Spiegelung/Licht, seit 01.10.2026) gehoerte nicht dazu und eine vor dessen Einfuehrung eingefrorene Szene blieb
+     unbemerkt ohne Schatten, obwohl 4e gruen war. Jetzt wird das vollstaendige, generische Dict
+     video.freisteller_lipsync.pipeline_signatur() (aktuell guidance/hd/composite_fx, kuenftige Schalter kommen
+     automatisch dazu) gegen das aktiv.json-Feld "pipeline" geprueft: fehlt dieses Feld ganz (Fassung von vor
+     03.10.2026), nur eine Warnung; ist es vorhanden, aber unvollstaendig oder weicht ab, Abbruch - keine stille
+     Ausnahme mehr wie bei 4e.
+     Ein echter Bild-Nachweis (Schatten/Spiegelung direkt am fertigen Frame statt nur an der aktiv.json-Signatur
+     gemessen) wurde in derselben Task probiert und wieder verworfen: ein Pixelvergleich der Bodenflaeche gegen den
+     rohen Studio-Hintergrund war an echten Folgen (data/weltlage_20261002_folge) nicht von allgemeinem
+     Kompressions-/Farbrauschen zu unterscheiden (Differenz in einer componierten Szene ohne jede Figur ~0,04, in
+     der betroffenen Begruessung ~0,024 - kein brauchbarer Abstand). Siehe Memory weltlage-szenen-workflow.md fuer
+     den Stand und eine Idee fuer einen zuverlaessigeren Nachweis.
   5. Zitate: alle Zitate aus skript.json geprueft («ok»), jedes steht wortgleich im Sprechtext von texte.json.
   5b. Orte: jeder in texte.json benutzte "ort"-Slug muss in config/brand/orte/orte.json existieren (video/orte.py).
 Exit 1, sobald etwas durchfaellt. Veroeffentlicht und verschickt nichts.
@@ -42,6 +56,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from weltlage_rohschnitt import (FFMPEG, FFPROBE, MASTER_LUFS, MASTER_TP, MARKE_UEBER_SPRACHE_DB,  # noqa: E402
                                   dur, INTRO, SZENE3, BEGRUESSUNG, UEBERGANG, OUTRO, BUMPER, VERABSCHIEDUNG, FPS)
 from video import orte as orte_mod  # noqa: E402
+from video import freisteller_lipsync as fl  # noqa: E402
 from config.settings import NEWS_WELTLAGE_LIPSYNC_HD, NEWS_WELTLAGE_LIPSYNC_GUIDANCE  # noqa: E402
 
 SPRUNG_DB = 4.0          # benachbarte hoerbare Szenen duerfen sich hoechstens so stark unterscheiden
@@ -64,6 +79,29 @@ def guidance_probleme(meta: dict, guidance: float, hd: bool) -> list[str]:
         probleme.append(f"eingefroren mit Guidance {meta['guidance']} statt Standard {guidance:g}")
     if bool(meta.get("hd", False)) != bool(hd):
         probleme.append(f"eingefroren mit hd={meta.get('hd', False)} statt Standard {hd}")
+    return probleme
+
+
+def pipeline_probleme(meta: dict, aktuell: dict) -> list[str]:
+    """Vergleicht die vollstaendige Pipeline-Signatur (aktiv.json-Feld "pipeline", geschrieben von
+    video.freisteller_lipsync.pipeline_signatur() beim Bau) generisch gegen die aktuellen Einstellungen - anders
+    als guidance_probleme() muss hier niemand ein neues Feld von Hand ergaenzen: jeder Schluessel in `aktuell` wird
+    geprueft, auch kuenftige. Leere Liste = passt. Fehlt "pipeline" ganz (Fassung von vor 03.10.2026), eine einzelne
+    Meldung dafuer - der Aufrufer entscheidet, ob das nur eine Warnung ist (Uebergangsfrist) oder nicht. Pure
+    Funktion (kein Dateizugriff) - direkt testbar."""
+    pipeline = meta.get("pipeline")
+    if pipeline is None:
+        return ["aktiv.json ohne 'pipeline'-Feld (gebaut vor 03.10.2026) - Pipeline-Schalter (z.B. Compositing-FX) "
+                "beim Bau nicht geprueft, bei Zweifel neu bauen (build + freeze)"]
+    probleme = []
+    for key, soll in aktuell.items():
+        if key not in pipeline:
+            probleme.append(f"Pipeline-Signatur ohne Feld '{key}' - neu bauen (build + freeze)")
+        elif isinstance(soll, float):
+            if abs(float(pipeline[key]) - soll) > 1e-6:
+                probleme.append(f"eingefroren mit {key}={pipeline[key]} statt Standard {soll:g}")
+        elif bool(pipeline[key]) != bool(soll):
+            probleme.append(f"eingefroren mit {key}={pipeline[key]} statt Standard {soll}")
     return probleme
 
 
@@ -170,6 +208,8 @@ def pruefen(ordner: Path, video: Path) -> dict:
     # 4e. Eingefrorene Sprechszenen: Lipsync-Staerke/HD-Stufe beim Bau gegen die aktuellen Einstellungen (4c sieht
     # nur die Laenge, nicht wie die aktive Datei gebaut wurde).
     info["feste_sprechszenen_staerke"] = {}
+    info["feste_sprechszenen_pipeline"] = {}
+    aktuelle_pipeline = fl.pipeline_signatur()
     for label, ordner_name in (("Szene Begrüssung", "begruessung"), ("Szene Verabschiedung", "verabschiedung")):
         cfg = ROOT / "config" / "brand" / ordner_name / "aktiv.json"
         if not cfg.exists() or label not in laenge_im_video:
@@ -182,6 +222,15 @@ def pruefen(ordner: Path, video: Path) -> dict:
             warnungen.append(f"{label}: {probleme[0]}")
         elif probleme:
             fehler.append(f"{label}: " + "; ".join(probleme) + " - neu bauen (build + freeze)")
+        # 4f. Pipeline-Signatur: generische Nachfolgerin von 4e, deckt auch kuenftige Pipeline-Schalter ab (siehe
+        # video.freisteller_lipsync.pipeline_signatur). Fehlt "pipeline" ganz, nur eine Warnung (Uebergangsfrist
+        # fuer Fassungen von vor 03.10.2026); ist sie vorhanden, aber unvollstaendig/abweichend, Abbruch.
+        pprobleme = pipeline_probleme(meta, aktuelle_pipeline)
+        info["feste_sprechszenen_pipeline"][label] = {"pipeline": meta.get("pipeline"), "probleme": pprobleme}
+        if pprobleme and "pipeline" not in meta:
+            warnungen.append(f"{label}: {pprobleme[0]}")
+        elif pprobleme:
+            fehler.append(f"{label}: " + "; ".join(pprobleme) + " - neu bauen (build + freeze)")
     # 4d. Welt-Bumper-Ton: gleiche Laenge wie frueher, darum per Kreuzkorrelation gegen die aktive Datei pruefen
     cob = next((s for s in szenen if "Welt-Bumper" in s["label"]), None)
     if BUMPER and BUMPER.exists() and cob:

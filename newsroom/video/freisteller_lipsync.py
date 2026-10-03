@@ -58,7 +58,23 @@ try:                          # Gesichtsfenster KI-hochskaliert statt Lanczos (v
     from config.settings import NEWS_WELTLAGE_LIPSYNC_HD as HD
 except Exception:
     HD = False
+try:                          # Studio-Compositing mit Schatten/Spiegelung/Licht (video/composite_fx.py), Default an
+    from config.settings import NEWS_WELTLAGE_COMPOSITE_FX as COMPOSITE_FX
+except Exception:
+    COMPOSITE_FX = True
 SHADOW_REF = 0.32             # Referenzskala, auf die der Schlagschatten abgestimmt ist (composite_host.py)
+
+
+def pipeline_signatur() -> dict:
+    """Einzige Quelle fuer die Pipeline-Einstellungen, die eine eingefrorene Szene beim Bau mitbekommen hat
+    (Lipsync-Staerke/HD-Stufe/Studio-Compositing). Von freeze() aller Vorlagen-Builder (tools/weltlage_begruessung.py,
+    tools/weltlage_verabschiedung.py) ins aktiv.json unter "pipeline" geschrieben und von tools/weltlage_abnahme.py
+    (pipeline_probleme) gegen die aktuellen Einstellungen geprueft. Grund (03.10.2026): die eingefrorene
+    Begruessungs-Szene behielt nach Einfuehrung von composite_fx (Task 20261001-180145-c47f) unbemerkt den alten,
+    schattenlosen Rendergang, weil composite_fx kein Feld der damaligen Signatur war - ein neuer Pipeline-Schalter
+    wurde nirgends automatisch mitgefuehrt. Kuenftige Schalter gehoeren in dieses eine Dict, nicht einzeln in jeden
+    Builder und jede Pruefung verteilt."""
+    return {"guidance": GUIDANCE, "hd": HD, "composite_fx": COMPOSITE_FX}
 
 # Pro Pose: Freisteller-Quelle, Keyer, Gesichtssuche (min/max Groesse in Quellpixeln, Gesichtsmitte oberhalb y-Anteil),
 # Studio (Hintergrund, Platzierungsdatei samt Standardwerten, optionale Pult-Vordergrundmaske).
@@ -589,8 +605,7 @@ def composite_studio(pose: str, freisteller: Path, n: int, out: Path, ort: str |
     from video import orte as orte_mod
     if not orte_mod.ist_standard(ort):
         return orte_mod.composite(avatar, ort, freisteller, n, out)
-    from config.settings import NEWS_WELTLAGE_COMPOSITE_FX
-    if pose == "stehend" and NEWS_WELTLAGE_COMPOSITE_FX:
+    if pose == "stehend" and COMPOSITE_FX:
         return _composite_studio_fx(pose, freisteller, n, out)
     P = POSEN[pose]
     p = load_placement(pose)
