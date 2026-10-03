@@ -218,14 +218,17 @@ def _note(progress):
 
 
 @contextlib.contextmanager
-def slot(step: str, name: str | None = None, prio: int | None = None, progress=None, vram_mb: int | None = None):
-    """Place in the central GPU queue for the with-block (waits for game rules + queue). Fallback: no waiting."""
+def slot(step: str, name: str | None = None, prio: int | None = None, progress=None, vram_mb: int | None = None,
+         excl: str | None = None):
+    """Place in the central GPU queue for the with-block (waits for game rules + queue). Fallback: no waiting.
+    excl: lock name (jarvis/tools/gpu_queue.py) -- no two jobs with the same excl ever run at once, regardless of
+    VRAM accounting (Weltlage lipsync: two renders sharing the card both ran at half speed, 29.09./04.10.)."""
     q = queue()
     t = None
     if q is not None:
         try:
             t = q.acquire(_job_name(step, name), prio or QUEUE_PRIO, vram_mb or queue_mb(step), gate=gate(step),
-                          progress=_note(progress))
+                          progress=_note(progress), excl=excl)
         except q.GpuQueueTimeout:
             raise
         except (OSError, TimeoutError) as e:
@@ -240,14 +243,15 @@ def slot(step: str, name: str | None = None, prio: int | None = None, progress=N
                 print(f"WARNUNG gpu_budget: Freigabe gestört ({e})", file=sys.stderr)
 
 
-def hold(step: str, name: str | None = None, prio: int | None = None, progress=None, vram_mb: int | None = None):
+def hold(step: str, name: str | None = None, prio: int | None = None, progress=None, vram_mb: int | None = None,
+         excl: str | None = None):
     """Place in the central queue until this process exits (idempotent per name). None = queue unreachable."""
     q = queue()
     if q is None:
         return None
     try:
         return q.hold(_job_name(step, name), prio or QUEUE_PRIO, vram_mb or queue_mb(step), gate=gate(step),
-                      progress=_note(progress))
+                      progress=_note(progress), excl=excl)
     except q.GpuQueueTimeout:
         raise
     except (OSError, TimeoutError) as e:

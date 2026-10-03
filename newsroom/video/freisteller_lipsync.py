@@ -312,31 +312,13 @@ LS_FREE_MB = 11000   # LatentSync mit VAE-Slicing braucht ~8,5 GB (ohne ~17 GB)
 # gemeinsamer Zwischenspeicher aller Laeufe (Dateiname = Inhalts-Hash): jede Folge/Testfassung nutzt fertige Stuecke
 SHARED_CACHE = ROOT / "data" / "_latentsync_cache"
 LS_TIMEOUT = 900     # normal ~110 s pro 7-s-Stueck; laenger = VRAM laeuft ueber
-LS_LOCK = ROOT / "state" / "latentsync.lock"   # PID des Laufs, der gerade LatentSync-Stuecke rechnet
 
-
-def _lock_free() -> bool:
-    """Ein Lipsync-Lauf haelt die Sperre von seinem ersten Stueck bis Prozessende. Ohne sie rutschte am 29.09. ein
-    zweiter Lauf in die Pause zwischen zwei Stuecken des ersten (VRAM kurz frei), und beide liefen 15x langsamer."""
-    import atexit
-    import psutil
-    try:
-        pid = int(LS_LOCK.read_text().strip() or 0)
-    except PermissionError:                        # Datei von einem anderen Prozess gesperrt -> belegt
-        return False
-    except (OSError, ValueError):
-        pid = 0
-    if pid == os.getpid():
-        return True
-    if pid and psutil.pid_exists(pid):
-        return False
-    LS_LOCK.parent.mkdir(exist_ok=True)
-    try:
-        LS_LOCK.write_text(str(os.getpid()))
-    except PermissionError:
-        return False
-    atexit.register(lambda: LS_LOCK.exists() and LS_LOCK.read_text().strip() == str(os.getpid()) and LS_LOCK.unlink())
-    return True
+# Sperrname in der zentralen GPU-Warteschlange (jarvis/tools/gpu_queue.py, excl=): nie zwei Weltlage-Lipsync-Laeufe
+# gleichzeitig, egal was die VRAM-Rechnung hergeben wuerde. War bis 04.10.2026 eine eigene Datei-Sperre (PID in
+# state/latentsync.lock, psutil.pid_exists): nach einem Absturz/Neustart konnte eine fremde, spaeter gestartete PID
+# dieselbe Nummer bekommen und die Sperre faelschlich als belegt zeigen (Windows vergibt PIDs wieder); die zentrale
+# Warteschlange prueft stattdessen PID+Startzeit (gpu_queue._alive) und raeumt tote Eintraege bei jedem Zugriff weg.
+LS_EXCL = "weltlage_lipsync"
 
 
 _GB = None
@@ -352,27 +334,17 @@ def _gpu_budget():
     return _GB
 
 
-def _wait_lock(log):
-    """Blockiert, bis kein anderer Weltlage-Lipsync-Lauf die Datei-Sperre haelt (zwei LatentSync-Prozesse
-    gleichzeitig liefen am 29.09. 15x langsamer, siehe _lock_free). Fuer den eigenen Prozess sofort frei."""
-    t0, last = time.time(), 0.0
-    while not _lock_free():
-        if time.time() - last > 240:
-            last = time.time()
-            log(f"  warte auf anderen Lipsync-Lauf ({(time.time() - t0) / 60:.0f} min)")
-        time.sleep(15)
-
-
 def _run_with_gpu(step_name: str, vram_mb: int, log, fn):
     """Fuehrt `fn()` aus und haelt dafuer einen Platz in der zentralen GPU-Warteschlange NUR fuer diese eine
     Operation (Zoom-Fenster, LatentSync-Aufruf oder GFPGAN-Nachzeichnung je einzeln) statt fuer die ganze Folge:
     zwischen den Stuecken und waehrend der CPU-Arbeit (Gesichtsverfolgung, ffmpeg, Compositing) ist die Karte fuer
     andere Jobs (HiDream, TTS, Beta-Orb) frei. Die Warteschlange (gpu_budget.slot, wie video/lipsync.py) entscheidet
-    allein ueber den Start, keine eigene VRAM-Pollschleife mehr (Task 20261002-170551-fe9f)."""
-    _wait_lock(log)
+    allein ueber den Start, keine eigene VRAM-Pollschleife mehr (Task 20261002-170551-fe9f); excl=LS_EXCL sorgt
+    zusaetzlich dafuer, dass nie zwei Weltlage-Lipsync-Laeufe gleichzeitig eine Operation fahren (Task
+    20261004-003744-17ef, siehe LS_EXCL)."""
     gb = _gpu_budget()
     with gb.slot("lipsync", name=f"lipsync freisteller {step_name} ({Path(sys.argv[0]).stem})", vram_mb=vram_mb,
-                progress=lambda w, m: log(f"  GPU-Warteschlange ({m:.0f} min): {w}")):
+                progress=lambda w, m: log(f"  GPU-Warteschlange ({m:.0f} min): {w}"), excl=LS_EXCL):
         return fn()
 
 
