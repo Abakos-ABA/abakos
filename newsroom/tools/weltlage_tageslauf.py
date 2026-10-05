@@ -4,7 +4,8 @@ Dauerhafte Freigabe von Marlon (02.10.2026 23:03): der Kanal laeuft vollautomati
 YouTube, wenn Marlon nicht innerhalb einer Stunde reagiert. Ersetzt den frueheren Lauf um 07:00 (Task dffa).
 
 Gestartet von der resident laufenden Pipeline (Aufgabe AbakosNewsroomPipeline, orchestrator/pipeline.py ruft pro
-Tick pruefen_und_starten() auf) - kein eigener Windows-Task. Pro Slot (NEWS_WELTLAGE_SLOTS, Standard 11:00,19:00 =
+Tick pruefen_und_starten() auf) - kein eigener Windows-Task; seit 05.10.2026 als Langlauf (Jarvis tools/langlauf.py),
+falls erreichbar. Pro Slot (NEWS_WELTLAGE_SLOTS, Standard 11:00,19:00 =
 Veroeffentlichungszeit) beginnt der Lauf vorlauf_stunden() vorher (Themenwahl + gemessene Produktionsdauer + Puffer,
 siehe produktion_stunden) als eigener, losgeloester Prozess (pythonw, kein Fenster) und arbeitet diese Schritte ab
 (jeder Schritt wird bei einem Neustart uebersprungen, wenn sein Ergebnis schon da ist):
@@ -20,6 +21,10 @@ siehe produktion_stunden) als eigener, losgeloester Prozess (pythonw, kein Fenst
   3 bilder      Screenshots der Quellartikel pro Meldung (video/sources.capture) -> bilder.json
   4 stimme      tools/weltlage_tts.py (Chatterbox-Klon laut Profil, GPU-Warteschlange; nur geaenderte Szenen neu)
   5 schnitt     tools/weltlage_rohschnitt.py (feste Szenen eingefroren, Lipsync Guidance 2.0, GPU-Warteschlange)
+                Seit 05.10.2026: keine feste Frist mehr, beendet wird nur bei Stillstand (STILLSTAND_MIN ohne neues
+                Log/neue Datei), dann ein zweiter Versuch aus dem LatentSync-Cache; ein noch laufender Rohschnitt
+                derselben Folge (abgeloester Vorgaenger-Lauf) wird uebernommen statt doppelt gestartet; Rohschnitte
+                verschiedener Folgen laufen nacheinander (die fruehere Folge wird zuerst fertig).
   6 broll       tools/weltlage_broll.py --video (NEWS_WELTLAGE_BROLL=1; gruene Quellen; Fehler -> ohne Clips weiter)
   7 abnahme     tools/weltlage_abnahme.py (Fehler = nie automatisch veroeffentlichen, nur melden). Fehler "Folge zu
                 kurz" (Mindestlaenge 8:00 Min., Marlons Entscheid 04.10.2026 23:53): einmal automatisch ueber
@@ -92,6 +97,18 @@ PUFFER_STUNDEN = 0.5
 # Produktion ohne Rohschnitt (Skript, Bilder, Stimme, B-Roll, Abnahme, Thumbnail), gemessen 02.10.: rund 1 h
 NEBENSCHRITTE_STUNDEN = 1.0
 PRODUKTION_FALLBACK_STUNDEN = 6.5
+# Vorfall 05.10.2026 (0 von 2 Folgen): seit der Mindestlaenge 8:00 (04.10.) spricht Latara ~550 s statt ~350 s; die
+# Vertonung brauchte 2,6-2,8 h (Grenze 3 h) und der Rohschnitt mit Lipsync-HD ~8 h (feste Grenze 8 h) - der 11:00-Lauf
+# wurde nach 8 h abgeschossen, der Zeitplan rechnete weiter mit 5,9 h, weil er nur FERTIGE (kuerzere) Rohschnitte
+# zaehlte. Jetzt: Dauer pro gesprochener Sekunde aus den Tageslauf-Logs (auch abgebrochene Laeufe als Untergrenze),
+# hochgerechnet auf die aktuelle Sprechlaenge; Unterprozesse enden nur bei echtem Stillstand.
+NEBEN_OHNE_STIMME_STUNDEN = 0.5    # Skript, Bilder, B-Roll, Abnahme, Thumbnail, Metadaten (gemessen ~20-30 min)
+MIN_SPRECH_S = 520                 # Sprechdauer einer 8-Min.-Folge (Abnahme 4i) ohne feste Szenen, gemessen 05.10.
+PRODUKTION_MAX_STUNDEN = 16.0
+STILLSTAND_MIN = 60                # kein neues Log/keine neue Datei so lange = haengt -> Prozessbaum beenden
+STIMME_MAX_STUNDEN = 10            # nur Sicherheitsnetz; massgeblich ist der Stillstand
+SCHNITT_MAX_STUNDEN = 24
+SCHNITT_VERSUCHE = 2               # nach Stillstand einmal neu: fertige LatentSync-Stuecke liegen im Cache
 
 
 # ------------------------------------------------------------------ Zustand
@@ -133,15 +150,78 @@ def slot_zeit(datum: str, slot: str) -> datetime:
 
 
 # ------------------------------------------------------------------ Zeitplan
+_MARKE = re.compile(r"(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d) (\$ \S+|-> Exit|ABBRUCH)")
+
+
+def schritt_dauern(log_text: str, jetzt: datetime | None = None) -> dict:
+    """Dauer (s) des ersten Durchgangs von Vertonung und Rohschnitt aus einem tageslauf.log: von "$ tools/
+    weltlage_tts.py" bzw. "$ tools/weltlage_rohschnitt.py" bis zur naechsten "-> Exit"/"ABBRUCH"-Marke; laeuft der
+    Schritt noch (kein Ende), zaehlt die bisherige Dauer (Untergrenze). Marken werden auch mitten in der Zeile
+    gefunden (Unterprozess-Ausgabe ohne Zeilenende davor). Pure Funktion, offline testbar."""
+    jetzt = jetzt or datetime.now()
+    out, offen = {}, None
+    for m in _MARKE.finditer(log_text):
+        t, rest = datetime.fromisoformat(m.group(1)), m.group(2)
+        if rest.startswith("$ "):
+            name = ("stimme" if "weltlage_tts.py" in rest else "schnitt" if "weltlage_rohschnitt.py" in rest else None)
+            offen = (name, t) if name and name not in out else None
+        elif offen:
+            out[offen[0]] = (t - offen[1]).total_seconds()
+            offen = None
+    if offen:
+        out[offen[0]] = max(0.0, (jetzt - offen[1]).total_seconds())
+    return out
+
+
+def sprech_sekunden(ordner: Path) -> float:
+    """Summe der vertonten Sprechdauer einer Folge (audio/*.tts.json, Feld laenge_s)."""
+    s = 0.0
+    for p in (ordner / "audio").glob("*.tts.json"):
+        try:
+            s += float(json.loads(p.read_text(encoding="utf-8")).get("laenge_s") or 0)
+        except (OSError, ValueError, TypeError):
+            pass
+    return s
+
+
+def produktion_aus_logs(data_dir: Path, n: int = 4) -> float | None:
+    """Produktion (h) aus den letzten n Folgen mit Vertonung + Rohschnitt im Log: Maximum von (Vertonung + Rohschnitt)
+    pro gesprochener Sekunde, mal der laengsten jungen Sprechdauer (mindestens MIN_SPRECH_S), + Nebenschritte.
+    Abgebrochene/laufende Rohschnitte zaehlen als Untergrenze mit - sonst sieht der Zeitplan nur die Laeufe, die die
+    alte Grenze noch geschafft haben (Vorfall 05.10.2026). None = keine verwertbare Messung."""
+    raten, sprech = [], []
+    for p in sorted(data_dir.glob("weltlage_*/tageslauf.log"), key=lambda p: p.stat().st_mtime, reverse=True):
+        if "test" in p.parent.name or "trocken" in p.parent.name:
+            continue
+        try:
+            # ohne End-Marke (z.B. vom Abbruch ueberschriebene Zeile) endet der Schritt mit der letzten Log-Aenderung
+            d = schritt_dauern(p.read_text(encoding="utf-8", errors="replace"), datetime.fromtimestamp(p.stat().st_mtime))
+        except OSError:
+            continue
+        sp = sprech_sekunden(p.parent)
+        if "schnitt" not in d or sp < 60:
+            continue
+        raten.append((d.get("stimme", 0.0) + d["schnitt"]) / sp)
+        sprech.append(sp)
+        if len(raten) >= n:
+            break
+    if not raten:
+        return None
+    return max(raten) * max(MIN_SPRECH_S, *sprech) / 3600 + NEBEN_OHNE_STIMME_STUNDEN
+
+
 def produktion_stunden(data_dir: Path | None = None) -> float:
-    """Dauer Skript bis fertiges Video. NEWS_WELTLAGE_PRODUKTION_STUNDEN als Zahl = fest; "auto" = Rohschnitt-Dauer
-    der letzten zwei vollen Folgen (data/weltlage_*/*_renderzeiten.json, "gesamt" >= 50 min, Maximum der beiden,
-    damit eine schnelle Ausnahme den Zeitplan nicht kippt) + NEBENSCHRITTE_STUNDEN."""
+    """Dauer Skript bis fertiges Video. NEWS_WELTLAGE_PRODUKTION_STUNDEN als Zahl = fest; "auto" = gemessen aus den
+    Tageslauf-Logs (produktion_aus_logs, seit 05.10.2026), sonst Rohschnitt-Dauer der letzten zwei vollen Folgen
+    (data/weltlage_*/*_renderzeiten.json, "gesamt" >= 50 min, Maximum der beiden) + NEBENSCHRITTE_STUNDEN."""
     if NEWS_WELTLAGE_PRODUKTION_STUNDEN not in ("", "auto"):
         try:
             return float(NEWS_WELTLAGE_PRODUKTION_STUNDEN)
         except ValueError:
             pass
+    gemessen = produktion_aus_logs(data_dir or DATA_DIR)
+    if gemessen is not None:
+        return round(min(PRODUKTION_MAX_STUNDEN, max(3.0, gemessen)), 2)
     werte = []
     for p in sorted((data_dir or DATA_DIR).glob("weltlage_*/*_renderzeiten.json"), key=lambda p: p.stat().st_mtime,
                     reverse=True):
@@ -203,6 +283,22 @@ def pruefen_und_starten(jetzt: datetime | None = None, log=print) -> list[str]:
     for datum, slot in faellig(jetzt, zustand):
         key = f"{datum}_{slot}"
         neustarts = (zustand.get(key) or {}).get("neustarts", -1) + 1 if (zustand.get(key) or {}).get("status") else 0
+        ll = _langlauf()
+        if ll is not None:
+            # Als Langlauf (Jarvis tools/langlauf.py): eigene Aufsicht ausserhalb des Pipeline-Prozessbaums (ein
+            # Neustart der Pipeline-Aufgabe beendet den Lauf nicht mehr), setzt Abstuerze selbst fort, Doppelstart-
+            # Schutz ueber Schluessel + Befehlszeile (offener Faden 05.10.2026).
+            try:
+                e = ll.weltlage_starten(datum, slot, max_versuche=MAX_NEUSTARTS)
+                if e.get("schon_aktiv"):
+                    continue
+                _eintrag(key, status="laeuft", pid=e.get("aufsicht_pid"), langlauf=e.get("id"),
+                         gestartet=jetzt.isoformat(timespec="seconds"), neustarts=neustarts)
+                log(f"Weltlage-Tageslauf {key} als Langlauf {e.get('id')} gestartet (Neustart {neustarts})")
+                gestartet.append(key)
+                continue
+            except Exception as ex:   # noqa: BLE001 - dann wie bisher direkt
+                log(f"Weltlage-Tageslauf {key}: Langlauf ging nicht ({ex}), starte direkt")
         logdatei = STATE_DIR / "weltlage_tageslauf.log"
         with open(logdatei, "a", encoding="utf-8") as f:
             p = subprocess.Popen([str(PYW), str(Path(__file__).resolve()), "lauf", "--slot", slot, "--datum", datum],
@@ -239,18 +335,112 @@ class Gestoppt(RuntimeError):
     pass
 
 
-def _run(cmd: list, log, timeout_h: float = 6, python=None) -> int:
+STILLSTAND_RC = -9   # Rueckgabe von _run, wenn der Prozessbaum wegen Stillstand/Obergrenze beendet wurde
+POLL_S = 30
+
+
+def _prozesse(skript: str) -> list[dict]:
+    """Laufende Prozesse, deren Befehlszeile `skript` enthaelt: [{pid, ppid, cmd}] (CIM, psutil fehlt in .venv)."""
+    ps = ("Get-CimInstance Win32_Process -Filter \"CommandLine like '%" + skript.replace("'", "") + "%'\" | "
+          "Select-Object ProcessId,ParentProcessId,CommandLine | ConvertTo-Json -Compress")
+    try:
+        out = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps], capture_output=True,
+                             text=True, encoding="utf-8", errors="replace", creationflags=NO_WINDOW, timeout=60).stdout
+        d = json.loads(out) if out.strip() else []
+    except Exception:   # noqa: BLE001
+        return []
+    d = d if isinstance(d, list) else [d]
+    return [{"pid": int(x["ProcessId"]), "ppid": int(x["ParentProcessId"] or 0), "cmd": x.get("CommandLine") or ""}
+            for x in d if x.get("CommandLine")]
+
+
+def fremde_laeufe(prozesse: list[dict], skript: str, ordner: Path, eigene: bool) -> list[int]:
+    """Oberste PIDs (venv-Starter statt Kind) der Prozesse mit `skript`, die zu diesem Folgenordner gehoeren
+    (eigene=True) bzw. zu einem anderen (eigene=False). Pure Funktion, offline testbar."""
+    rx = re.compile(re.escape(str(Path(ordner)).lower()) + r"(?![\w])")
+    # nur echte Aufrufe "...python.exe tools/<skript> <ordner>", keine Shell/grep/python -c mit dem Text darin
+    aufruf = re.compile(r"python[w]?(?:\.exe)?\"?\s+(?:\S*[\\/])?tools[\\/]" + re.escape(skript.lower()) + r"\s")
+    passend = [p for p in prozesse if aufruf.search(p["cmd"].lower()) and bool(rx.search(p["cmd"].lower())) == eigene]
+    pids = {p["pid"] for p in passend}
+    return sorted(p["pid"] for p in passend if p["ppid"] not in pids)
+
+
+def _baum_beenden(pid: int):
+    subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, creationflags=NO_WINDOW)
+
+
+def _aktivitaet(log, ordner: Path | None) -> float:
+    """Juengste Aenderung (mtime) von Log, Arbeitsordnern (_schnitt, audio) - Lebenszeichen eines Schritts."""
+    t = log.datei.stat().st_mtime if log.datei.exists() else 0.0
+    for sub in ("_schnitt", "audio") if ordner else ():
+        for wurzel, _, dateien in os.walk(ordner / sub):
+            for d in dateien:
+                try:
+                    t = max(t, os.stat(os.path.join(wurzel, d)).st_mtime)
+                except OSError:
+                    pass
+    return t
+
+
+def _warten_auf_lauf(skript: str, ordner: Path, log, eigene: bool, still_min: float = STILLSTAND_MIN) -> bool:
+    """Wartet, solange ein `skript`-Prozess fuer diesen Ordner (eigene=True: z.B. vom abgestuerzten/abgeloesten
+    Vorgaenger-Lauf, nie doppelt starten) bzw. fuer einen anderen Ordner (eigene=False: Rohschnitte nacheinander statt
+    verzahnt, die fruehere Folge zuerst fertig) laeuft. Eigener Prozess ohne Lebenszeichen seit still_min -> beenden.
+    Rueckgabe: True, wenn ueberhaupt gewartet wurde."""
+    gewartet, letzte_meldung = False, 0.0
+    while True:
+        pids = fremde_laeufe(_prozesse(skript), skript, ordner, eigene)
+        if not pids:
+            return gewartet
+        if not gewartet:
+            log(f"{skript} läuft schon ({'für diese Folge' if eigene else 'für eine andere Folge'}, PID "
+                f"{', '.join(map(str, pids))}) - warte darauf statt {'doppelt zu starten' if eigene else 'gleichzeitig'}")
+            gewartet = True
+        if eigene and time.time() - _aktivitaet(log, ordner) > still_min * 60:
+            log(f"{skript} ohne Lebenszeichen seit {still_min:.0f} min - beende PID {pids}")
+            for p in pids:
+                _baum_beenden(p)
+        elif time.time() - letzte_meldung > 1800:
+            letzte_meldung = time.time()
+            if not eigene:
+                log(f"warte weiter auf {skript} der anderen Folge (PID {', '.join(map(str, pids))})")
+        time.sleep(60)
+
+
+def _run(cmd: list, log, timeout_h: float = 6, python=None, ordner: Path | None = None,
+         still_min: float | None = None) -> int:
     """Schritt als Unterprozess ohne Fenster. HuggingFace offline (alle Modelle liegen im Cache): am 02.10. 23:43
     hing tools/weltlage_tts.py 10 min still an einer CDN-Verbindung des Hub-Checks; HF_HUB_OFFLINE=0 in der Umgebung
-    hebt das auf."""
+    hebt das auf.
+    still_min: statt einer festen Frist nur bei Stillstand beenden (kein neues Log/keine neue Datei unter ordner seit
+    still_min Minuten); timeout_h bleibt als Obergrenze. Beendet wird der ganze Prozessbaum (subprocess.run mit
+    timeout traf nur den venv-Starter). Rueckgabe STILLSTAND_RC, wenn beendet wurde."""
     log("$ " + " ".join(str(c) for c in cmd))
+    t0 = time.time()
     with open(log.datei, "a", encoding="utf-8") as f:
-        p = subprocess.run([str(python or PY), *map(str, cmd)], cwd=str(ROOT), stdout=f, stderr=subprocess.STDOUT,
-                           stdin=subprocess.DEVNULL, timeout=timeout_h * 3600, creationflags=NO_WINDOW,
-                           env={"HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1", **os.environ,
-                                "PYTHONIOENCODING": "utf-8", "PYTHONUNBUFFERED": "1"})
-    log(f"-> Exit {p.returncode}")
-    return p.returncode
+        p = subprocess.Popen([str(python or PY), *map(str, cmd)], cwd=str(ROOT), stdout=f, stderr=subprocess.STDOUT,
+                             stdin=subprocess.DEVNULL, creationflags=NO_WINDOW,
+                             env={"HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1", **os.environ,
+                                  "PYTHONIOENCODING": "utf-8", "PYTHONUNBUFFERED": "1"})
+        while True:
+            try:
+                rc = p.wait(timeout=POLL_S)
+                break
+            except subprocess.TimeoutExpired:
+                pass
+            grund = None
+            if time.time() - t0 > timeout_h * 3600:
+                grund = f"Obergrenze {timeout_h:g} h erreicht"
+            elif still_min and time.time() - max(t0, _aktivitaet(log, ordner)) > still_min * 60:
+                grund = f"seit {still_min:.0f} min kein Lebenszeichen (Log/Dateien)"
+            if grund:
+                log(f"{grund} - beende Prozessbaum {p.pid}")
+                _baum_beenden(p.pid)
+                p.wait()
+                rc = STILLSTAND_RC
+                break
+    log(f"-> Exit {rc}")
+    return rc
 
 
 def laenge_reparatur_noetig(info: dict, runden: int) -> str | None:
@@ -375,6 +565,17 @@ def _ergebnis_zeigen():
                   file=sys.stderr)
             _ergebnis_mod = False
     return _ergebnis_mod or None
+
+
+def _langlauf():
+    """tools/langlauf.py aus Jarvis (None = nicht erreichbar, dann startet die Pipeline den Lauf wie bisher direkt)."""
+    try:
+        if str(JARVIS_TOOLS) not in sys.path:
+            sys.path.append(str(JARVIS_TOOLS))
+        import langlauf
+        return langlauf
+    except Exception:   # noqa: BLE001
+        return None
 
 
 def _melden(titel: str, text: str, log=print):
@@ -571,11 +772,27 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
         elif schritt == "bilder" and not (ordner / "bilder.json").exists():
             bilder_holen(ordner, log)
         elif schritt == "stimme":
-            if _run(["tools/weltlage_tts.py", ordner], log, timeout_h=3) != 0:
+            if fremde_laeufe(_prozesse("weltlage_rohschnitt.py"), "weltlage_rohschnitt.py", ordner, True):
+                # Lauf wurde abgeloest/neu gestartet, waehrend sein Rohschnitt weiterrechnet: der schneidet die
+                # vorhandene Vertonung - jetzt neu vertonen (z.B. nach Lexikon-Pflege) passte nicht mehr zum Video
+                log("Rohschnitt dieser Folge läuft noch - Vertonung bleibt wie sie ist")
+                return
+            _warten_auf_lauf("weltlage_tts.py", ordner, log, eigene=True)
+            if _run(["tools/weltlage_tts.py", ordner], log, timeout_h=STIMME_MAX_STUNDEN, ordner=ordner,
+                    still_min=STILLSTAND_MIN) != 0:
                 raise Abbruch("Vertonung fehlgeschlagen")
-        elif schritt == "schnitt" and not master.exists():
-            if _run(["tools/weltlage_rohschnitt.py", ordner, "--out", master], log, timeout_h=8,
-                    python=LS_PY) != 0 or not master.exists():
+        elif schritt == "schnitt":
+            _warten_auf_lauf("weltlage_rohschnitt.py", ordner, log, eigene=True)
+            for versuch in range(1, SCHNITT_VERSUCHE + 1):
+                if master.exists():
+                    break
+                _warten_auf_lauf("weltlage_rohschnitt.py", ordner, log, eigene=False)
+                rc = _run(["tools/weltlage_rohschnitt.py", ordner, "--out", master], log,
+                          timeout_h=SCHNITT_MAX_STUNDEN, python=LS_PY, ordner=ordner, still_min=STILLSTAND_MIN)
+                if rc != STILLSTAND_RC:
+                    break
+                log(f"Rohschnitt Versuch {versuch} hing - neu mit den fertigen Stücken aus dem Cache")
+            if not master.exists():
                 raise Abbruch("Rohschnitt/Lipsync fehlgeschlagen oder Stimmen-Endprüfung durchgefallen")
         elif schritt == "broll" and NEWS_WELTLAGE_BROLL:
             clips = master.with_name(master.stem + "_clips.mp4")
@@ -623,7 +840,10 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
             log(f"Titel: {m['title']} | {len(m['description'])} Zeichen Beschreibung | {len(m['tags'])} Tags")
         elif schritt == "warten":
             jetzt = datetime.now().astimezone()
-            if jetzt > veroeffentlichen + timedelta(hours=NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN):
+            # pro Lauf ueberschreibbar (Zustand "max_verspaetung_h"), z.B. wenn ein fertig produzierter Lauf nach
+            # einem Abbruch gerettet/nachgeholt wird; sonst NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN
+            max_h = float((_laden().get(key) or {}).get("max_verspaetung_h") or NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN)
+            if jetzt > veroeffentlichen + timedelta(hours=max_h):
                 raise Abbruch(f"zu spät fertig ({jetzt:%H:%M}), Folge wäre veraltet - nicht veröffentlicht")
             if jetzt < veroeffentlichen:
                 log(f"fertig um {jetzt:%H:%M}, warte bis {veroeffentlichen:%H:%M}")

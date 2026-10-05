@@ -95,6 +95,68 @@ class Zeitplan(Basis):
             tl.NEWS_WELTLAGE_SLOTS = slots
 
 
+class Rohschnitt0510(Basis):
+    """Vorfall 05.10.2026: 0 von 2 Folgen - Rohschnitt nach fester 8-h-Grenze abgeschossen, Zeitplan zu knapp."""
+
+    LOG = ("2026-10-05 04:38:04 $ tools/weltlage_tts.py C:\\x\n"
+           "2026-10-05 07:15:44 -> Exit 0\n"
+           "2026-10-05 07:15:44 $ tools/weltlage_rohschnitt.py C:\\x --out C:\\x\\y.mp4\n"
+           "  s5_01: 6.6 s Ton in 155 s gesynct\n"
+           "[out#0] Broken pipe2026-10-05 15:15:45 ABBRUCH in Schritt schnitt: timed out\n")
+
+    def test_schritt_dauern_auch_mitten_in_der_zeile(self):
+        d = tl.schritt_dauern(self.LOG)
+        self.assertAlmostEqual(d["stimme"], 2 * 3600 + 37 * 60 + 40)
+        self.assertAlmostEqual(d["schnitt"], 8 * 3600 + 1)
+
+    def test_schritt_dauern_laufend_zaehlt_als_untergrenze(self):
+        log = "\n".join(self.LOG.splitlines()[:4])
+        d = tl.schritt_dauern(log, datetime(2026, 10, 5, 9, 15, 44))
+        self.assertAlmostEqual(d["schnitt"], 2 * 3600)
+
+    def test_produktion_aus_logs_rechnet_auf_sprechdauer_hoch(self):
+        d = self.tmp / "data"
+        for name, sprech, log in [("weltlage_20261005_1100", 529, self.LOG),
+                                  ("weltlage_20261004_1100", 278, self.LOG.replace("15:15:45", "11:15:44"))]:
+            (d / name / "audio").mkdir(parents=True)
+            (d / name / "tageslauf.log").write_text(log, encoding="utf-8")
+            (d / name / "audio" / "s5.tts.json").write_text(json.dumps({"laenge_s": sprech}), encoding="utf-8")
+        h = tl.produktion_stunden(d)
+        stimme = 2 * 3600 + 37 * 60 + 40
+        rate = max((stimme + 8 * 3600 + 1) / 529, (stimme + 4 * 3600) / 278)   # langsamste Folge zaehlt
+        self.assertAlmostEqual(h, round(rate * 529 / 3600 + tl.NEBEN_OHNE_STIMME_STUNDEN, 2))
+        self.assertGreater(h, 10, "8-Min.-Folge mit Lipsync-HD braucht mehr als 10 h - nicht mehr 5,9 h")
+
+    def test_fremde_laeufe_nur_echte_aufrufe(self):
+        o = Path(r"C:\n\data\weltlage_20261005_1900")
+        pr = [{"pid": 1, "ppid": 9, "cmd": r"C:\n\.venv-lipsync\Scripts\python.exe tools/weltlage_rohschnitt.py "
+                                            r"C:\n\data\weltlage_20261005_1900 --out C:\n\data\weltlage_20261005_1900\a.mp4"},
+              {"pid": 2, "ppid": 1, "cmd": r'"C:\Py\python.exe" tools/weltlage_rohschnitt.py '
+                                           r"C:\n\data\weltlage_20261005_1900 --out x"},
+              {"pid": 3, "ppid": 8, "cmd": r"python.exe tools/weltlage_rohschnitt.py C:\n\data\weltlage_20261005_1100 --out y"},
+              {"pid": 4, "ppid": 7, "cmd": r"bash -c grep weltlage_rohschnitt.py C:\n\data\weltlage_20261005_1900"},
+              {"pid": 5, "ppid": 7, "cmd": r"python.exe tools/weltlage_rohschnitt.py C:\n\data\weltlage_20261005_19001 x"}]
+        self.assertEqual(tl.fremde_laeufe(pr, "weltlage_rohschnitt.py", o, True), [1], "venv-Starter, ohne grep")
+        self.assertEqual(tl.fremde_laeufe(pr, "weltlage_rohschnitt.py", o, False), [3, 5])
+
+    def test_run_beendet_nur_bei_stillstand(self):
+        alt = tl.POLL_S
+        tl.POLL_S = 0.2
+        try:
+            log = tl._Log(self.tmp / "t.log")
+            rc = tl._run(["-c", "import time; time.sleep(60)"], log, timeout_h=1, ordner=self.tmp, still_min=0.02)
+            self.assertEqual(rc, tl.STILLSTAND_RC)
+            rc = tl._run(["-c", "import time\nfor i in range(8):\n print(i, flush=True); time.sleep(0.4)"], log,
+                         timeout_h=1, ordner=self.tmp, still_min=0.02)
+            self.assertEqual(rc, 0, "Ausgabe alle 0,4 s = lebt, trotz 3,2 s Laufzeit > 1,2 s Stillstandsgrenze")
+        finally:
+            tl.POLL_S = alt
+
+    def test_verspaetung_pro_lauf(self):
+        tl._eintrag("2026-10-05_19:00", max_verspaetung_h=8)
+        self.assertEqual(tl._laden()["2026-10-05_19:00"]["max_verspaetung_h"], 8)
+
+
 class Entscheid(Basis):
     def test_text_auswerten(self):
         self.assertEqual(ent.text_auswerten("B, mehr zu China", "thema"), ("B", "mehr zu China"))
