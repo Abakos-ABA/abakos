@@ -21,7 +21,11 @@ siehe produktion_stunden) als eigener, losgeloester Prozess (pythonw, kein Fenst
   4 stimme      tools/weltlage_tts.py (Chatterbox-Klon laut Profil, GPU-Warteschlange; nur geaenderte Szenen neu)
   5 schnitt     tools/weltlage_rohschnitt.py (feste Szenen eingefroren, Lipsync Guidance 2.0, GPU-Warteschlange)
   6 broll       tools/weltlage_broll.py --video (NEWS_WELTLAGE_BROLL=1; gruene Quellen; Fehler -> ohne Clips weiter)
-  7 abnahme     tools/weltlage_abnahme.py (Fehler = nie automatisch veroeffentlichen, nur melden)
+  7 abnahme     tools/weltlage_abnahme.py (Fehler = nie automatisch veroeffentlichen, nur melden). Fehler "Folge zu
+                kurz" (Mindestlaenge 8:00 Min., Marlons Entscheid 04.10.2026 23:53): einmal automatisch ueber
+                tools/weltlage_ueberarbeiten.py verlaengern (mehr Tiefe statt Fuellstoff) und die Schritte
+                stimme..metadaten erneut rendern (MAX_LAENGE_RUNDEN); schlaegt das erneut fehl, Abbruch wie jeder
+                andere Abnahme-Fehler.
   8 thumbnail   video/weltlage_thumbnail.py (Latara-Foto nach Stimmung aus Marlons Ordner, rechts, textfrei)
   9 metadaten   Titel (staerkste Frage-Variante), Beschreibung, Tags -> metadaten.json
  10 warten      bis zur Slot-Zeit; mehr als NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN zu spaet -> verwerfen + Meldung
@@ -33,8 +37,12 @@ siehe produktion_stunden) als eigener, losgeloester Prozess (pythonw, kein Fenst
                 NEWS_WELTLAGE_FREIGABE_MINUTEN = automatisch veroeffentlichen.
  12 upload      upload/youtube_playwright.upload_datei (oeffentlich); NEWS_WELTLAGE_TROCKENLAUF=1 bzw. --trocken:
                 nie hochladen (Test)
- 13 endscreen   upload/endscreen_playwright.set_endscreen (Task 595e; Fehler = kein Abbruch)
- 14 meldung     Link an Telegram + Beta-App bzw. Fehlermeldung mit Schritt
+ 13 meldung     Link an Telegram + Beta-App bzw. Fehlermeldung mit Schritt
+
+Der fruehere Schritt "endscreen" (upload/endscreen_playwright.set_endscreen, YouTube-Studio-Endscreen "2 Video +
+Abo" per Playwright) ist seit 04.10.2026 entfernt (Marlon: die Video-Felder blieben leer, weil Studios eigene
+Automatik ohne genug Kanalhistorie nichts findet) - ersetzt durch die Szene Abschluss im Video selbst
+(tools/weltlage_abschluss.py: Latara, Logo, animierter Abo-Hinweis, keine Verweise auf andere Videos).
 
 Zustand: state/weltlage_tageslauf.json, Rueckfragen state/weltlage_entscheid/, Log pro Lauf <folge>/tageslauf.log.
 Pause ohne Code-Aenderung: Datei state/weltlage_tageslauf.pause anlegen (loeschen = weiter).
@@ -72,13 +80,14 @@ PY = ROOT / ".venv" / "Scripts" / "python.exe"
 PYW = ROOT / ".venv" / "Scripts" / "pythonw.exe"
 LS_PY = ROOT / ".venv-lipsync" / "Scripts" / "python.exe"
 SCHRITTE = ["thema", "skript", "aussprache", "bilder", "stimme", "schnitt", "broll", "abnahme", "thumbnail",
-            "metadaten", "warten", "freigabe", "upload", "endscreen", "meldung"]
+            "metadaten", "warten", "freigabe", "upload", "meldung"]
 PRODUKTION = ["stimme", "schnitt", "broll", "abnahme", "thumbnail", "metadaten"]   # nach Feedback erneut
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 KI_HINWEIS = ("Moderatorin Latara und ihre Stimme sind KI-generiert. Fakten und Zitate stammen aus den unten "
               "verlinkten Quellen; Lataras Einschätzungen sind im Video als ihre Meinung gekennzeichnet.")
 FESTE_TAGS = ["Weltlage Kompakt", "Nachrichten", "Weltpolitik", "Analyse", "Weltlage", "News Deutsch"]
 MAX_NEUSTARTS = 3
+MAX_LAENGE_RUNDEN = 1   # hoechstens ein automatischer Verlaengerungsversuch bei "Folge zu kurz" (Abnahme 4i)
 PUFFER_STUNDEN = 0.5
 # Produktion ohne Rohschnitt (Skript, Bilder, Stimme, B-Roll, Abnahme, Thumbnail), gemessen 02.10.: rund 1 h
 NEBENSCHRITTE_STUNDEN = 1.0
@@ -244,6 +253,16 @@ def _run(cmd: list, log, timeout_h: float = 6, python=None) -> int:
     return p.returncode
 
 
+def laenge_reparatur_noetig(info: dict, runden: int) -> str | None:
+    """Prueft, ob eine durchgefallene Abnahme (abnahme.json-Inhalt) am Fehler "Folge zu kurz" lag (Abnahme 4i,
+    Marlons Entscheid 04.10.2026 23:53) und noch ein automatischer Verlaengerungsversuch uebrig ist
+    (MAX_LAENGE_RUNDEN). Gibt die passende Fehlermeldung zurueck, sonst None (kein Laengenfehler oder Versuche
+    aufgebraucht - dann wie jeder andere Abnahme-Fehler abbrechen). Pure Funktion, offline testbar."""
+    if runden >= MAX_LAENGE_RUNDEN:
+        return None
+    return next((f for f in info.get("fehler") or [] if f.startswith("Folge zu kurz")), None)
+
+
 def bilder_holen(ordner: Path, log) -> dict:
     """Screenshots der Quellartikel pro verwendeter Meldung (wie data/<folge>/bilder_holen.py, jetzt allgemein)."""
     from video.sources import capture
@@ -265,7 +284,7 @@ def bilder_holen(ordner: Path, log) -> dict:
             dst = ordner / "bilder" / f"m{b['idx']}_{s['index']}.png"
             shutil.copy(s["png"], dst)
             res[b["idx"]].append({"png": str(dst), "source": s["source"], "domain": s["domain"], "title": s["title"],
-                                  "url": s["url"]})
+                                  "url": s["url"], "textzeichen": s.get("textzeichen")})
         shutil.rmtree(DATA_DIR / "broll" / f"{praefix}_{b['idx']}", ignore_errors=True)
         log(f"Bilder Meldung {b['idx']}: {len(shots)} ({', '.join(s['source'] for s in shots)})")
     if not any(res.values()):
@@ -566,7 +585,35 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
                 log("B-Roll fehlgeschlagen - Folge geht ohne Symbolclips raus")
         elif schritt == "abnahme":
             if _run(["tools/weltlage_abnahme.py", ordner, master], log, timeout_h=1) != 0:
-                raise Abbruch("Abnahme-Prüfung durchgefallen (Stimme/Lautheit/Ton/Zitate), siehe "
+                abn_pfad = master.with_name(master.stem + "_abnahme.json")
+                info = json.loads(abn_pfad.read_text(encoding="utf-8")) if abn_pfad.exists() else {}
+                runden = int((_laden().get(key) or {}).get("laenge_runden") or 0)
+                zu_kurz = laenge_reparatur_noetig(info, runden)
+                if zu_kurz:
+                    _eintrag(key, laenge_runden=runden + 1)
+                    log(f"Abnahme: {zu_kurz} - verlängere das Skript automatisch und rendere betroffene Szenen neu")
+                    from weltlage_ueberarbeiten import ueberarbeiten
+                    from weltlage_abnahme import MIN_DAUER_S
+                    # Wachstum nach tatsaechlichem Fehlbetrag statt fixer 20 % (Vorfall 04./05.10.2026: 20 % reichten
+                    # bei 321 s nie fuer 480 s - mathematisch unmoeglich; jetzt Fehlbetrag + 15 % Sicherheitsspanne).
+                    dauer_jetzt = float(info.get("dauer_s") or 0) or 1.0
+                    wachstum = max(20, round((MIN_DAUER_S * 1.15 / dauer_jetzt - 1) * 100))
+                    feedback = ("Die Folge ist zu kurz für YouTube-Mid-Roll-Werbung (Mindestlänge 8:00 Minuten). "
+                                f"Sie dauert jetzt nur {dauer_jetzt:.0f} s, noetig sind mindestens {MIN_DAUER_S:.0f} s. "
+                                "Verlängere JEDE Szene um echten zusätzlichen Inhalt bis an die erlaubte Obergrenze "
+                                "(mehr Hintergrund und Fakten aus dem Material, Gegenargumente, Einordnung, weitere "
+                                "Zitate) - keine Wiederholungen oder Füllsätze.")
+                    try:
+                        res = ueberarbeiten(ordner, feedback, 100 + runden, master, max_wachstum_prozent=wachstum)
+                    except Exception as ex:  # noqa: BLE001
+                        raise Abbruch(f"Abnahme-Prüfung durchgefallen ({zu_kurz}), automatische Verlängerung ging "
+                                      f"nicht ({str(ex)[:300]}) - nicht veröffentlicht")
+                    log(f"Verlängerung Szenen {res['szenen'] or '-'}: {res['zusammenfassung']}")
+                    if res["neu_rendern"]:
+                        for s in PRODUKTION:
+                            schritt_ausfuehren(s)
+                        return
+                raise Abbruch("Abnahme-Prüfung durchgefallen (Stimme/Lautheit/Ton/Zitate/Länge), siehe "
                               f"{master.stem}_abnahme.json - nicht veröffentlicht")
         elif schritt == "thumbnail":
             from video.weltlage_thumbnail import fuer_folge
@@ -612,20 +659,6 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
                                debug_dir=ordner / "upload_shots")
             _eintrag(key, video_id=res["video_id"], upload=res)
             log(f"Upload: {res}")
-        elif schritt == "endscreen":
-            video_id = (_laden().get(key) or {}).get("video_id")
-            if not video_id:
-                log("kein video_id - Endscreen übersprungen")
-                return
-            from upload.endscreen_playwright import EndscreenHaltedForReview, set_endscreen
-            try:
-                res = set_endscreen(video_id, log_path=ordner / "upload.log", debug_dir=ordner / "upload_shots",
-                                    save=True)
-                log(f"Endscreen: {res}")
-            except EndscreenHaltedForReview as ex:
-                log(f"Endscreen übersprungen: {ex}")
-            except Exception as ex:   # noqa: BLE001
-                log(f"Endscreen fehlgeschlagen (Folge bleibt veröffentlicht): {ex}")
         elif schritt == "meldung":
             e = _laden().get(key) or {}
             res = e.get("upload") or {}

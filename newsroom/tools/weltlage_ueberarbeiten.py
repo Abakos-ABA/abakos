@@ -32,7 +32,7 @@ FEST = {"s6_outro"}
 THUMB_FELDER = ("banderole", "zeile1", "zeile2", "farbe")
 
 
-def _prompt(texte: dict, feedback: str) -> str:
+def _prompt(texte: dict, feedback: str, max_wachstum_prozent: int = 20) -> str:
     szenen = [{"id": s["id"], "text": s["text"]} for s in texte["szenen"] if s["id"] not in FEST]
     return f"""Du bist Redakteur des deutschsprachigen YouTube-Analysekanals «Weltlage Kompakt» (Moderatorin Latara).
 Die Folge unten ist fertig produziert. Marlon (Kanalchef) hat sie angesehen und will Aenderungen:
@@ -43,7 +43,8 @@ FEEDBACK VON MARLON:
 Setze genau dieses Feedback um, so knapp wie moeglich: aendere nur Szenen, die das Feedback betrifft (jede geaenderte
 Szene muss neu vertont und neu gerendert werden - also nichts ohne Grund anfassen). Behalte Stil, Ich-Form, markierte
 Meinungssaetze, Bild-Marker in eckigen Klammern und alle Fakten bei; erfinde keine neuen Fakten, Zahlen oder Zitate
-(nur Umformulieren, Kuerzen, Umstellen, Gewichten). Laenge einer Szene hoechstens 20 Prozent laenger als vorher.
+(nur Umformulieren, Kuerzen, Umstellen, Gewichten). Laenge einer Szene hoechstens {max_wachstum_prozent} Prozent
+laenger als vorher.
 Schweizer Schreibweise (ss statt sz). Titel: zugespitzte Frage, hoechstens 70 Zeichen, nie faktisch falsch.
 
 Antworte NUR mit JSON:
@@ -58,9 +59,10 @@ SZENEN:
 """
 
 
-def pruefen(antwort: dict, texte: dict) -> list[str]:
+def pruefen(antwort: dict, texte: dict, max_wachstum_prozent: int = 20) -> list[str]:
     fehler = []
     ids = {s["id"]: s for s in texte["szenen"]}
+    grenze = 1 + (max_wachstum_prozent + 15) / 100  # 15 Prozentpunkte Puffer gegen leichtes Ueberschiessen
     for sid, neu in (antwort.get("szenen") or {}).items():
         if sid in FEST:
             fehler.append(f"{sid} ist eine feste Szene und darf nicht geaendert werden")
@@ -68,7 +70,7 @@ def pruefen(antwort: dict, texte: dict) -> list[str]:
             fehler.append(f"unbekannte Szene {sid}")
         elif not str(neu or "").strip():
             fehler.append(f"{sid}: leerer Text")
-        elif len(str(neu)) > 1.35 * len(ids[sid]["text"]) + 80:
+        elif len(str(neu)) > grenze * len(ids[sid]["text"]) + 80:
             fehler.append(f"{sid}: deutlich zu lang ({len(str(neu))} statt {len(ids[sid]['text'])} Zeichen)")
     t = antwort.get("titel")
     if t and (len(t) > 100 or not str(t).strip()):
@@ -79,17 +81,17 @@ def pruefen(antwort: dict, texte: dict) -> list[str]:
     return fehler
 
 
-def vorschlag(texte: dict, feedback: str, modell=None) -> dict:
+def vorschlag(texte: dict, feedback: str, modell=None, max_wachstum_prozent: int = 20) -> dict:
     if modell is None:
         from weltlage_skript import frage_modell as modell
     from weltlage_skript import _ss
-    prompt = _prompt(texte, feedback)
+    prompt = _prompt(texte, feedback, max_wachstum_prozent)
     a = _ss(modell(prompt))
-    fehler = pruefen(a, texte)
+    fehler = pruefen(a, texte, max_wachstum_prozent)
     if fehler:
         a2 = _ss(modell(prompt + "\n\nDein letzter Vorschlag hatte diese Fehler, behebe jeden:\n"
                         + "\n".join(f"- {f}" for f in fehler)))
-        f2 = pruefen(a2, texte)
+        f2 = pruefen(a2, texte, max_wachstum_prozent)
         if len(f2) < len(fehler):
             a, fehler = a2, f2
     if fehler:
@@ -126,9 +128,10 @@ def anwenden(ordner: Path, antwort: dict, runde: int, master: Path | None = None
             "zusammenfassung": antwort.get("zusammenfassung") or ""}
 
 
-def ueberarbeiten(ordner: Path, feedback: str, runde: int, master: Path | None = None, modell=None) -> dict:
+def ueberarbeiten(ordner: Path, feedback: str, runde: int, master: Path | None = None, modell=None,
+                  max_wachstum_prozent: int = 20) -> dict:
     texte = json.loads((ordner / "texte.json").read_text(encoding="utf-8"))
-    a = vorschlag(texte, feedback, modell)
+    a = vorschlag(texte, feedback, modell, max_wachstum_prozent)
     (ordner / f"feedback_{runde}.json").write_text(json.dumps({"feedback": feedback, "antwort": a}, indent=1,
                                                               ensure_ascii=False), encoding="utf-8")
     return anwenden(ordner, a, runde, master)

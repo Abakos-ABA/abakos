@@ -79,16 +79,28 @@ def ort_fuer_abschnitt(a: dict) -> str:
     if a.get("rolle") == "kontext":
         return "hoersaal"
     return "studio"
-# Ziellaenge des Sprechtexts ohne Hook (Analyse-Prompt, Platzhalter {{LAENGE}}). "folge" (Standard seit 01.10.2026):
-# fertige Folge rund 4 bis 5 Minuten wie die bisherigen (Kerstin Tempo 1.15 spricht ~145 Woerter/min; dazu Cold Open,
-# Themen, feste Teile ~1:10). Gekuerzt wird ueber weniger Nebenstraenge, nie ueber weniger Zitate.
+# Ziellaenge des Sprechtexts ohne Hook (Analyse-Prompt, Platzhalter {{LAENGE}}). "folge" (Standard, seit 04.10.2026
+# Mindestlaenge 8:00 Minuten, Marlons Entscheid 04.10.2026 23:53: YouTube erlaubt Mid-Roll-Werbung erst ab 8 Minuten
+# Videolaenge; bis dahin galten 380-520 Woerter fuer rund 4-5 Minuten). Erste Kalibrierung an data/weltlage_20261004_1100
+# (607 Woerter -> 5:22, rund 113 Woerter/Videominute) ergab 850-1080 Woerter als Ziel - zu knapp: zwei echte Folgen
+# (weltlage_20261004_1935) kamen bei 695-808 Woertern nur auf 321-366 s und fielen durch die Abnahme (Vorfall
+# 05.10.2026, siehe reports/weltlage_wache). Reale Rate lag dort bei 0.45-0.46 s/Wort statt der angenommenen 0.53 -
+# auf 1100 bis 1400 Woerter angehoben, damit selbst am unteren Rand mit der schnellsten gemessenen Rate sicher ueber
+# 8:00 (Puffer ca. 10 %) gelandet wird; Ziel bleibt rund 8:30 bis 11:00 fertige Folge - der haertere Puffer
+# gegenueber der blossen Abnahme-Grenze (8:00, siehe tools/weltlage_abnahme.py MIN_DAUER_S) faengt Schwankungen in
+# Tempo/B-Roll ab. Gekuerzt wird ueber weniger Nebenstraenge, nie ueber weniger Zitate; verlaengert wird ueber mehr
+# Tiefe (Hintergrund, Gegenargumente, Einordnung), nie ueber Fuellsaetze/Wiederholungen.
 LAENGEN = {
-    "folge": (380, 520, "Gesamtlänge des Sprechtexts ohne Hook: 380 bis 520 Wörter (etwa 2,5 bis 3,5 Minuten; die "
-                        "fertige Folge dauert damit rund vier bis fünf Minuten). Höchstens 5 Abschnitte. Kürze über "
-                        "weniger Nebenstränge: konzentriere dich auf die stärkste Geschichte und höchstens eine "
-                        "verbundene zweite, lass Meldungen weg, die den roten Faden nicht tragen, und fasse "
-                        "Ausgangslage/Wendepunkt oder Relevanz/Einordnung zusammen, wenn das kürzer ist. Die Zitate "
-                        "werden NICHT gekürzt: auch in der kurzen Fassung mindestens 4 echte Zitate."),
+    "folge": (1100, 1400, "Gesamtlänge des Sprechtexts ohne Hook: 1100 bis 1400 Wörter (damit die fertige Folge "
+                        "inklusive Bildern, Übergängen und Outro sicher über 8:00 Minuten liegt, Ziel 8:30 bis "
+                        "11:00 - YouTube erlaubt Mid-Roll-Werbung erst ab 8 Minuten). Nutze mehrere "
+                        "Dramaturgie-Abschnittsrollen (Ausgangslage, Wendepunkt, Kontext, Verbindung, "
+                        "Gegenargument, Relevanz, Einordnung, Schluss), etwa 6 bis 9 Abschnitte. Vertiefe mit "
+                        "echtem zusätzlichem Inhalt statt zu strecken: mehr Hintergrund und Fakten aus dem "
+                        "Material, eine zweite Frage zum Thema, ein eigener Abschnitt Gegenargument, mehr Zitate "
+                        "verteilt über das ganze Skript - keine Wiederholungen oder Füllsätze. Die Zitate werden "
+                        "nie gekürzt: mindestens 5 echte Zitate, nach Möglichkeit mehr, von mindestens zwei "
+                        "verschiedenen Personen."),
     "lang": (700, 1300, "Gesamtlänge des Sprechtexts ohne Hook: 700 bis 1300 Wörter (etwa 5 bis 9 Minuten)."),
     "doku": (1300, 2700, "Gesamtlänge des Sprechtexts ohne Hook: 1300 bis 2700 Wörter (etwa 10 bis 20 Minuten als "
                         "lange Folge). Nutze alle Abschnittsrollen der Dramaturgie (Ausgangslage, Wendepunkt, "
@@ -269,9 +281,14 @@ def pruefen(s: dict, anzahl_meldungen: int, prompt_name: str, laenge: str = "lan
         hart.append("Keine Bild-Marker im Skript.")
     wort = len(sprechtext(" ".join(a.get("text") or "" for a in abschnitte)).split())
     lo, hi, _ = LAENGEN[laenge]
-    if prompt_name == "analyse" and laenge == "folge" and not lo * 0.85 <= wort <= hi * 1.15:
-        hart.append(f"Sprechtext ohne Hook hat {wort} Wörter, Ziel {lo} bis {hi}: kürze über weniger Nebenstränge "
-                    f"(Abschnitte zusammenfassen oder weglassen), behalte alle Zitate.")
+    # Beim unteren Rand keine Toleranz (Vorfall 05.10.2026): "folge" haengt direkt an der Abnahme-Mindestlaenge
+    # (weltlage_abnahme.py MIN_DAUER_S) - zu wenige Woerter duerfen nicht als blosser Hinweis durchgehen, sonst
+    # erreicht die fertige Folge YouTube-Mid-Roll-Werbung nie und die automatische Nachbesserung kommt zu spaet.
+    if prompt_name == "analyse" and laenge == "folge" and not lo <= wort <= hi * 1.15:
+        hart.append(f"Sprechtext ohne Hook hat {wort} Wörter, Ziel {lo} bis {hi}: "
+                    + (f"kürze über weniger Nebenstränge (Abschnitte zusammenfassen oder weglassen), behalte alle "
+                       f"Zitate." if wort > hi * 1.15 else f"vertiefe mit echtem zusätzlichem Inhalt (mehr "
+                       f"Hintergrund, Gegenargumente, Zitate), keine Füllsätze."))
     elif prompt_name == "analyse" and not lo <= wort <= hi:
         hinweis.append(f"Sprechtext ohne Hook hat {wort} Wörter (Ziel {lo} bis {hi}).")
     return hart, hinweis
@@ -612,7 +629,8 @@ def main():
     ap.add_argument("--ohne-aussagen", action="store_true",
                     help="keine Originalkanaele (Truth Social, Telegram, ...) ins Material (nur Prompt analyse)")
     ap.add_argument("--laenge", choices=sorted(LAENGEN), default=NEWS_WELTLAGE_SKRIPT_LAENGE,
-                    help="folge = rund 4-5 Min. fertige Folge (Standard), lang = 5-9 Min., "
+                    help="folge = rund 8:30-10 Min. fertige Folge (Standard seit 04.10.2026, Mindestlaenge 8:00 "
+                         "fuer YouTube-Werbung), lang = 5-9 Min. Sprechtext, "
                          "doku = 10-20 Min. lange Folge, Sprechtext")
     ap.add_argument("--texte", action="store_true", help="texte.json im Folgenordner schreiben (sonst nur Entwurf)")
     ap.add_argument("--vorgabe", type=Path, help="Storyline-Vorgabe (Text: Titel-Frage, Inhalt, Marlons Hinweise) aus "
