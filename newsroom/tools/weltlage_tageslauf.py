@@ -910,7 +910,10 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
                 log(f"angehalten nach Schritt {schritt} (--bis)")
                 return 0
         if nur:
-            _eintrag(key, status="probe", schritte=nur)
+            # Vorfall 06.10.2026: ein per --nur upload,meldung nachgeholter Upload setzte «unbestaetigt» -> «probe»
+            # zurueck, die Weltlage-Wache sah das Entwurfs-Video danach nicht mehr. Upload-Ergebnis bleibt stehen.
+            st = (_laden().get(key) or {}).get("status")
+            _eintrag(key, schritte=nur, **({} if st in ("veroeffentlicht", "unbestaetigt") else {"status": "probe"}))
         log("Tageslauf fertig")
         return 0
     except Gestoppt as e:

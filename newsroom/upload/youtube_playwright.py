@@ -27,9 +27,21 @@ bestaetigt ("dialog zu ohne bestaetigung"), das Video blieb ein privater Entwurf
 Hand oeffentlich gestellt werden. upload_datei() prueft darum den echten Status per oEmbed
 (oeffentlich_pruefen) und zieht die Sichtbarkeit bei Bedarf selbst ueber Studios Bearbeiten-Seite
 nach (visibility_setzen) statt nur zu melden; schlaegt auch das fehl, bleibt es bei der Meldung.
+
+Vorfall 06.10.2026 (Bolsonaro-Folge, gleiche Ursache wie Fairford): Studio zeigt nach «Veroeffentlichen» den neuen
+Zwischendialog «Die Vorabpruefung deiner Inhalte laeuft noch» (Trotzdem veroeffentlichen / Zurueck). Ohne Klick bleibt
+das Video ein ENTWURF; der alte Nachzug suchte auf der Bearbeiten-Seite das Sichtbarkeits-Feld, das es bei Entwuerfen
+nicht gibt («Entwurf bearbeiten»), und lief in den Timeout. Seither: vor dem Klick auf die Vorabpruefung warten
+(_warte_auf_pruefung), den Zwischendialog erkennen und bestaetigen (_trotzdem_knopf), und nach jedem Upload
+veroeffentlichen() - frischer Seitenaufruf, Studio-Status lesen (ENTWURF/PUBLIC/UNLISTED/PRIVATE), Entwurf ueber den
+Assistenten bzw. Sichtbarkeit ueber die Bearbeiten-Seite abschliessen, erneut frisch pruefen, bis zu 3 Versuche.
+Das Studio-Profil ist mit einer Sperrdatei gegen gleichzeitige Zugriffe (Upload + Weltlage-Wache) geschuetzt.
 """
+import json
 import logging
+import os
 import re
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -42,8 +54,121 @@ from upload.metadata import build as build_metadata
 
 logger = logging.getLogger(__name__)
 
-STEP_TIMEOUT_MS = 60_000
+STEP_TIMEOUT_MS = 120_000        # 06.10.2026: 60 s reichten fuer Studios Bearbeiten-Seite nicht immer
 UPLOAD_TIMEOUT_MS = 20 * 60_000   # file transfer + processing of the dialog, generous on purpose
+PRUEF_WARTEN_MIN = float(os.environ.get("NEWS_UPLOAD_PRUEF_WARTEN_MIN", "20"))   # Vorabpruefung abwarten
+VEROEFFENTLICHEN_VERSUCHE = int(os.environ.get("NEWS_UPLOAD_VEROEFFENTLICHEN_VERSUCHE", "3"))
+SPERRE = Path(__file__).resolve().parents[1] / "state" / "playwright_profile.lock"
+SPERRE_WARTEN_S = 30 * 60
+
+# Studio folgt der Sprache des Google-Kontos (deutsch), darum immer beide Sprachen.
+_VORAB_LAEUFT = re.compile(r"vorabprüfung[^.]{0,60}läuft noch|checks?[^.]{0,30}still running|still checking", re.I)
+_TROTZDEM = re.compile(r"^\s*(trotzdem veröffentlichen|publish anyway)\s*$", re.I)
+_PRUEFUNG_LAEUFT = re.compile(r"wird geprüft|prüfung läuft|überprüfung läuft|checking", re.I)
+_ENTWURF = re.compile(r"status\s*[„\"»«]?\s*entwurf|is a draft|\bentwurf bearbeiten\b|\bedit draft\b", re.I)
+_ENTWURF_KNOPF = re.compile(r"^\s*(entwurf bearbeiten|edit draft)\s*$", re.I)
+_SICHT_MUSTER = (("UNLISTED", re.compile(r"nicht gelistet|\bunlisted\b", re.I)),
+                 ("PRIVATE", re.compile(r"\bprivat(e)?\b", re.I)),
+                 ("PUBLIC", re.compile(r"öffentlich|\bpublic\b", re.I)))
+_DIALOGE = "tp-yt-paper-dialog:visible, ytcp-dialog:visible, [role=dialog]:visible, [role=alertdialog]:visible"
+
+
+def zwischendialog_art(text: str) -> str | None:
+    """'vorab_laeuft', wenn der Text Studios Zwischendialog «Vorabpruefung laeuft noch» ist (Vorfall 06.10.2026)."""
+    return "vorab_laeuft" if _VORAB_LAEUFT.search(" ".join((text or "").split())) else None
+
+
+def pruefung_laeuft(text: str) -> bool:
+    """True, solange der Fortschrittstext des Upload-Dialogs die Vorabpruefung als laufend zeigt
+    («Wird geprüft: 7 % ... Noch 10 Minuten»)."""
+    return bool(_PRUEFUNG_LAEUFT.search(text or ""))
+
+
+def sichtbarkeit_aus_text(text: str) -> str | None:
+    """PUBLIC/UNLISTED/PRIVATE aus dem Sichtbarkeits-Feld der Bearbeiten-Seite; None wenn keins oder mehrdeutig."""
+    t = " ".join((text or "").split())
+    treffer = {name for name, rx in _SICHT_MUSTER if rx.search(t)}
+    return treffer.pop() if len(treffer) == 1 else None
+
+
+def studio_status_aus(seitentext: str, sicht_text: str) -> str:
+    """ENTWURF | PUBLIC | UNLISTED | PRIVATE | UNBEKANNT aus Seitentext und Sichtbarkeits-Feld der Bearbeiten-Seite."""
+    if _ENTWURF.search(seitentext or ""):
+        return "ENTWURF"
+    return sichtbarkeit_aus_text(sicht_text) or "UNBEKANNT"
+
+
+def _pid_lebt(pid: int) -> bool:
+    if pid == os.getpid():
+        return True
+    if os.name == "nt":
+        import ctypes
+        k = ctypes.windll.kernel32
+        h = k.OpenProcess(0x1000, False, int(pid))     # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return False
+        try:
+            code = ctypes.c_ulong()
+            return bool(k.GetExitCodeProcess(h, ctypes.byref(code))) and code.value == 259   # STILL_ACTIVE
+        finally:
+            k.CloseHandle(h)
+    try:
+        os.kill(int(pid), 0)
+        return True
+    except OSError:
+        return False
+
+
+_sperre_tiefe = 0
+
+
+def sperre_holen(datei: Path = None, warten_s: float = SPERRE_WARTEN_S) -> None:
+    """Exklusiver Zugriff auf das Studio-Profil (Chromium erlaubt nur einen Browser pro Profil): Upload, Nachzug und
+    Weltlage-Wache warten aufeinander statt sich gegenseitig den Start zu verderben. Verwaiste Sperre (Prozess tot)
+    wird uebernommen. Im selben Prozess verschachtelt aufrufbar."""
+    global _sperre_tiefe
+    datei = datei or SPERRE
+    if _sperre_tiefe:
+        _sperre_tiefe += 1
+        return
+    datei.parent.mkdir(parents=True, exist_ok=True)
+    ende = time.time() + warten_s
+    while True:
+        try:
+            fd = os.open(str(datei), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            with os.fdopen(fd, "w") as f:
+                f.write(str(os.getpid()))
+            _sperre_tiefe = 1
+            return
+        except FileExistsError:
+            try:
+                pid = int(datei.read_text().strip() or 0)
+            except (OSError, ValueError):
+                pid = 0
+            alt = time.time() - datei.stat().st_mtime if datei.exists() else 0
+            if (pid and not _pid_lebt(pid)) or (not pid and alt > 60):
+                try:
+                    datei.unlink()
+                except OSError:
+                    pass
+                continue
+            if time.time() > ende:
+                raise RuntimeError(f"Studio-Profil seit {warten_s / 60:.0f} min von PID {pid} belegt")
+            time.sleep(5)
+
+
+def sperre_freigeben(datei: Path = None) -> None:
+    global _sperre_tiefe
+    if _sperre_tiefe == 0:
+        return
+    if _sperre_tiefe > 1:
+        _sperre_tiefe -= 1
+        return
+    _sperre_tiefe = 0
+    try:
+        (datei or SPERRE).unlink()
+    except OSError:
+        pass
 
 # Upload-Fortschritt im Dialog (01.10.2026, Faden f-youtube-upload-warten-auf-veroeffentlich): Studio folgt der
 # Sprache des Google-Kontos (deutsch), nicht dem Browser - darum beide Sprachen. Vorfall 01.10.: «Fertig» wurde
@@ -139,27 +264,99 @@ def _thumbnail_setzen(page, thumb_path, log, shot) -> str:
     return "gesetzt" if eigen else "unklar: keine Vorschau des eigenen Bildes sichtbar"
 
 
-def _bestaetigung(page, visibility: str, log, timeout_s: int = 600, zu_gnade_s: int = 60) -> str:
+def _sichtbar_text(page, sel: str) -> str | None:
+    """Text eines Studio-Elements, wenn es selbst oder ein Dialog darin sichtbar ist (die ytcp-*-Huellen haben oft
+    keine eigene Groesse, dann meldet is_visible() False, obwohl der Dialog offen ist)."""
+    loc = page.locator(sel)
+    try:
+        if not loc.count():
+            return None
+        el = loc.first
+        if el.is_visible() or el.locator("tp-yt-paper-dialog:visible, [role=dialog]:visible").count():
+            return " ".join(el.inner_text()[:600].split())
+    except Exception:   # noqa: BLE001 - Element verschwindet waehrend des Lesens
+        return None
+    return None
+
+
+def _trotzdem_knopf(page):
+    """(Knopf, Dialogtext) fuer «Trotzdem veroeffentlichen», aber nur im Zwischendialog «Vorabpruefung laeuft noch»
+    (Vorfall 06.10.2026). Andere Warnungen (gefundene Probleme) werden nie automatisch weggeklickt."""
+    try:
+        for d in page.locator(_DIALOGE).all():
+            try:
+                text = " ".join(d.inner_text()[:800].split())
+            except Exception:   # noqa: BLE001
+                continue
+            if zwischendialog_art(text) != "vorab_laeuft":
+                continue
+            for b in (d.get_by_role("button", name=_TROTZDEM), d.get_by_text(_TROTZDEM)):
+                if b.count() and b.first.is_visible():
+                    return b.first, text
+        b = page.get_by_role("button", name=_TROTZDEM)
+        if b.count() and b.first.is_visible() and zwischendialog_art(page.inner_text("body")) == "vorab_laeuft":
+            return b.first, "Vorabprüfung läuft noch (Seitentext)"
+    except Exception:   # noqa: BLE001
+        pass
+    return None, ""
+
+
+def _warte_auf_pruefung(page, log, max_min: float = PRUEF_WARTEN_MIN) -> str:
+    """Vor dem Klick auf Veroeffentlichen: Studios Vorabpruefung abwarten (sonst kommt der Zwischendialog, Vorfall
+    06.10.2026). Nach max_min wird trotzdem veroeffentlicht (Marlons Dauerfreigabe), der Dialog wird dann bestaetigt."""
+    ende, letzt_log, text = time.time() + max_min * 60, 0.0, ""
+    while time.time() < ende:
+        try:
+            text = page.evaluate(_FORTSCHRITT_JS)
+        except Exception:   # noqa: BLE001
+            text = ""
+        if not pruefung_laeuft(text):
+            return text
+        if time.time() - letzt_log > 60:
+            log(f"Vorabprüfung läuft: «{text[:120]}»")
+            letzt_log = time.time()
+        page.wait_for_timeout(5000)
+    log(f"Vorabprüfung nach {max_min:.0f} min noch nicht fertig («{text[:120]}») - veröffentliche trotzdem")
+    return text
+
+
+def _bestaetigung(page, visibility: str, log, timeout_s: int = 600, zu_gnade_s: int = 90) -> str:
     """Nach «Speichern/Veroeffentlichen»: wartet auf Studios Bestaetigung. Oeffentlich/nicht gelistet zeigt Studio
     den Dialog «Video veroeffentlicht» (ytcp-video-share-dialog) oder «wird noch verarbeitet, danach
     veroeffentlicht» (ytcp-uploads-still-processing-dialog); privat schliesst sich der Dialog nur.
     Vorfall 02./03.10.2026: nach dem Schliessen des Upload-Dialogs wurde nur EINMAL 3 s nachgeprueft, bevor
     "dialog zu ohne bestaetigung" gemeldet wurde - der Bestaetigungsdialog kann aber deutlich spaeter kommen.
-    Jetzt: nach dem Schliessen weiter im selben Zeitbudget pollen, erst nach zu_gnade_s ohne Bestaetigung aufgeben."""
-    import time
-    zu_seit = None
-    for _ in range(timeout_s):
+    Jetzt: nach dem Schliessen weiter im selben Zeitbudget pollen, erst nach zu_gnade_s ohne Bestaetigung aufgeben.
+    Vorfall 06.10.2026: der Zwischendialog «Vorabpruefung laeuft noch» wird mit «Trotzdem veroeffentlichen»
+    bestaetigt (hoechstens 3 Mal); ob das Video danach wirklich oeffentlich ist, prueft veroeffentlichen() frisch."""
+    zu_seit, trotzdem = None, 0
+    ende = time.time() + timeout_s
+    while time.time() < ende:
         for sel, art in (("ytcp-video-share-dialog", "veroeffentlicht"),
-                         ("ytcp-uploads-still-processing-dialog", "wird nach der Verarbeitung veroeffentlicht"),
-                         ("ytcp-prechecks-warning-dialog", "Warnung vor Veroeffentlichung")):
-            loc = page.locator(sel)
-            if loc.count() and loc.first.is_visible():
-                text = loc.first.inner_text()[:300].replace("\n", " | ")
-                log(f"Studio-Bestätigung ({sel}): {text}")
-                if art.startswith("Warnung"):
-                    raise RuntimeError(f"Studio zeigt eine Warnung vor dem Veroeffentlichen: {text}")
+                         ("ytcp-uploads-still-processing-dialog", "wird nach der Verarbeitung veroeffentlicht")):
+            text = _sichtbar_text(page, sel)
+            if text:
+                log(f"Studio-Bestätigung ({sel}): {text[:300]}")
                 return art
-        zu = not page.locator("ytcp-uploads-dialog").count() or not page.locator("ytcp-uploads-dialog").first.is_visible()
+        knopf, text = _trotzdem_knopf(page)
+        if knopf is not None and trotzdem < 3:
+            trotzdem += 1
+            log(f"Studio-Zwischendialog «{text[:160]}» - klicke «Trotzdem veröffentlichen» ({trotzdem}/3)")
+            try:
+                knopf.click()
+            except Exception as e:   # noqa: BLE001
+                log(f"Klick auf «Trotzdem veröffentlichen» fehlgeschlagen: {e}")
+            zu_seit = None
+            page.wait_for_timeout(3000)
+            continue
+        text = _sichtbar_text(page, "ytcp-prechecks-warning-dialog")
+        if text and zwischendialog_art(text) != "vorab_laeuft":
+            log(f"Studio-Warnung (ytcp-prechecks-warning-dialog): {text[:300]}")
+            raise RuntimeError(f"Studio zeigt eine Warnung vor dem Veroeffentlichen: {text[:300]}")
+        try:
+            zu = not page.locator("#done-button:visible").count() and not _sichtbar_text(page, "ytcp-uploads-dialog")
+        except Exception:   # noqa: BLE001
+            zu = False
         if zu and visibility == "PRIVATE":
             return "privat gespeichert"
         if zu:
@@ -182,65 +379,207 @@ def braucht_nachzug(ergebnis: dict, visibility: str) -> bool:
     return visibility.upper() != "PRIVATE" and ergebnis.get("oeffentlich_bestaetigt") is False
 
 
-def visibility_setzen(video_id: str, visibility: str, log=None, debug_dir=None) -> None:
-    """Setzt die Sichtbarkeit eines schon hochgeladenen Videos nachtraeglich ueber Studios Bearbeiten-Seite (keine
-    neue Datei, nur das Sichtbarkeits-Feld). Selektoren stammen aus den am 25./28.09.2026 gegen die echte
-    Studio-Seite verifizierten Skripten _work/youtube_upload/set_public.py und set_private.py (Screenshots
-    pub1-3.png/priv1-4.png), mit denen die Fairford-Folge am 06.10.2026 von Hand oeffentlich gestellt wurde."""
+def _sichtbarkeit_lesen(page) -> str:
+    """Text des Sichtbarkeits-Felds der Bearbeiten-Seite; Rueckfall: welche der exakten Beschriftungen sichtbar sind
+    (so hat der Helfer-Worker am 06.10.2026 «Öffentlich» bestaetigt)."""
+    for sel in ("ytcp-video-metadata-visibility", "#visibility-text", "ytcp-video-visibility-select"):
+        loc = page.locator(sel)
+        try:
+            for i in range(min(loc.count(), 3)):
+                el = loc.nth(i)
+                if el.is_visible():
+                    t = el.inner_text()
+                    if sichtbarkeit_aus_text(t):
+                        return t
+        except Exception:   # noqa: BLE001
+            continue
+    sichtbar = []
+    for label in ("Öffentlich", "Nicht gelistet", "Privat", "Public", "Unlisted", "Private"):
+        try:
+            loc = page.get_by_text(label, exact=True)
+            if loc.count() and loc.first.is_visible():
+                sichtbar.append(label)
+        except Exception:   # noqa: BLE001
+            continue
+    return " ".join(sichtbar)
+
+
+def _status_seite(page, video_id: str, warten_s: float = 60) -> str:
+    """Frischer Aufruf der Bearbeiten-Seite: ENTWURF | PUBLIC | UNLISTED | PRIVATE | UNBEKANNT."""
+    page.goto(f"https://studio.youtube.com/video/{video_id}/edit", wait_until="domcontentloaded")
+    ende, titel_seit = time.time() + warten_s, None
+    while time.time() < ende:
+        try:
+            text = page.inner_text("body")
+        except Exception:   # noqa: BLE001
+            text = ""
+        if _ENTWURF.search(text):
+            return "ENTWURF"
+        try:
+            titel = page.locator("#title-textarea #textbox").count() > 0
+        except Exception:   # noqa: BLE001
+            titel = False
+        if titel:
+            titel_seit = titel_seit or time.time()
+            st = studio_status_aus(text, _sichtbarkeit_lesen(page))
+            if st != "UNBEKANNT" and time.time() - titel_seit > 2:   # Entwurfs-Hinweis kommt evtl. kurz danach
+                return st
+        page.wait_for_timeout(1000)
+    return "UNBEKANNT"
+
+
+def _entwurf_abschliessen(page, visibility: str, log, shot) -> None:
+    """Entwurf (Vorfall 06.10.2026): «Entwurf bearbeiten» oeffnet den Upload-Assistenten wieder; bis zur Sichtbarkeit
+    weiterklicken, Sichtbarkeit waehlen, Vorabpruefung abwarten, Veroeffentlichen, Zwischendialog bestaetigen."""
+    knopf = page.get_by_role("button", name=_ENTWURF_KNOPF)
+    if not knopf.count():
+        knopf = page.get_by_text(_ENTWURF_KNOPF)
+    knopf.first.click()
+    page.wait_for_selector("#next-button", state="visible")
+    radio = page.locator(f'tp-yt-paper-radio-button[name="{visibility}"]')
+    for _ in range(6):        # Details -> Video-Elemente -> Vorabpruefung -> Sichtbarkeit
+        if radio.count() and radio.first.is_visible():
+            break
+        page.locator("#next-button").first.click()
+        page.wait_for_timeout(2500)
+    _click_radio(page, visibility)
+    shot("entwurf_sichtbarkeit")
+    _warte_auf_pruefung(page, log)
+    page.wait_for_function(
+        "() => { const b = document.querySelector('#done-button'); "
+        "return b && b.getAttribute('aria-disabled') !== 'true' && !b.hasAttribute('disabled'); }",
+        timeout=STEP_TIMEOUT_MS)
+    page.locator("#done-button").first.click()
+    log(f"Entwurf: Sichtbarkeit {visibility} gewählt und Veröffentlichen geklickt")
+    _bestaetigung(page, visibility, log, timeout_s=300)
+    shot("entwurf_bestaetigung")
+    page.wait_for_timeout(5000)
+
+
+def _sichtbarkeit_bearbeiten(page, visibility: str, log, shot) -> None:
+    """Schon veroeffentlichtes/privates Video: Sichtbarkeits-Feld der Bearbeiten-Seite. Selektoren aus den am
+    25./28.09.2026 gegen die echte Studio-Seite verifizierten Skripten _work/youtube_upload/set_public.py und
+    set_private.py."""
+    auswahl = page.locator("ytcp-video-metadata-visibility #select-button, #visibility-text, "
+                           "ytcp-icon-button.ytcp-video-metadata-visibility").first
+    auswahl.wait_for(state="visible")
+    auswahl.click()
+    page.wait_for_selector(f'tp-yt-paper-radio-button[name="{visibility}"]', state="attached")
+    shot("visibility_01_dialog")
+    _click_radio(page, visibility)
+    teilspeichern = page.locator("#save-button").first
+    teilspeichern.wait_for(state="visible")
+    teilspeichern.click()
+    page.wait_for_timeout(3000)
+    for _ in range(3):
+        knopf, text = _trotzdem_knopf(page)
+        if knopf is None:
+            break
+        log(f"Studio-Zwischendialog «{text[:160]}» - klicke «Trotzdem veröffentlichen»")
+        knopf.click()
+        page.wait_for_timeout(3000)
+    haupt = page.locator("#save").first
+    if haupt.count() and haupt.get_attribute("aria-disabled") != "true":
+        haupt.click()
+        page.wait_for_timeout(3000)
+    shot("visibility_02_gespeichert")
+    log(f"Sichtbarkeit auf {visibility} gespeichert (Studio-Bearbeiten-Seite)")
+
+
+def veroeffentlichen(video_id: str, visibility: str = "PUBLIC", log=None, debug_dir=None,
+                     versuche: int | None = None, pause_s: float = 45) -> dict:
+    """Bringt ein hochgeladenes Video sicher auf die Ziel-Sichtbarkeit und prueft das jedes Mal per frischem
+    Seitenaufruf (Vorfall Bolsonaro-Folge 06.10.2026: Entwurf statt oeffentlich). Pro Durchgang: Status lesen; Ziel
+    erreicht -> fertig; ENTWURF -> Assistent abschliessen; sonst Sichtbarkeits-Feld; dann frisch nachpruefen.
+    Rueckgabe: ok, status (letzter Studio-Status), versuche (Eingriffe), nachgezogen, verlauf, fehler.
+    Ist der Studio-Status nicht lesbar (Seite umgebaut), entscheidet bei PUBLIC/UNLISTED die oEmbed-Kontrolle."""
     from playwright.sync_api import sync_playwright
 
     visibility = visibility.upper()
+    versuche = versuche or VEROEFFENTLICHEN_VERSUCHE
     shots = Path(debug_dir) if debug_dir else None
     if shots:
         shots.mkdir(parents=True, exist_ok=True)
+    log = log or logger.info
+    res = {"ok": False, "status": "UNBEKANNT", "versuche": 0, "nachgezogen": False, "verlauf": [], "fehler": None}
 
-    with sync_playwright() as p:
-        context = _launch(p, headless=NEWS_PLAYWRIGHT_HEADLESS)
-        page = context.new_page()
-        page.set_default_timeout(STEP_TIMEOUT_MS)
+    for n in range(1, versuche + 1):
         try:
-            page.goto(f"https://studio.youtube.com/video/{video_id}/edit?hl=en", wait_until="domcontentloaded")
-            page.wait_for_selector("#title-textarea #textbox", state="attached")
-            auswahl = page.locator("ytcp-video-metadata-visibility #select-button, #visibility-text, "
-                                   "ytcp-icon-button.ytcp-video-metadata-visibility").first
-            auswahl.wait_for(state="visible")
-            auswahl.click()
-            page.wait_for_selector(f'tp-yt-paper-radio-button[name="{visibility}"]', state="attached")
-            if shots:
-                page.screenshot(path=str(shots / "visibility_01_dialog.png"))
-            _click_radio(page, visibility)
-            teilspeichern = page.locator("#save-button").first
-            teilspeichern.wait_for(state="visible")
-            teilspeichern.click()
-            page.wait_for_timeout(3000)
-            haupt = page.locator("#save").first
-            if haupt.count() and haupt.get_attribute("aria-disabled") != "true":
-                haupt.click()
-                page.wait_for_timeout(3000)
-            if shots:
-                page.screenshot(path=str(shots / "visibility_02_gespeichert.png"))
-            if log:
-                log(f"Sichtbarkeit auf {visibility} nachgezogen (Studio-Bearbeiten-Seite, Video {video_id})")
-        finally:
-            context.close()
+            with sync_playwright() as p:
+                context = _launch(p, headless=NEWS_PLAYWRIGHT_HEADLESS)
+                page = context.new_page()
+                page.set_default_timeout(STEP_TIMEOUT_MS)
+
+                def shot(name):
+                    if shots:
+                        try:
+                            page.screenshot(path=str(shots / f"veroeffentlichen_{n}_{name}.png"))
+                        except Exception:   # noqa: BLE001
+                            pass
+                try:
+                    st = _status_seite(page, video_id)
+                    res["status"] = st
+                    res["verlauf"].append(st)
+                    log(f"Studio-Status {video_id}: {st} (Ziel {visibility}, Durchgang {n}/{versuche})")
+                    if st == visibility:
+                        res["ok"] = True
+                        return res
+                    shot("vorher")
+                    res["versuche"] += 1
+                    if st == "ENTWURF" or (st == "UNBEKANNT" and page.get_by_text(_ENTWURF_KNOPF).count()):
+                        _entwurf_abschliessen(page, visibility, log, shot)
+                    else:
+                        _sichtbarkeit_bearbeiten(page, visibility, log, shot)
+                    res["nachgezogen"] = True
+                    page.wait_for_timeout(5000)
+                    st = _status_seite(page, video_id)          # frischer Seitenaufruf nach dem Klick
+                    res["status"] = st
+                    res["verlauf"].append(st)
+                    shot("nachher")
+                    log(f"Studio-Status nach dem Eingriff: {st}")
+                    if st == visibility:
+                        res["ok"] = True
+                        return res
+                finally:
+                    context.close()
+        except Exception as e:   # noqa: BLE001 - naechster Durchgang mit frischem Browser
+            res["fehler"] = str(e)[:500]
+            log(f"Veröffentlichen-Durchgang {n}/{versuche} fehlgeschlagen: {str(e)[:300]}")
+        if n < versuche:
+            time.sleep(pause_s)
+    if res["status"] == "UNBEKANNT" and visibility in ("PUBLIC", "UNLISTED"):
+        res["ok"] = oeffentlich_pruefen(video_id, 2, log)
+        res["status"] = "OEMBED_OK" if res["ok"] else res["status"]
+    return res
+
+
+def visibility_setzen(video_id: str, visibility: str, log=None, debug_dir=None) -> None:
+    """Alte Schnittstelle (CLI --set-visibility): jetzt veroeffentlichen() mit Entwurfs-Weg und frischer
+    Nachpruefung. Wirft, wenn die Ziel-Sichtbarkeit danach nicht bestaetigt ist."""
+    res = veroeffentlichen(video_id, visibility, log, debug_dir)
+    if not res["ok"]:
+        raise RuntimeError(f"Sichtbarkeit {visibility} nicht erreicht (Studio-Status {res['status']}, "
+                           f"{res.get('fehler') or 'ohne Fehlermeldung'})")
 
 
 def oeffentlich_pruefen(video_id: str, minuten: float = 30, log=None) -> bool:
-    """Unabhaengige Kontrolle von aussen: oEmbed liefert nur fuer oeffentliche/nicht gelistete Videos Daten."""
-    import time
-    import httpx
+    """Unabhaengige Kontrolle von aussen: oEmbed liefert nur fuer oeffentliche/nicht gelistete Videos Daten.
+    urllib statt httpx (06.10.2026: «No module named 'httpx'» in einer fremden venv brach den Upload-Schritt ab)."""
+    import urllib.error
+    import urllib.request
     ende = time.time() + minuten * 60
     url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
     while True:
         try:
-            r = httpx.get(url, timeout=30)
-            if r.status_code == 200:
-                if log:
-                    log(f"oEmbed bestätigt: {video_id} ist öffentlich abrufbar ({r.json().get('title', '')[:80]})")
-                return True
+            with urllib.request.urlopen(url, timeout=30) as r:
+                titel = json.loads(r.read().decode("utf-8", "replace")).get("title", "")
             if log:
-                log(f"oEmbed {r.status_code} - noch nicht öffentlich abrufbar")
-        except Exception as e:
+                log(f"oEmbed bestätigt: {video_id} ist öffentlich abrufbar ({titel[:80]})")
+            return True
+        except urllib.error.HTTPError as e:
+            if log:
+                log(f"oEmbed {e.code} - noch nicht öffentlich abrufbar")
+        except Exception as e:   # noqa: BLE001
             if log:
                 log(f"oEmbed-Abfrage fehlgeschlagen: {e}")
         if time.time() > ende:
@@ -249,7 +588,7 @@ def oeffentlich_pruefen(video_id: str, minuten: float = 30, log=None) -> bool:
 
 
 def _wizard(page, video_path: str, meta: dict, thumb_path, visibility: str, log, shot, on_video_id,
-            timeout_min: float) -> dict:
+            timeout_min: float, on_transfer=None) -> dict:
     """Gemeinsamer Upload-Assistent fuer Shorts-Jobs (run) und Weltlage-Folgen (upload_datei)."""
     _open_upload_page(page)
     if f"/channel/{NEWS_YOUTUBE_CHANNEL_ID}" not in page.url:
@@ -288,6 +627,10 @@ def _wizard(page, video_path: str, meta: dict, thumb_path, visibility: str, log,
     shot("sichtbarkeit")
     log(f"Sichtbarkeit {visibility} ausgewählt, warte auf 100 Prozent Dateitransfer")
     stand = _warte_auf_transfer(page, log, timeout_min)
+    if on_transfer:
+        on_transfer()
+    if visibility != "PRIVATE":
+        _warte_auf_pruefung(page, log)      # sonst Zwischendialog «Vorabpruefung laeuft noch» (Vorfall 06.10.2026)
     page.wait_for_function(
         "() => { const b = document.querySelector('#done-button'); "
         "return b && b.getAttribute('aria-disabled') !== 'true' && !b.hasAttribute('disabled'); }",
@@ -309,9 +652,10 @@ def _wizard(page, video_path: str, meta: dict, thumb_path, visibility: str, log,
 def upload_datei(video_path, meta: dict, thumb_path=None, visibility: str = "PUBLIC", log_path=None,
                  debug_dir=None, timeout_min: float | None = None, pruef_minuten: float = 30) -> dict:
     """Laedt eine fertige Datei (Weltlage-Folge) hoch, ohne Job-Datenbank. meta: title, description, tags,
-    language. Wartet auf 100 Prozent Transfer, Verarbeitungsstart und Studios Bestaetigung; bei oeffentlich
-    zusaetzlich auf die oEmbed-Kontrolle von aussen. Protokoll Zeile fuer Zeile in log_path.
-    Rueckgabe: video_id, transfer, bestaetigung, thumbnail, oeffentlich_bestaetigt."""
+    language. Wartet auf 100 Prozent Transfer, Vorabpruefung und Studios Bestaetigung; bei oeffentlich/nicht
+    gelistet danach veroeffentlichen() mit frischem Seitenaufruf (Status lesen, Entwurf/Sichtbarkeit nachziehen, bis
+    zu 3 Durchgaenge). pruef_minuten bleibt nur fuer alte Aufrufer. Protokoll Zeile fuer Zeile in log_path.
+    Rueckgabe: video_id, transfer, bestaetigung, thumbnail, oeffentlich_bestaetigt, studio_status."""
     from playwright.sync_api import sync_playwright
     from config.settings import NEWS_UPLOAD_TIMEOUT_MINUTEN
 
@@ -328,7 +672,7 @@ def upload_datei(video_path, meta: dict, thumb_path=None, visibility: str = "PUB
             with open(log_path, "a", encoding="utf-8") as f:
                 f.write(f"{datetime.now().astimezone():%Y-%m-%d %H:%M:%S} {msg}\n")
 
-    zustand = {"video_id": None}
+    zustand = {"video_id": None, "transfer_fertig": False}
 
     def shot(name):
         if shots:
@@ -337,47 +681,71 @@ def upload_datei(video_path, meta: dict, thumb_path=None, visibility: str = "PUB
             except Exception:
                 pass
 
+    fehler = None
     with sync_playwright() as p:
         context = _launch(p, headless=NEWS_PLAYWRIGHT_HEADLESS)
         page = context.new_page()
         page.set_default_timeout(STEP_TIMEOUT_MS)
         try:
             ergebnis = _wizard(page, str(video_path), meta, thumb_path, visibility, log, shot,
-                               lambda vid: zustand.update(video_id=vid) if vid else None, timeout_min)
+                               lambda vid: zustand.update(video_id=vid) if vid else None, timeout_min,
+                               on_transfer=lambda: zustand.update(transfer_fertig=True))
         except Exception as e:
             shot("fehler")
             log(f"FEHLER: {e}")
-            if zustand["video_id"]:
-                raise UploadHaltedForReview(f"Upload {zustand['video_id']} nach Dateiübergabe fehlgeschlagen - "
-                                            f"in Studio prüfen, nicht blind wiederholen: {e}") from e
-            raise
+            fehler = e
         finally:
             context.close()
+    if fehler is not None:
+        # Datei komplett bei YouTube, nur der Assistent hakte (Timeout, Zwischendialog): kein neuer Upload, sondern
+        # den vorhandenen Entwurf ueber die Bearbeiten-Seite abschliessen - kein Duplikat-Risiko (gleiche Video-ID)
+        if zustand["video_id"] and zustand["transfer_fertig"] and visibility != "PRIVATE":
+            log(f"Assistent nach vollständigem Transfer abgebrochen - schliesse Entwurf {zustand['video_id']} ab")
+            ergebnis = {"video_id": zustand["video_id"], "transfer": "fertig",
+                        "bestaetigung": f"assistent-fehler: {str(fehler)[:200]}", "thumbnail": "unklar"}
+        elif zustand["video_id"]:
+            raise UploadHaltedForReview(f"Upload {zustand['video_id']} nach Dateiübergabe fehlgeschlagen - "
+                                        f"in Studio prüfen, nicht blind wiederholen: {fehler}") from fehler
+        else:
+            raise fehler
     ergebnis["oeffentlich_bestaetigt"] = None
     if visibility != "PRIVATE":
-        ergebnis["oeffentlich_bestaetigt"] = oeffentlich_pruefen(ergebnis["video_id"], pruef_minuten, log)
-    if braucht_nachzug(ergebnis, visibility):
-        log("Noch nicht öffentlich bestätigt - ziehe die Sichtbarkeit über Studios Bearbeiten-Seite nach")
-        try:
-            visibility_setzen(ergebnis["video_id"], visibility, log, debug_dir)
-        except Exception as e:
-            log(f"Nachziehen der Sichtbarkeit fehlgeschlagen: {e}")
-            ergebnis["nachzug_fehler"] = str(e)[:500]
-        else:
+        # Nie mehr nur auf Studios Bestaetigungsdialog vertrauen: frischer Seitenaufruf, Status lesen, bei Bedarf
+        # Entwurf/Sichtbarkeit nachziehen und erneut pruefen (Vorfall Bolsonaro-Folge 06.10.2026)
+        v = veroeffentlichen(ergebnis["video_id"], visibility, log, debug_dir)
+        ergebnis.update(studio_status=v["status"], oeffentlich_bestaetigt=bool(v["ok"]),
+                        veroeffentlichen_verlauf=v["verlauf"])
+        if v["nachgezogen"]:
             ergebnis["nachgezogen"] = True
-            ergebnis["oeffentlich_bestaetigt"] = oeffentlich_pruefen(ergebnis["video_id"], min(pruef_minuten, 10), log)
+        if not v["ok"]:
+            ergebnis["nachzug_fehler"] = (v.get("fehler") or f"Studio-Status {v['status']}")[:500]
     log(f"FERTIG: {ergebnis}")
     return ergebnis
 
 
 def _launch(p, headless: bool):
-    """Persistent context on a real installed browser so Google's sign-in accepts it."""
-    return p.chromium.launch_persistent_context(
-        str(PLAYWRIGHT_PROFILE_DIR), channel=NEWS_PLAYWRIGHT_CHANNEL, headless=headless,
-        locale="en-US",
-        args=["--disable-blink-features=AutomationControlled"],
-        ignore_default_args=["--enable-automation"],
-    )
+    """Persistent context on a real installed browser so Google's sign-in accepts it. Holt vorher die Profil-Sperre
+    (sperre_holen) und gibt sie mit context.close() wieder frei."""
+    sperre_holen()
+    try:
+        context = p.chromium.launch_persistent_context(
+            str(PLAYWRIGHT_PROFILE_DIR), channel=NEWS_PLAYWRIGHT_CHANNEL, headless=headless,
+            locale="en-US",
+            args=["--disable-blink-features=AutomationControlled"],
+            ignore_default_args=["--enable-automation"],
+        )
+    except Exception:
+        sperre_freigeben()
+        raise
+    schliessen = context.close
+
+    def close(*a, **k):
+        try:
+            return schliessen(*a, **k)
+        finally:
+            sperre_freigeben()
+    context.close = close
+    return context
 
 
 def login():
@@ -474,7 +842,7 @@ def _set_language(page, language: str):
 
 def _video_id_from_dialog(page) -> str:
     """The dialog shows the new video's link (youtube.com/shorts/<id> or watch?v=<id>)."""
-    for _ in range(30):
+    for _ in range(90):       # 06.10.2026: nach 30 s ohne Link abgebrochen, der Entwurf blieb verwaist in Studio
         hrefs = page.evaluate("() => Array.from(document.querySelectorAll('a')).map(a => a.href)")
         for href in hrefs:
             m = re.search(r"youtube\.com/(?:shorts/|watch\?v=)([\w-]{11})|youtu\.be/([\w-]{11})", href)
@@ -526,6 +894,19 @@ def run(job_id: str) -> str:
                 ) from e
             state_store.mark_failed(job_id, f"playwright upload failed before file select: {e}")
             raise
+        finally:
+            context.close()
+
+
+def _nur_status(video_id: str) -> dict:
+    """Nur lesen (CLI --status): aktueller Studio-Status per frischem Seitenaufruf, ohne etwas zu aendern."""
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as p:
+        context = _launch(p, headless=NEWS_PLAYWRIGHT_HEADLESS)
+        page = context.new_page()
+        page.set_default_timeout(STEP_TIMEOUT_MS)
+        try:
+            return {"status": _status_seite(page, video_id)}
         finally:
             context.close()
 
@@ -639,5 +1020,15 @@ if __name__ == "__main__":
     elif "--set-visibility" in sys.argv:
         idx = sys.argv.index("--set-visibility")
         visibility_setzen(sys.argv[idx + 1], sys.argv[idx + 2], log=logger.info)
+    elif "--publish" in sys.argv or "--status" in sys.argv:
+        # Weltlage-Wache: letzte Zeile = JSON, Exit 0 nur bei bestaetigter Ziel-Sichtbarkeit
+        nur_status = "--status" in sys.argv
+        idx = sys.argv.index("--status" if nur_status else "--publish")
+        vid = sys.argv[idx + 1]
+        ziel = sys.argv[idx + 2] if len(sys.argv) > idx + 2 and not sys.argv[idx + 2].startswith("--") else "PUBLIC"
+        debug = sys.argv[sys.argv.index("--debug-dir") + 1] if "--debug-dir" in sys.argv else None
+        res = _nur_status(vid) if nur_status else veroeffentlichen(vid, ziel, logger.info, debug)
+        print(json.dumps(res, ensure_ascii=False))
+        sys.exit(0 if res.get("ok") or (nur_status and res.get("status") != "UNBEKANNT") else 1)
     else:
         run(sys.argv[1])
