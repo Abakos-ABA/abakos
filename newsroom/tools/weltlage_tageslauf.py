@@ -889,8 +889,11 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
                 _eintrag(key, status="trocken", fertig=datetime.now().astimezone().isoformat(timespec="seconds"))
                 return
             ok = res.get("oeffentlich_bestaetigt") or NEWS_WELTLAGE_UPLOAD_VISIBILITY == "private"
+            nachzug = (" (über Sichtbarkeit-Nachzug selbst öffentlich gestellt)" if ok and res.get("nachgezogen")
+                       else " (Nachzug-Versuch fehlgeschlagen, bitte in Studio prüfen)" if res.get("nachzug_fehler")
+                       else "")
             _melden(f"Weltlage {slot}", f"{'Veröffentlicht' if ok else 'Hochgeladen, aber noch NICHT öffentlich bestätigt'}"
-                    f" ({NEWS_WELTLAGE_UPLOAD_VISIBILITY}, {e.get('freigabe')}): {meta['title']}\n"
+                    f"{nachzug} ({NEWS_WELTLAGE_UPLOAD_VISIBILITY}, {e.get('freigabe')}): {meta['title']}\n"
                     f"https://youtu.be/{res.get('video_id')}\nThumbnail: {res.get('thumbnail')}", log)
             _eintrag(key, status="veroeffentlicht" if ok else "unbestaetigt",
                      fertig=datetime.now().astimezone().isoformat(timespec="seconds"))
