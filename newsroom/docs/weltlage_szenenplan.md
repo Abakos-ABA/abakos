@@ -48,13 +48,22 @@ Veröffentlichung auf YouTube, wenn er nicht innerhalb einer Stunde reagiert. Er
   (`*_renderzeiten.json`, Maximum) + 1 h für Skript/Bilder/Stimme/B-Roll/Abnahme. Stand 03.10.: 6,7 h (Lipsync-HD
   der Folge vom 02.10. allein 5,7 h) → Themenwahl ab ca. 02:50 bzw. 10:50, Produktion ab 03:50 bzw. 11:50.
   `tools\weltlage_tageslauf.py zeitplan` zeigt die aktuellen Zeiten.
-- **Themenwahl** (`tools/weltlage_themen.py`): Rohmeldungen der letzten 48 h → drei Storylines A/B/C (Titel als
+- **Themenwahl** (`tools/weltlage_themen.py`): Rohmeldungen der letzten `NEWS_WELTLAGE_THEMEN_STUNDEN` Stunden
+  (Default 24, seit 07.10.2026 wegen der Vortagswahl verkürzt von vormals 48 h) → drei Storylines A/B/C (Titel als
   zugespitzte Frage, ein Satz Inhalt, grüne Bildquellen aus `config/quellen_netzwerk.json`) + Empfehlung, Stil
-  Vermietertagebuch. Themenpool `state/weltlage_themenpool.json` (Storylines, die Marlon zusätzlich will) wird
-  bevorzugt angeboten und nach der Wahl entfernt. Rückfrage per `tools/weltlage_entscheid.py` an Telegram (Knöpfe
-  A/B/C, Antwort «B, Hinweis …») und Beta-App (Mitteilung + Push; Antwort im App-Chat «Weltlage B»). 60 min ohne
-  Antwort → Empfehlung. Freitext-Hinweis geht als `vorgabe.txt` ins Skript (`weltlage_skript.py --vorgabe`).
-  Vorab gewählte Storyline: im Zustand `"vorgabe": {"titel", "inhalt"}` → keine Rückfrage.
+  Vermietertagebuch. Wiederholungs-Schutz (seit 07.10.2026, Task 20261007-174635-f7ff): `vergangene_folgen()` +
+  `ist_wiederholung()` vergleichen jede Storyline inhaltlich (Wort-Überlappung Titel+Inhalt) gegen Folgen der
+  letzten `NEWS_WELTLAGE_THEMEN_WIEDERHOLUNG_TAGE` Tage (Default 14); zu ähnliche Vorschläge werden verworfen, das
+  Modell bekommt die verbotenen Themen gleich im Prompt genannt. Themenpool `state/weltlage_themenpool.json`
+  (Storylines, die Marlon zusätzlich will) wird bevorzugt angeboten und nach der Wahl entfernt. Rückfrage per
+  `tools/weltlage_entscheid.py` an Telegram (Knöpfe A/B/C, Antwort «B, Hinweis …») und Beta-App (Mitteilung + Push;
+  Antwort im App-Chat «Weltlage B»). 60 min ohne Antwort → Empfehlung. Freitext-Hinweis geht als `vorgabe.txt` ins
+  Skript (`weltlage_skript.py --vorgabe`). Vorab gewählte Storyline: im Zustand `"vorgabe": {"titel", "inhalt"}` →
+  keine Rückfrage, auch kein Wiederholungs-Check (Marlon hat das Thema bewusst selbst bestimmt).
+  Aktualitäts-Check (seit 07.10.2026): kurz vor der Veröffentlichung ruft die Weltlage-Wache
+  `weltlage_themen.py aktualitaet-pruefen <ordner>` auf - gibt es zum gewählten Thema seit der Recherche neue
+  Meldungen (mögliche neue Entwicklung seit der Vortagswahl), warnt sie Marlon per Telegram/Beta-App, statt das
+  fertige Video automatisch neu zu rendern.
 - **Produktion** wie unten (Skript → Aussprache → Bilder → Stimme → Rohschnitt → B-Roll nur echte freie Clips
   `NEWS_WELTLAGE_BROLL_OHNE_KI=1` → Abnahme → Thumbnail → Metadaten). Abnahme durchgefallen = nie veröffentlichen.
 - **Freigabe** zum Slot: Telegram-Fassung (Ton kopiert) als Dokument + Thumbnail + Titel an Telegram, Text an die

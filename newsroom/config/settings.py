@@ -303,6 +303,16 @@ NEWS_WELTLAGE_UPLOAD_VORAB = os.environ.get("NEWS_WELTLAGE_UPLOAD_VORAB", "1") =
 # Upload im Browser: so lange auf 100 Prozent Dateitransfer + Verarbeitungsstart warten (Minuten)
 NEWS_UPLOAD_TIMEOUT_MINUTEN = float(os.environ.get("NEWS_UPLOAD_TIMEOUT_MINUTEN", "60"))
 
+# --- Weltlage Kompakt: Themenwahl nur wirklich neue Themen (Marlon 07.10.2026, Task 20261007-174635-f7ff) ---
+# Seit der Vortagswahl (THEMENWAHL-Fenster beginnt ~16 h vor dem Slot) reicht das alte 48-h-Fenster nicht mehr aus,
+# um nur aktuelle Meldungen vorzuschlagen; jetzt nur noch die letzten THEMEN_STUNDEN Stunden Rohmeldungen.
+NEWS_WELTLAGE_THEMEN_STUNDEN = float(os.environ.get("NEWS_WELTLAGE_THEMEN_STUNDEN", "24"))
+# gegen Folgen der letzten so vielen Tage wird eine neue Storyline auf inhaltliche Wiederholung geprueft (nicht nur
+# Titel-Abgleich, siehe tools/weltlage_themen.py:aehnlichkeit).
+NEWS_WELTLAGE_THEMEN_WIEDERHOLUNG_TAGE = float(os.environ.get("NEWS_WELTLAGE_THEMEN_WIEDERHOLUNG_TAGE", "14"))
+# ab welcher Wort-Ueberlappung (0..1, Titel+Inhalt) eine Storyline als Wiederholung einer frueheren Folge verworfen wird.
+NEWS_WELTLAGE_THEMEN_AEHNLICHKEIT_SCHWELLE = float(os.environ.get("NEWS_WELTLAGE_THEMEN_AEHNLICHKEIT_SCHWELLE", "0.45"))
+
 # --- TTS provider ---
 # "auto": ElevenLabs when key + voice id are set; otherwise local Kokoro-82M (Apache-2.0) for
 # English, local Piper (MIT engine; German voice licensed per-voice, see NEWS_PIPER_VOICE below)
