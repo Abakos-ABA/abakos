@@ -33,16 +33,27 @@ siehe produktion_stunden) als eigener, losgeloester Prozess (pythonw, kein Fenst
                 andere Abnahme-Fehler.
   8 thumbnail   video/weltlage_thumbnail.py (Latara-Foto nach Stimmung aus Marlons Ordner, rechts, textfrei)
   9 metadaten   Titel (staerkste Frage-Variante), Beschreibung, Tags -> metadaten.json
- 10 warten      bis zur Slot-Zeit; mehr als NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN zu spaet -> verwerfen + Meldung
+ 10 warten      bis Freigabe-Beginn = Slot - FREIGABE_MINUTEN - UPLOAD_VORLAUF_MINUTEN (seit 07.10.2026, vorher bis
+                zum Slot: jede Folge kam so ~1,5 h zu spaet); mehr als NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN nach dem
+                Slot -> verwerfen + Meldung
  11 freigabe    Video (Telegram-Fassung, Ton kopiert, als Dokument) + Thumbnail + Titel an Telegram, Text + Knoepfe an
-                die Beta-App: «Freigeben» = sofort veroeffentlichen, «Stopp» = nicht veroeffentlichen, «Feedback» =
+                die Beta-App: «Freigeben» = zum Slot veroeffentlichen, «Stopp» = nicht veroeffentlichen, «Feedback» =
                 tools/weltlage_ueberarbeiten.py setzt die Aenderungen um, nur betroffene Szenen werden neu gerendert
                 (Schritte stimme..metadaten erneut), das Video kommt neu und das Fenster startet von vorn (hoechstens
                 NEWS_WELTLAGE_MAX_FEEDBACK_RUNDEN, danach nur noch Freigeben/Stopp). Keine Reaktion innert
                 NEWS_WELTLAGE_FREIGABE_MINUTEN = automatisch veroeffentlichen.
- 12 upload      upload/youtube_playwright.upload_datei (oeffentlich); NEWS_WELTLAGE_TROCKENLAUF=1 bzw. --trocken:
-                nie hochladen (Test)
- 13 meldung     Link an Telegram + Beta-App bzw. Fehlermeldung mit Schritt
+ 12 upload      upload/youtube_playwright.upload_datei - NEWS_WELTLAGE_UPLOAD_VORAB=1 (Standard seit 07.10.2026): PRIVAT
+                vorab hochladen, sonst direkt oeffentlich; NEWS_WELTLAGE_TROCKENLAUF=1 bzw. --trocken: nie hochladen
+ 13 veroeffentlichen  (nur bei Vorab-Upload) bis zum Slot warten, dann youtube_playwright.veroeffentlichen() auf
+                NEWS_WELTLAGE_UPLOAD_VISIBILITY (frischer Studio-Status, Entwurf/Sichtbarkeit nachziehen); klappt das
+                nicht, Status «unbestaetigt» -> die Weltlage-Wache (Jarvis) zieht in ihrer Nachpruefung nach
+ 14 meldung     Link an Telegram + Beta-App bzw. Fehlermeldung mit Schritt
+
+Vorrang und Fristen (07.10.2026, Auswertung 01.-07.10.: Zusatz-/Nachhol-Folgen belegten den Rohschnitt bis zu 9 h und
+liessen die regulaeren Folgen ausfallen oder Stunden zu spaet erscheinen): ein Rohschnitt beginnt nur, wenn die Folge
+damit noch innerhalb ihrer Frist fertig wird (sonst Abbruch VOR dem Rechnen, die Karte bleibt frei); Folgen ausserhalb
+der regulaeren Slots (Nachhol/Sonder/von Hand) lassen den regulaeren Folgen den Vortritt. Abnahme-Fehler, die nur den
+Gesamtpegel betreffen (True Peak/Lautheit), heilt der Lauf selbst: nur den Master-Ton neu machen (Sekunden).
 
 Der fruehere Schritt "endscreen" (upload/endscreen_playwright.set_endscreen, YouTube-Studio-Endscreen "2 Video +
 Abo" per Playwright) ist seit 04.10.2026 entfernt (Marlon: die Video-Felder blieben leer, weil Studios eigene
@@ -57,6 +68,7 @@ Pause ohne Code-Aenderung: Datei state/weltlage_tageslauf.pause anlegen (loesche
     python tools/weltlage_tageslauf.py lauf --slot 11:00 [--datum 2026-10-03] [--bis metadaten] [--ordner DIR]
                                             [--nur thema,skript] [--trocken] [--themenwahl-min 2] [--freigabe-min 2]
     python tools/weltlage_tageslauf.py metadaten <folgenordner>
+    python tools/weltlage_tageslauf.py master-neu <folgenordner> <master.mp4>   (nur Master-Ton neu, Sekunden)
 """
 import argparse
 import json
@@ -77,7 +89,8 @@ from config.settings import (DATA_DIR, NEWS_WELTLAGE_BROLL, NEWS_WELTLAGE_BROLL_
                              NEWS_WELTLAGE_MAX_FEEDBACK_RUNDEN, NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN,
                              NEWS_WELTLAGE_PRODUKTION_STUNDEN, NEWS_WELTLAGE_SLOTS, NEWS_WELTLAGE_TAEGLICH,
                              NEWS_WELTLAGE_THEMENWAHL_MINUTEN, NEWS_WELTLAGE_TROCKENLAUF,
-                             NEWS_WELTLAGE_UPLOAD_VISIBILITY, STATE_DIR)
+                             NEWS_WELTLAGE_UPLOAD_VISIBILITY, NEWS_WELTLAGE_UPLOAD_VORAB,
+                             NEWS_WELTLAGE_UPLOAD_VORLAUF_MINUTEN, STATE_DIR)
 
 ZUSTAND = STATE_DIR / "weltlage_tageslauf.json"
 PAUSE = STATE_DIR / "weltlage_tageslauf.pause"
@@ -85,7 +98,7 @@ PY = ROOT / ".venv" / "Scripts" / "python.exe"
 PYW = ROOT / ".venv" / "Scripts" / "pythonw.exe"
 LS_PY = ROOT / ".venv-lipsync" / "Scripts" / "python.exe"
 SCHRITTE = ["thema", "skript", "aussprache", "bilder", "stimme", "schnitt", "broll", "abnahme", "thumbnail",
-            "metadaten", "warten", "freigabe", "upload", "meldung"]
+            "metadaten", "warten", "freigabe", "upload", "veroeffentlichen", "meldung"]
 PRODUKTION = ["stimme", "schnitt", "broll", "abnahme", "thumbnail", "metadaten"]   # nach Feedback erneut
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 KI_HINWEIS = ("Moderatorin Latara und ihre Stimme sind KI-generiert. Fakten und Zitate stammen aus den unten "
@@ -240,10 +253,221 @@ def produktion_stunden(data_dir: Path | None = None) -> float:
     return round(min(10.0, max(3.0, max(werte) + NEBENSCHRITTE_STUNDEN)), 2)
 
 
-def vorlauf_stunden(themenwahl_min: float | None = None) -> float:
-    """Start des Laufs vor dem Slot: Themenwahl-Fenster + Produktion + Puffer."""
+def nach_produktion_minuten() -> float:
+    """Freigabe-Fenster + Vorab-Upload: so viele Minuten vor dem Slot muss das fertige Video zur Freigabe bereit sein
+    (seit 07.10.2026 endet die Freigabe VOR dem Slot statt dort erst zu beginnen)."""
+    return NEWS_WELTLAGE_FREIGABE_MINUTEN + (NEWS_WELTLAGE_UPLOAD_VORLAUF_MINUTEN if NEWS_WELTLAGE_UPLOAD_VORAB else 0)
+
+
+def freigabe_beginn(slot_t: datetime, freigabe_min: float | None = None, upload_min: float | None = None) -> datetime:
+    """Spaetester Beginn der Freigabe, damit die Folge genau zum Slot oeffentlich wird. Pure Funktion."""
+    fm = NEWS_WELTLAGE_FREIGABE_MINUTEN if freigabe_min is None else freigabe_min
+    um = (NEWS_WELTLAGE_UPLOAD_VORLAUF_MINUTEN if NEWS_WELTLAGE_UPLOAD_VORAB else 0) if upload_min is None else upload_min
+    return slot_t - timedelta(minutes=fm + um)
+
+
+def vorlauf_stunden(themenwahl_min: float | None = None, slot: str | None = None) -> float:
+    """Start des Laufs vor dem Slot: Themenwahl-Fenster + Produktion + Puffer + Freigabe + Vorab-Upload. Mit slot:
+    der Vorlauf dieses Slots aus der Taktung (taktung), die die Rohschnitte aller Slots lueckenlos hintereinander legt
+    - der kann laenger sein, nie kuerzer."""
     tw = NEWS_WELTLAGE_THEMENWAHL_MINUTEN if themenwahl_min is None else themenwahl_min
-    return round(tw / 60 + produktion_stunden() + PUFFER_STUNDEN, 2)
+    basis = round(tw / 60 + produktion_stunden() + PUFFER_STUNDEN + nach_produktion_minuten() / 60, 2)
+    if slot:
+        try:
+            return min(VORLAUF_MAX_STUNDEN, max(basis, taktung()["vorlauf_h"].get(slot, basis)))
+        except Exception:   # noqa: BLE001 - Zeitplan darf nie am Taktungs-Rechner scheitern
+            return basis
+    return basis
+
+
+def schritt_raten(data_dir: Path | None = None, n: int = 4) -> dict:
+    """Stunden pro gesprochener Sekunde fuer Vertonung und Rohschnitt (je Maximum der letzten n vollen Folgen aus
+    den Tageslauf-Logs; Rohschnitte unter 30 min = Montage aus dem Cache, keine Messung)."""
+    st, sc, sprech = [], [], []
+    for p in sorted((data_dir or DATA_DIR).glob("weltlage_*/tageslauf.log"), key=lambda p: p.stat().st_mtime,
+                    reverse=True):
+        if "test" in p.parent.name or "trocken" in p.parent.name:
+            continue
+        try:
+            d = schritt_dauern(p.read_text(encoding="utf-8", errors="replace"),
+                               datetime.fromtimestamp(p.stat().st_mtime))
+        except OSError:
+            continue
+        sp = sprech_sekunden(p.parent)
+        if d.get("schnitt", 0) < 1800 or sp < 60:
+            continue
+        sc.append(d["schnitt"] / sp / 3600)
+        sprech.append(sp)
+        if d.get("stimme"):
+            st.append(d["stimme"] / sp / 3600)
+        if len(sc) >= n:
+            break
+    return {"stimme": max(st) if st else None, "schnitt": max(sc) if sc else None,
+            "sprech_s": max([MIN_SPRECH_S, *sprech])}
+
+
+def taktung_rechnen(slots: list[str], schnitt_h: float, vor_schnitt_h: float, nach_schnitt_h: float) -> dict:
+    """Rueckwaertsplanung mit der Grafikkarte als Engpass: Rohschnitte laufen nacheinander. Jeder Rohschnitt muss
+    nach_schnitt_h vor seinem Slot fertig sein (Nacharbeit + Freigabe + Vorab-Upload) und darf erst enden, wenn der
+    Rohschnitt des naechsten Slots beginnt. Von hinten gerechnet (zyklisch ueber den Tag) ergibt das pro Slot den
+    Rohschnitt-Beginn und damit den Vorlauf = Slot - Rohschnitt-Beginn + vor_schnitt_h (Themenwahl, Skript,
+    Vertonung). machbar=False, wenn die Rohschnitte zusammen nicht in 24 h passen. Pure Funktion, offline testbar.
+
+    Beispiel 07.10.2026 (Rohschnitt ~9,75 h, Slots 11:00/19:00, nur 8 h auseinander): ohne Taktung begann der 11:00-
+    Rohschnitt erst gegen 23 Uhr, der 19:00-Rohschnitt musste bis ~08:30 warten und kam ~2 h zu spaet; mit Taktung
+    beginnt der 11:00-Rohschnitt ~21 Uhr und beide werden rechtzeitig fertig."""
+    if not slots:
+        return {"machbar": True, "vorlauf_h": {}, "schnitt_ab": {}, "auslastung_h": 0.0}
+    mins = sorted(int(s.split(":")[0]) * 60 + int(s.split(":")[1]) for s in slots)
+    n, d = len(mins), schnitt_h * 60
+    machbar = n * d <= 24 * 60
+    # Ende-Grenze je Slot (Minuten, auf einer durchgehenden Zeitachse), zyklisch: der letzte Slot des Tages darf bis
+    # nach_schnitt vor sich gehen; jeder fruehere hoechstens bis zum Beginn des naechsten Rohschnitts.
+    ende = [0.0] * n
+    start = [0.0] * n
+    for runde in range(2):                      # zweiter Durchgang: Rueckwirkung des naechsten Tages (zyklisch)
+        for i in reversed(range(n)):
+            grenze = mins[i] - nach_schnitt_h * 60
+            if i + 1 < n:
+                grenze = min(grenze, start[i + 1])
+            elif runde:
+                grenze = min(grenze, start[0] + 24 * 60)
+            ende[i] = grenze
+            start[i] = grenze - d
+    vorlauf = {}
+    schnitt_ab = {}
+    for i, m in enumerate(mins):
+        slot = f"{m // 60:02d}:{m % 60:02d}"
+        vorlauf[slot] = round((m - start[i]) / 60 + vor_schnitt_h, 2)
+        s = start[i] % (24 * 60)
+        schnitt_ab[slot] = f"{int(s) // 60:02d}:{int(s) % 60:02d}"
+    return {"machbar": machbar, "vorlauf_h": vorlauf, "schnitt_ab": schnitt_ab,
+            "auslastung_h": round(n * schnitt_h, 1)}
+
+
+_taktung_cache: dict = {}
+
+
+def taktung(data_dir: Path | None = None) -> dict:
+    """taktung_rechnen mit gemessenen Dauern (5 min gecacht): Rohschnitt/Vertonung pro Sprechsekunde aus den Logs mal
+    laengster junger Sprechdauer (mindestens MIN_SPRECH_S, wie produktion_aus_logs)."""
+    jetzt = time.time()
+    if _taktung_cache.get("t", 0) > jetzt - 300 and data_dir is None:
+        return _taktung_cache["v"]
+    r = schritt_raten(data_dir)
+    sp = r["sprech_s"]
+    schnitt_h = r["schnitt"] * sp if r["schnitt"] else SCHNITT_FALLBACK_STUNDEN
+    stimme_h = r["stimme"] * sp if r["stimme"] else 2.5
+    vor = NEWS_WELTLAGE_THEMENWAHL_MINUTEN / 60 + 0.3 + stimme_h + PUFFER_STUNDEN
+    nach = NACH_SCHNITT_STUNDEN + nach_produktion_minuten() / 60
+    v = taktung_rechnen(NEWS_WELTLAGE_SLOTS, round(schnitt_h, 2), round(vor, 2), round(nach, 2))
+    v.update(schnitt_h=round(schnitt_h, 2), stimme_h=round(stimme_h, 2), vor_schnitt_h=round(vor, 2),
+             nach_schnitt_h=round(nach, 2))
+    if data_dir is None:
+        _taktung_cache.update(t=jetzt, v=v)
+    return v
+
+
+VORLAUF_MAX_STUNDEN = 30.0    # nie mehr als so viele Stunden vor dem Slot beginnen (faellig() schaut nur 2 Tage weit)
+NACH_SCHNITT_STUNDEN = 0.75   # B-Roll + Abnahme + Thumbnail + Metadaten nach dem Rohschnitt (gemessen 0,4-1,0 h)
+SCHNITT_FALLBACK_STUNDEN = 9.0
+VOR_SCHNITT_STUNDEN = 3.0     # Themenwahl + Skript + Vertonung, bis ein Lauf die Karte fuer den Rohschnitt braucht
+
+
+def schnitt_stunden(ordner: Path, data_dir: Path | None = None, n: int = 4) -> float:
+    """Erwartete Rohschnitt-Dauer dieser Folge: Rohschnitt-Zeit pro gesprochener Sekunde der letzten n Folgen
+    (Maximum, wie produktion_aus_logs) mal Sprechdauer dieser Folge. Mit NEWS_WELTLAGE_SKIP_SZENEN (fertige
+    Sprechszenen, nur Montage) 0,5 h."""
+    if os.environ.get("NEWS_WELTLAGE_SKIP_SZENEN", "").strip():
+        return 0.5
+    raten = []
+    for p in sorted((data_dir or DATA_DIR).glob("weltlage_*/tageslauf.log"), key=lambda p: p.stat().st_mtime,
+                    reverse=True):
+        if "test" in p.parent.name or "trocken" in p.parent.name or p.parent == ordner:
+            continue
+        try:
+            d = schritt_dauern(p.read_text(encoding="utf-8", errors="replace"),
+                               datetime.fromtimestamp(p.stat().st_mtime))
+        except OSError:
+            continue
+        sp = sprech_sekunden(p.parent)
+        if d.get("schnitt", 0) < 1800 or sp < 60:   # unter 30 min = Montage aus dem Cache, keine Messung
+            continue
+        raten.append(d["schnitt"] / sp)
+        if len(raten) >= n:
+            break
+    sp = max(sprech_sekunden(ordner), 60.0)
+    return round(max(raten) * sp / 3600, 2) if raten else SCHNITT_FALLBACK_STUNDEN
+
+
+def schnitt_frist_problem(jetzt: datetime, slot_t: datetime, max_verspaetung_h: float, schnitt_h: float) -> str | None:
+    """Wird die Folge mit einem jetzt beginnenden Rohschnitt noch innerhalb Slot + max. Verspaetung fertig (inkl.
+    Nacharbeit und Freigabe)? Sonst Text des Problems - dann gar nicht erst rechnen (Vorfall 07.10.2026: die 03:00-
+    Folge wartete 8 h auf einen fremden Rohschnitt und war danach nur noch Abfall). Pure Funktion."""
+    fertig = jetzt + timedelta(hours=schnitt_h + NACH_SCHNITT_STUNDEN, minutes=NEWS_WELTLAGE_FREIGABE_MINUTEN)
+    frist = slot_t + timedelta(hours=max_verspaetung_h)
+    if fertig > frist:
+        return (f"Rohschnitt (~{schnitt_h:g} h) wäre erst gegen {fertig:%d.%m. %H:%M} samt Freigabe durch, Frist "
+                f"{frist:%d.%m. %H:%M} - nicht begonnen, die Karte bleibt für die nächsten Folgen frei")
+    return None
+
+
+def regulaer(key: str, slots: list[str] | None = None) -> bool:
+    """Gehoert der Schluessel zu einem regulaeren Slot (NEWS_WELTLAGE_SLOTS)? Nachhol-, Sonder- und von Hand
+    angelegte Folgen haben andere Uhrzeiten."""
+    return key.rpartition("_")[2] in (NEWS_WELTLAGE_SLOTS if slots is None else slots)
+
+
+def vorrang_fuer(key: str, zustand: dict, jetzt: datetime, schnitt_h: float, vorlauf_h,
+                 slots: list[str] | None = None, vor_schnitt_h: float = VOR_SCHNITT_STUNDEN) -> str | None:
+    """Fuer eine Folge ausserhalb der regulaeren Slots: Grund, warum ihr Rohschnitt jetzt einer regulaeren Folge den
+    Vortritt lassen muss, sonst None. Vortritt hat (a) jede regulaere Folge, die gerade produziert und ihren Master
+    noch nicht hat, und (b) der naechste noch nicht gestartete regulaere Lauf, wenn dieser Rohschnitt bis dahin
+    (Start + vor_schnitt_h) nicht fertig waere. Regulaere Folgen warten nie auf so etwas. vorlauf_h: Zahl oder
+    {slot: Stunden} (Taktung). Pure Funktion."""
+    slots = NEWS_WELTLAGE_SLOTS if slots is None else slots
+    if regulaer(key, slots):
+        return None
+    vor_schnitt = ("thema", "skript", "aussprache", "bilder", "stimme", "schnitt")
+    for k, e in sorted(zustand.items()):
+        if k == key or not isinstance(e, dict) or not regulaer(k, slots) or e.get("trocken"):
+            continue
+        if e.get("status") == "laeuft" and e.get("schritt") in vor_schnitt:
+            return f"reguläre Folge {k} produziert gerade (Schritt {e.get('schritt')})"
+    for tag in (jetzt.date(), jetzt.date() + timedelta(days=1)):
+        for slot in slots:
+            k = f"{tag.isoformat()}_{slot}"
+            if (zustand.get(k) or {}).get("status"):
+                continue
+            vl = vorlauf_h.get(slot, max(vorlauf_h.values())) if isinstance(vorlauf_h, dict) else vorlauf_h
+            start = slot_zeit(tag.isoformat(), slot) - timedelta(hours=vl)
+            braucht_karte = start + timedelta(hours=vor_schnitt_h)
+            if start > jetzt - timedelta(hours=1) and jetzt + timedelta(hours=schnitt_h) > braucht_karte:
+                return (f"reguläre Folge {k} braucht die Karte ab {braucht_karte:%d.%m. %H:%M}, dieser Rohschnitt "
+                        f"(~{schnitt_h:g} h) wäre bis dahin nicht fertig")
+    return None
+
+
+PEGEL_FEHLER = re.compile(r"^(True Peak|Lautheit) ")
+
+
+def nur_pegel_fehler(info: dict) -> bool:
+    """Liegen alle Abnahme-Fehler nur am Gesamtpegel des Masters (True Peak / integrierte Lautheit)? Dann reicht es,
+    den Master-Ton neu zu machen (weltlage_rohschnitt.master_erneuern) - kein Neuschnitt. Pure Funktion."""
+    fehler = info.get("fehler") or []
+    return bool(fehler) and all(PEGEL_FEHLER.match(f) for f in fehler)
+
+
+def master_neu(ordner: Path, master: Path, log=print) -> dict:
+    """Master-Ton neu (Sekunden) und alles verwerfen, was aus dem alten Master abgeleitet ist (B-Roll-Fassung,
+    Abnahme, Telegram-Fassung), damit B-Roll und Abnahme frisch laufen."""
+    from weltlage_rohschnitt import master_erneuern
+    res = master_erneuern(ordner / "_schnitt", master)
+    for q in (master.with_name(master.stem + "_clips.mp4"), master.with_name(master.stem + "_abnahme.json"),
+              ordner / "telegram" / f"{master.stem}_telegram.mp4", ordner / "telegram" / f"{master.stem}_clips_telegram.mp4"):
+        q.unlink(missing_ok=True)
+    log(f"Master-Ton neu: {res.get('nachher')} (Begrenzer-Versuche {res.get('tp_versuche')})")
+    return res
 
 
 def faellig(jetzt: datetime, zustand: dict, vorlauf: float | None = None,
@@ -254,13 +478,13 @@ def faellig(jetzt: datetime, zustand: dict, vorlauf: float | None = None,
     Ein NEUER Lauf startet nur, solange er bis Slot + max. Verspaetung noch fertig werden kann (jetzt + Produktion);
     Vorfall 02.10. 23:55: beim Umstellen auf 11:00/19:00 startete sonst der laengst vergangene 19:00-Slot desselben
     Tages und schickte Marlon eine Themenwahl."""
-    vorlauf = vorlauf_stunden() if vorlauf is None else vorlauf
     produktion = produktion_stunden() if produktion is None else produktion
     out = []
     for tag in (jetzt.date(), jetzt.date() + timedelta(days=1)):
         for slot in NEWS_WELTLAGE_SLOTS:
             t = slot_zeit(tag.isoformat(), slot)
-            if not (t - timedelta(hours=vorlauf) <= jetzt <= t + timedelta(hours=NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN)):
+            vl = vorlauf_stunden(slot=slot) if vorlauf is None else vorlauf
+            if not (t - timedelta(hours=vl) <= jetzt <= t + timedelta(hours=NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN)):
                 continue
             e = zustand.get(f"{tag.isoformat()}_{slot}")
             if e is None or not e.get("status"):     # ohne Status = nur vorgemerkt (z.B. "vorgabe")
@@ -318,12 +542,18 @@ def zeitplan(jetzt: datetime | None = None) -> dict:
     slots = []
     for slot in NEWS_WELTLAGE_SLOTS:
         t = slot_zeit(jetzt.date().isoformat(), slot)
-        start = t - timedelta(hours=vl)
+        start = t - timedelta(hours=vorlauf_stunden(slot=slot))
+        fb = freigabe_beginn(t)
         slots.append({"slot": slot, "themenwahl_ab": f"{start:%H:%M}",
                       "produktion_ab": f"{start + timedelta(minutes=NEWS_WELTLAGE_THEMENWAHL_MINUTEN):%H:%M}",
-                      "freigabe_bis": f"{t + timedelta(minutes=NEWS_WELTLAGE_FREIGABE_MINUTEN):%H:%M}"})
+                      "freigabe_ab": f"{fb:%H:%M}",
+                      "freigabe_bis": f"{fb + timedelta(minutes=NEWS_WELTLAGE_FREIGABE_MINUTEN):%H:%M}",
+                      "oeffentlich": slot, "vorlauf_h": vorlauf_stunden(slot=slot)})
+    tk = taktung()
     return {"produktion_h": prod, "vorlauf_h": vl, "themenwahl_min": NEWS_WELTLAGE_THEMENWAHL_MINUTEN,
-            "freigabe_min": NEWS_WELTLAGE_FREIGABE_MINUTEN, "slots": slots}
+            "freigabe_min": NEWS_WELTLAGE_FREIGABE_MINUTEN,
+            "upload_vorlauf_min": NEWS_WELTLAGE_UPLOAD_VORLAUF_MINUTEN if NEWS_WELTLAGE_UPLOAD_VORAB else 0,
+            "taktung": tk, "slots": slots}
 
 
 # ------------------------------------------------------------------ Schritte
@@ -441,6 +671,45 @@ def _run(cmd: list, log, timeout_h: float = 6, python=None, ordner: Path | None 
                 break
     log(f"-> Exit {rc}")
     return rc
+
+
+def schnitt_vorbereiten(key: str, ordner: Path, slot_t: datetime, log, warte_s: float = 300):
+    """Vor jedem Rohschnitt-Versuch: (1) Frist pruefen - wird die Folge damit nicht mehr rechtzeitig fertig, Abbruch
+    ohne zu rechnen; (2) ausserhalb der regulaeren Slots den regulaeren Folgen den Vortritt lassen; (3) auf einen
+    laufenden Rohschnitt einer anderen Folge warten (nacheinander statt verzahnt) - ausser es wird nur montiert
+    (NEWS_WELTLAGE_SKIP_SZENEN, kein Lipsync, braucht die Karte nicht; Vorfall 07.10.2026: ein reiner Neuschnitt der
+    03:00-Folge wartete 8 h hinter einem fremden Rohschnitt). Waehrend des Wartens wird die Frist laufend geprueft."""
+    nur_montage = bool(os.environ.get("NEWS_WELTLAGE_SKIP_SZENEN", "").strip())
+    gemeldet, letzte_meldung = None, 0.0
+    while True:
+        z = _laden()
+        max_h = float((z.get(key) or {}).get("max_verspaetung_h") or NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN)
+        sh = schnitt_stunden(ordner)
+        jetzt = datetime.now().astimezone()
+        problem = schnitt_frist_problem(jetzt, slot_t, max_h, sh)
+        if problem:
+            raise Abbruch(f"zu spät: {problem}")
+        tk = taktung()
+        grund = vorrang_fuer(key, z, jetzt, sh, {sl: vorlauf_stunden(slot=sl) for sl in NEWS_WELTLAGE_SLOTS},
+                             vor_schnitt_h=tk.get("vor_schnitt_h") or VOR_SCHNITT_STUNDEN)
+        if not grund and not nur_montage:
+            pids = fremde_laeufe(_prozesse("weltlage_rohschnitt.py"), "weltlage_rohschnitt.py", ordner, False)
+            grund = f"Rohschnitt einer anderen Folge läuft (PID {', '.join(map(str, pids))})" if pids else None
+        if not grund:
+            if gemeldet:
+                _eintrag(key, wartet_auf=None)
+            return
+        # Lebenszeichen mindestens alle 30 min ins Log (die Weltlage-Wache haelt einen stillen Lauf sonst fuer haengend)
+        if grund != gemeldet or time.time() - letzte_meldung > 1800:
+            log(f"Rohschnitt wartet: {grund}")
+            gemeldet, letzte_meldung = grund, time.time()
+            _eintrag(key, wartet_auf=grund[:200])
+        time.sleep(warte_s)
+
+
+def vorab_upload() -> bool:
+    """Privat vorab hochladen und zum Slot oeffentlich stellen? Nur wenn das Ziel nicht ohnehin privat ist."""
+    return NEWS_WELTLAGE_UPLOAD_VORAB and NEWS_WELTLAGE_UPLOAD_VISIBILITY != "private"
 
 
 def laenge_reparatur_noetig(info: dict, runden: int) -> str | None:
@@ -654,7 +923,8 @@ def thema_waehlen(key: str, slot: str, ordner: Path, log, minuten: float, trocke
                                                                          if wahl.get("feedback") else ""))
     if not vorab:
         _melden(f"Weltlage {slot}{' (Trockenlauf)' if trocken else ''}", f"Thema {wahl['wahl']}: {s['titel']} "
-                f"({wahl.get('quelle')}). Produktion läuft, das fertige Video kommt um {slot} zur Freigabe.", log)
+                f"({wahl.get('quelle')}). Produktion läuft, das fertige Video kommt vor {slot} zur Freigabe "
+                f"und geht um {slot} online.", log)
     return wahl
 
 
@@ -691,8 +961,12 @@ def freigabe_einholen(key: str, slot: str, ordner: Path, master: Path, log, minu
                 optionen.pop("feedback")
             text = (f"Weltlage Kompakt {slot}{' (TROCKENLAUF, kein Upload)' if trocken else ''}: Video fertig"
                     f"{f' (Fassung {runden + 1})' if runden else ''}.\nTitel: {meta['title']}\n\n"
-                    f"Ohne Antwort bis {frist:%H:%M} veröffentliche ich es automatisch öffentlich auf YouTube. "
-                    "Freigeben = sofort, Stopp = nicht veröffentlichen"
+                    + (f"Ohne Antwort bis {frist:%H:%M} lade ich es hoch und stelle es um {slot} öffentlich auf "
+                       f"YouTube (ist {slot} schon vorbei: sofort). Freigeben = um {slot} veröffentlichen, "
+                       if vorab_upload() else
+                       f"Ohne Antwort bis {frist:%H:%M} veröffentliche ich es automatisch öffentlich auf YouTube. "
+                       "Freigeben = sofort, ")
+                    + "Stopp = nicht veröffentlichen"
                     + (", Feedback = Änderungen (nur betroffene Szenen werden neu gerendert)." if "feedback" in optionen
                        else ". Die Feedback-Runden sind aufgebraucht."))
             beta_text = text + "\nVideo und Thumbnail liegen in Telegram."
@@ -786,7 +1060,7 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
             for versuch in range(1, SCHNITT_VERSUCHE + 1):
                 if master.exists():
                     break
-                _warten_auf_lauf("weltlage_rohschnitt.py", ordner, log, eigene=False)
+                schnitt_vorbereiten(key, ordner, veroeffentlichen, log)
                 rc = _run(["tools/weltlage_rohschnitt.py", ordner, "--out", master], log,
                           timeout_h=SCHNITT_MAX_STUNDEN, python=LS_PY, ordner=ordner, still_min=STILLSTAND_MIN)
                 if rc != STILLSTAND_RC:
@@ -804,6 +1078,16 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
             if _run(["tools/weltlage_abnahme.py", ordner, master], log, timeout_h=1) != 0:
                 abn_pfad = master.with_name(master.stem + "_abnahme.json")
                 info = json.loads(abn_pfad.read_text(encoding="utf-8")) if abn_pfad.exists() else {}
+                pegel_runden = int((_laden().get(key) or {}).get("master_neu_runden") or 0)
+                if nur_pegel_fehler(info) and pegel_runden < 1:
+                    # Vorfall 07.10.2026: True Peak -0,9 statt -1,5 dBTP -> 10 h Neuschnitt, Slot verloren. Nur der
+                    # Master-Ton ist falsch: neu mastern (Sekunden), B-Roll-Fassung + Abnahme frisch.
+                    _eintrag(key, master_neu_runden=pegel_runden + 1)
+                    log(f"Abnahme: nur Gesamtpegel ({'; '.join(info.get('fehler') or [])}) - mache den Master-Ton neu")
+                    master_neu(ordner, master, log)
+                    for s in ("broll", "abnahme"):
+                        schritt_ausfuehren(s)
+                    return
                 runden = int((_laden().get(key) or {}).get("laenge_runden") or 0)
                 zu_kurz = laenge_reparatur_noetig(info, runden)
                 if zu_kurz:
@@ -845,11 +1129,15 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
             max_h = float((_laden().get(key) or {}).get("max_verspaetung_h") or NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN)
             if jetzt > veroeffentlichen + timedelta(hours=max_h):
                 raise Abbruch(f"zu spät fertig ({jetzt:%H:%M}), Folge wäre veraltet - nicht veröffentlicht")
-            if jetzt < veroeffentlichen:
-                log(f"fertig um {jetzt:%H:%M}, warte bis {veroeffentlichen:%H:%M}")
-                _eintrag(key, status="laeuft", wartet_bis=veroeffentlichen.isoformat(timespec="minutes"))
-                while datetime.now().astimezone() < veroeffentlichen:
-                    time.sleep(min(60, max(1, (veroeffentlichen - datetime.now().astimezone()).total_seconds())))
+            # Freigabe so legen, dass sie samt Vorab-Upload VOR dem Slot endet (bisher begann sie erst am Slot)
+            ab = freigabe_beginn(veroeffentlichen, freigabe_min)
+            if jetzt < ab:
+                log(f"fertig um {jetzt:%H:%M}, Freigabe ab {ab:%H:%M}, öffentlich um {veroeffentlichen:%H:%M}")
+                _eintrag(key, status="laeuft", wartet_bis=ab.isoformat(timespec="minutes"))
+                while datetime.now().astimezone() < ab:
+                    time.sleep(min(60, max(1, (ab - datetime.now().astimezone()).total_seconds())))
+            elif jetzt > veroeffentlichen:
+                log(f"fertig um {jetzt:%H:%M}, {(jetzt - veroeffentlichen).total_seconds() / 60:.0f} min nach dem Slot")
         elif schritt == "freigabe":
             e = _laden().get(key) or {}
             if e.get("freigabe") or e.get("video_id"):
@@ -874,11 +1162,37 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
                 _eintrag(key, upload={"trocken": True, "datei": str(datei)})
                 return
             from upload.youtube_playwright import upload_datei
+            vorab = vorab_upload()
             res = upload_datei(datei, meta, ordner / "thumbnails" / "thumbnail.jpg",
-                               visibility=NEWS_WELTLAGE_UPLOAD_VISIBILITY, log_path=ordner / "upload.log",
-                               debug_dir=ordner / "upload_shots")
+                               visibility="private" if vorab else NEWS_WELTLAGE_UPLOAD_VISIBILITY,
+                               log_path=ordner / "upload.log", debug_dir=ordner / "upload_shots")
+            if vorab:
+                res["vorab_privat"] = True
+                res["oeffentlich_bestaetigt"] = False
             _eintrag(key, video_id=res["video_id"], upload=res)
-            log(f"Upload: {res}")
+            log(f"Upload{' (privat vorab, öffentlich um ' + slot + ')' if vorab else ''}: {res}")
+        elif schritt == "veroeffentlichen":
+            e = _laden().get(key) or {}
+            res = dict(e.get("upload") or {})
+            if trocken or not res.get("vorab_privat") or res.get("oeffentlich_bestaetigt"):
+                return
+            if PAUSE.exists():
+                raise Abbruch("Pause-Datei gesetzt - privat hochgeladen, nicht veröffentlicht")
+            if datetime.now().astimezone() < veroeffentlichen:
+                log(f"privat hochgeladen ({res.get('video_id')}), stelle um {veroeffentlichen:%H:%M} öffentlich")
+                _eintrag(key, wartet_bis=veroeffentlichen.isoformat(timespec="minutes"))
+                while datetime.now().astimezone() < veroeffentlichen:
+                    time.sleep(min(30, max(1, (veroeffentlichen - datetime.now().astimezone()).total_seconds())))
+            from upload.youtube_playwright import veroeffentlichen as studio_veroeffentlichen
+            v = studio_veroeffentlichen(res["video_id"], NEWS_WELTLAGE_UPLOAD_VISIBILITY, log,
+                                        ordner / "upload_shots")
+            res.update(oeffentlich_bestaetigt=bool(v["ok"]), studio_status=v["status"],
+                       veroeffentlichen_verlauf=v["verlauf"], veroeffentlicht_um=datetime.now().astimezone()
+                       .isoformat(timespec="seconds"))
+            if not v["ok"]:
+                res["nachzug_fehler"] = (v.get("fehler") or f"Studio-Status {v['status']}")[:500]
+            _eintrag(key, upload=res)
+            log(f"Veröffentlichen: {'ok' if v['ok'] else 'NICHT bestätigt'} ({v['status']})")
         elif schritt == "meldung":
             e = _laden().get(key) or {}
             res = e.get("upload") or {}
@@ -930,7 +1244,22 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
         return 1
 
 
+def fremder_interpreter() -> bool:
+    """Laeuft dieser Prozess nicht mit dem Newsroom-venv? (Vorfaelle 03./04./06.10.2026: von Hand oder von Workern
+    mit einem anderen Python gestartete Laeufe brachen erst im Upload/Telegram mit «No module named 'httpx'» ab.)"""
+    try:
+        eigen = {PY.resolve(), PYW.resolve()}
+        return PY.exists() and Path(sys.executable).resolve() not in eigen
+    except OSError:
+        return False
+
+
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "lauf" and fremder_interpreter() and not os.environ.get("WELTLAGE_VENV_OK"):
+        # mit dem richtigen Interpreter neu starten; dieser Prozess wartet (eine Langlauf-Aufsicht sieht ihn weiter)
+        r = subprocess.run([str(PY), str(Path(__file__).resolve()), *sys.argv[1:]], cwd=str(ROOT),
+                           env={**os.environ, "WELTLAGE_VENV_OK": "1"}, creationflags=NO_WINDOW)
+        sys.exit(r.returncode)
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     l = sub.add_parser("lauf")
@@ -946,12 +1275,17 @@ def main():
     m.add_argument("ordner", type=Path)
     sub.add_parser("status")
     sub.add_parser("zeitplan")
+    mn = sub.add_parser("master-neu", help="nur den Master-Ton neu (Pegel-Fehler der Abnahme), B-Roll/Abnahme verwerfen")
+    mn.add_argument("ordner", type=Path)
+    mn.add_argument("master", type=Path)
     a = ap.parse_args()
     if a.cmd == "lauf":
         sys.exit(lauf(a.datum, a.slot, a.ordner, a.bis, a.nur.split(",") if a.nur else None,
                       True if a.trocken else None, a.themenwahl_min, a.freigabe_min))
     if a.cmd == "metadaten":
         print(json.dumps(metadaten(a.ordner), indent=1, ensure_ascii=False))
+    if a.cmd == "master-neu":
+        print(json.dumps(master_neu(a.ordner, a.master), ensure_ascii=False))
     if a.cmd == "zeitplan":
         print(json.dumps(zeitplan(), indent=1, ensure_ascii=False))
     if a.cmd == "status":

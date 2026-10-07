@@ -698,8 +698,10 @@ def upload_datei(video_path, meta: dict, thumb_path=None, visibility: str = "PUB
             context.close()
     if fehler is not None:
         # Datei komplett bei YouTube, nur der Assistent hakte (Timeout, Zwischendialog): kein neuer Upload, sondern
-        # den vorhandenen Entwurf ueber die Bearbeiten-Seite abschliessen - kein Duplikat-Risiko (gleiche Video-ID)
-        if zustand["video_id"] and zustand["transfer_fertig"] and visibility != "PRIVATE":
+        # den vorhandenen Entwurf ueber die Bearbeiten-Seite abschliessen - kein Duplikat-Risiko (gleiche Video-ID).
+        # Seit 07.10.2026 auch bei PRIVAT (Weltlage-Vorab-Upload): ein Entwurf ist nicht oeffentlich, der Schritt
+        # "veroeffentlichen" des Tageslaufs schliesst ihn zum Slot ueber veroeffentlichen() ab.
+        if zustand["video_id"] and zustand["transfer_fertig"]:
             log(f"Assistent nach vollständigem Transfer abgebrochen - schliesse Entwurf {zustand['video_id']} ab")
             ergebnis = {"video_id": zustand["video_id"], "transfer": "fertig",
                         "bestaetigung": f"assistent-fehler: {str(fehler)[:200]}", "thumbnail": "unklar"}

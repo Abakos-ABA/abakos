@@ -202,7 +202,9 @@ NEWS_MODEL_EDITOR = os.environ.get("NEWS_MODEL_EDITOR") or _dm_editor
 # Prompt: "analyse" = Redaktions-/Analyse-Konzept vom 01.10.2026 (config/prompts/weltlage_analyse.md, Standard),
 # "klassisch" = bisheriges Meldungsformat als Fallback (config/prompts/weltlage_klassisch.md).
 NEWS_WELTLAGE_SKRIPT_PROMPT = os.environ.get("NEWS_WELTLAGE_SKRIPT_PROMPT", "analyse")
-# Laenge des Analyse-Skripts (01.10.2026): "folge" = rund 4 bis 5 Minuten fertige Folge (Standard), "lang" = 5 bis 9 Min. Sprechtext
+# Laenge des Analyse-Skripts: "folge" = rund 8:30 bis 10:00 Minuten fertige Folge (Standard seit 04.10.2026,
+# Marlons Entscheid 23:53: Mindestlaenge 8:00 fuer YouTube-Mid-Roll-Werbung, siehe tools/weltlage_abnahme.py
+# MIN_DAUER_S), "lang" = 5 bis 9 Min. Sprechtext
 NEWS_WELTLAGE_SKRIPT_LAENGE = os.environ.get("NEWS_WELTLAGE_SKRIPT_LAENGE", "folge")
 # LLM: "claude" = Claude-Code-CLI im Abo (headless, ohne Werkzeuge, keine GPU-Last), "ollama" = lokales
 # NEWS_MODEL_SCRIPT (GPU). Modell nur fuer "claude" (Alias wie opus/sonnet oder volle Modell-ID).
@@ -231,10 +233,24 @@ NEWS_WELTLAGE_COLDOPEN_MUSIKBETT_FADE_OUT = float(os.environ.get("NEWS_WELTLAGE_
 NEWS_WELTLAGE_BROLL = os.environ.get("NEWS_WELTLAGE_BROLL", "1") == "1"                 # an/aus
 NEWS_WELTLAGE_BROLL_OHNE_KI = os.environ.get("NEWS_WELTLAGE_BROLL_OHNE_KI", "1") == "1"   # nie Wan-Ersatzgrafiken
 NEWS_WELTLAGE_BROLL_ABSTAND = float(os.environ.get("NEWS_WELTLAGE_BROLL_ABSTAND", "30"))   # Ziel-Abstand in s (20-40)
-NEWS_WELTLAGE_BROLL_VARIANTEN = os.environ.get("NEWS_WELTLAGE_BROLL_VARIANTEN", "wand,pip,voll")   # Reihenfolge = Rotation
+# "wand" (Video auf der Studiowand HINTER Latara) seit 04.10.2026 nicht mehr Standard (Marlon: "neben ihr sah
+# gut aus") - nur noch pip (daneben) und voll (Schnittbild). "wand" bleibt als Code/Option erhalten, falls
+# Marlon es gezielt per Umgebungsvariable wieder einschaltet.
+NEWS_WELTLAGE_BROLL_VARIANTEN = os.environ.get("NEWS_WELTLAGE_BROLL_VARIANTEN", "pip,voll")   # Reihenfolge = Rotation
 NEWS_WELTLAGE_BROLL_QUELLEN = os.environ.get("NEWS_WELTLAGE_BROLL_QUELLEN", "pexels,pixabay,commons,nasa,dvids")
 NEWS_WELTLAGE_BROLL_MODELL = os.environ.get("NEWS_WELTLAGE_BROLL_MODELL", "sonnet")   # Suchbegriffe (Claude-CLI)
 NEWS_WELTLAGE_BROLL_MODELL_WAHL = os.environ.get("NEWS_WELTLAGE_BROLL_MODELL_WAHL", "opus")   # strenge Clipwahl
+
+# --- Weltlage Kompakt: semantische Einblendungs-Pruefung (video/einblendungen.py, Marlon 04.10.2026) ---
+# Jede visuelle Einblendung (Quellen-Bild-Karte, B-Roll-Clip, kuenftig Text-Karten) bekommt vor dem Versand ein
+# Vision-Modell vorgelegt: zeigt das Bild zum zeitgleich gesprochenen Satz etwas Sinnvolles (kein Zufallsfoto,
+# keine Seitenteile/Werbung/Cookie-Banner)? "passt nicht" blockiert die Abnahme (tools/weltlage_abnahme.py, 7.).
+# Primaer die Claude-CLI im Abo (wie B-Roll-Suche/-Wahl, kein API-Key noetig); nur wenn der Aufruf systemisch
+# scheitert (Binary fehlt o.ae., nicht bei einzelnen Antworten), faellt es auf ein lokales Ollama-Vision-Modell
+# zurueck (18 GB VRAM, gpu_budget.slot("vision"), siehe gpu_budget.STEP_MB).
+NEWS_WELTLAGE_EINBLENDUNG_PRUEFUNG = os.environ.get("NEWS_WELTLAGE_EINBLENDUNG_PRUEFUNG", "1") == "1"
+NEWS_WELTLAGE_EINBLENDUNG_MODELL = os.environ.get("NEWS_WELTLAGE_EINBLENDUNG_MODELL", "sonnet")   # Claude-CLI
+NEWS_WELTLAGE_EINBLENDUNG_OLLAMA_MODELL = os.environ.get("NEWS_WELTLAGE_EINBLENDUNG_OLLAMA_MODELL", "gemma3:27b")
 
 # --- Weltlage Kompakt: realistischeres Studio-Compositing der stehenden Pose (Marlons Wahl 01.10.2026, Task
 # 20261001-165559-5e26/180145-c47f): Kontaktschatten unter den Schuhen, Schlagschatten, Bodenspiegelung, kuehleres
@@ -278,6 +294,12 @@ NEWS_WELTLAGE_FREIGABE_MINUTEN = float(os.environ.get("NEWS_WELTLAGE_FREIGABE_MI
 NEWS_WELTLAGE_PRODUKTION_STUNDEN = os.environ.get("NEWS_WELTLAGE_PRODUKTION_STUNDEN", "auto").strip().lower()
 NEWS_WELTLAGE_TROCKENLAUF = os.environ.get("NEWS_WELTLAGE_TROCKENLAUF", "0") == "1"
 NEWS_WELTLAGE_MAX_FEEDBACK_RUNDEN = int(os.environ.get("NEWS_WELTLAGE_MAX_FEEDBACK_RUNDEN", "3"))
+# Puenktlich zum Slot (07.10.2026, Marlon: «jeden Tag 11:00 und 19:00 puenktlich»): bis dahin begann die Freigabe-
+# Stunde erst AM Slot, danach noch ~30 min Upload - jede Folge kam selbst bei rechtzeitiger Produktion ~1,5 h zu spaet.
+# Jetzt: Freigabe endet UPLOAD_VORLAUF Minuten vor dem Slot, die Folge wird privat vorab hochgeladen und genau zum
+# Slot oeffentlich gestellt (UPLOAD_VORAB=1). UPLOAD_VORAB=0 = alter Weg (oeffentlicher Upload nach der Freigabe).
+NEWS_WELTLAGE_UPLOAD_VORLAUF_MINUTEN = float(os.environ.get("NEWS_WELTLAGE_UPLOAD_VORLAUF_MINUTEN", "45"))
+NEWS_WELTLAGE_UPLOAD_VORAB = os.environ.get("NEWS_WELTLAGE_UPLOAD_VORAB", "1") == "1"
 # Upload im Browser: so lange auf 100 Prozent Dateitransfer + Verarbeitungsstart warten (Minuten)
 NEWS_UPLOAD_TIMEOUT_MINUTEN = float(os.environ.get("NEWS_UPLOAD_TIMEOUT_MINUTEN", "60"))
 

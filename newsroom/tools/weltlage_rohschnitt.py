@@ -16,9 +16,13 @@ und baut 1920x1080 / 24 fps / H.264 + AAC in dieser Reihenfolge:
   szene3_auftritt/aktiv.json, unveraendert) - Begruessung (fest eingefroren, begruessung/aktiv.json,
   tools/weltlage_begruessung.py, in jeder Folge identisch) - Logo-Wisch (kurzer Marken-Uebergang,
   uebergang/aktiv.json, tools/weltlage_uebergang.py, ersetzt den harten Schnitt) - Themen (v6 stehend,
-  pro Folge neu, Text automatisch aus den Meldungs-Schlagzeilen) - Meldungen sitzend mit Schnittbildern -
-  Verabschiedung (v6 stehend, seit 02.10.2026 ebenfalls fest eingefroren, verabschiedung/aktiv.json,
-  tools/weltlage_verabschiedung.py - gleicher Text in jeder Folge) - Outro-Grafik.
+  pro Folge neu, Text automatisch aus den Meldungs-Schlagzeilen) - Logo-Wisch (zweite Einblendung derselben
+  Vorlage, Marlon 04.10.2026: ersetzt den harten Schnitt beim Wechsel von der stehenden Themen-Szene in die
+  sitzende Meldungen-Szene) - Meldungen sitzend mit Schnittbildern - Verabschiedung (v6 stehend, seit 02.10.2026
+  ebenfalls fest eingefroren, verabschiedung/aktiv.json, tools/weltlage_verabschiedung.py - gleicher Text in
+  jeder Folge) - Abschluss (v6 stehend, fest eingefroren, abschluss/aktiv.json, tools/weltlage_abschluss.py,
+  Marlon 04.10.2026: kurzer Kanal-Abschluss mit Latara, WK-Logo und animiertem Abo-Hinweis, ersetzt die alte
+  Outro-Grafik ohne Latara).
 Die alte Szene "Themenüberblick" entfaellt seit 30.09.2026 (ersetzt durch Begruessung + Themen). Der Cold Open war
 am 30.09. mittags ebenfalls gestrichen und ist seit dem Abend auf Marlons Wunsch wieder die erste Szene.
 
@@ -37,7 +41,7 @@ in <work>/_freisteller.
         [--ohne-lipsync]      alter Stand: stehend ohne Lipsync, sitzend = composite_host_v4_full.mp4
         [--lip <mp4>]         alte fertige Sitz-Spur fuer die Meldungen (stehend dann ohne Lipsync)
         [--kurztest]          nur Reinlaufen + Begruessung + Logo-Wisch + Themen + Anfang der Sitz-Szene
-                               (eine Meldung), kein Bumper/Intro/Verabschiedung/Outro - kurzer Clip zum
+                               (eine Meldung), kein Bumper/Intro/Verabschiedung/Abschluss - kurzer Clip zum
                                Gegenpruefen der Struktur
 """
 import json
@@ -84,6 +88,14 @@ _VERAB_CFG = BRAND / "verabschiedung" / "aktiv.json"
 _verab_meta = json.loads(_VERAB_CFG.read_text(encoding="utf-8")) if _VERAB_CFG.exists() else {}
 VERABSCHIEDUNG = BRAND / "verabschiedung" / _verab_meta["landscape"] if _verab_meta.get("landscape") else None
 VERABSCHIEDUNG_STIMME = BRAND / "verabschiedung" / _verab_meta["stimme_wav"] if _verab_meta.get("stimme_wav") else None
+# Abschluss-Vorlage (fest eingefroren, Marlon 04.10.2026, tools/weltlage_abschluss.py): kurzer, eigenstaendiger
+# Kanal-Abschluss mit Latara (zeitloser Ausblick-Satz, kein Folgeninhalt) + WK-Logo + animiertem Abo-Hinweis -
+# ersetzt die alte Outro-Grafik (output/outro_v3, nur Musik/Logo, keine Latara, kein Abo-Hinweis-Text) als letzte
+# Szene der Folge. Analoges Muster zu Begruessung/Verabschiedung.
+_ABSCHL_CFG = BRAND / "abschluss" / "aktiv.json"
+_abschl_meta = json.loads(_ABSCHL_CFG.read_text(encoding="utf-8")) if _ABSCHL_CFG.exists() else {}
+ABSCHLUSS = BRAND / "abschluss" / _abschl_meta["landscape"] if _abschl_meta.get("landscape") else None
+ABSCHLUSS_STIMME = BRAND / "abschluss" / _abschl_meta["stimme_wav"] if _abschl_meta.get("stimme_wav") else None
 # Logo-Wisch (Variante A, Marlon 30.09.2026): kurzer Marken-Uebergang zwischen Begruessung und Themen,
 # ersetzt den harten Schnitt - eigenstaendige Vorlage wie Bumper/Intro, unabhaengig vom Folgeninhalt,
 # kein bildgenaues Standbild-Scharnier (tools/weltlage_uebergang.py).
@@ -97,12 +109,8 @@ BEGRUESSUNG_ENDE = _begr_meta.get("laenge_s")
 # v6-Bilder (16 fps), die praktisch dem Frame 0 entsprechen (Segmentgrenzen der First-Last-Frame-Segmente, mittlere
 # Abweichung <= 1,7/255): Rueckfallposition fuer die Themen-Szene, falls keine Begruessung eingefroren ist.
 V6_RUHEPUNKTE = (0.0, 157 / 16, 234 / 16, 311 / 16, 388 / 16)
-# Outro v3 Variante B "Weltnetz", 18 s, Musik von ACE-Step 1.5 (MIT, kommerziell erlaubt; Lizenz daneben als
-# LIZENZ_musik_B_lizenzfrei_ACE-Step.txt). MusicGen-Musik (CC-BY-NC) darf wegen Monetarisierung nicht mehr rein.
-OUTRO = ROOT / "output" / "outro_v3" / "outro_B_weltnetz_lizenzfrei.mp4"
-_OUTRO_BACKUP = ROOT / "output" / "outro_v3" / "outro_B_weltnetz.mp4"   # gleiches Bild mit MusicGen-musik_B (nicht kommerziell) - nur Backup
-_OUTRO_BACKUP_ALT = ROOT / "output" / "bumper_outro" / "outro_final.mp4"   # älterer Stand (B2, 8 s), nicht mehr aktiv
-ABO_ICON = BRAND / "endscreen" / "abo_hinweis_icon.mov"   # Abo-Hinweis (Plan: Szene Themen + Outro), Alpha, 2,5 s
+ABO_ICON = BRAND / "endscreen" / "abo_hinweis_icon.mov"   # animierter Abo-Hinweis mit Text (seit 04.10.2026 nur noch
+                                                           # einmal, in der Szene Abschluss), Alpha, tools/endscreen_overlay.py
 
 _ff = next(iter(Path(os.environ["LOCALAPPDATA"]).glob("Microsoft/WinGet/Packages/Gyan.FFmpeg*/*/bin")), None)
 FFMPEG = str(_ff / "ffmpeg.exe") if _ff else "ffmpeg"
@@ -261,16 +269,72 @@ def master_ton(wav: Path, video: Path, out: Path) -> dict:
     einer Meldung um 3,2 dB (p5-p95), Crest -2,1 dB, Spitzen auf -4,9 dBTP gedrueckt. Jetzt: Programm messen, eine
     feste Verstaerkung auf MASTER_LUFS, danach nur ein sanfter True-Peak-Begrenzer (4x ueberabgetastet, -1,5 dBTP,
     ohne Auto-Pegel), der nur einzelne Spitzen anfasst. Kein Kompressor, keine Normalisierung pro Szene.
-    Ton: AAC 256 kbps, 48 kHz, Stereo - die Telegram-Fassung kopiert ihn unveraendert (tools/telegram_fassung.py)."""
+    Ton: AAC 256 kbps, 48 kHz, Stereo - die Telegram-Fassung kopiert ihn unveraendert (tools/telegram_fassung.py).
+
+    True Peak an der Wurzel (Vorfall 07.10.2026, 03:00-Folge: Begrenzer auf -1,5 dBTP, nach der AAC-Codierung
+    -0,9 dBTP, Abnahme durchgefallen, 10 h Neuschnitt, Slot verloren). Ursache gemessen: ffmpegs eingebauter AAC-
+    Encoder ersetzt mit PNS (Perceptual Noise Substitution) und Intensity Stereo Baender durch synthetisches
+    Rauschen bzw. Mono+Pegel - Werkzeuge fuer niedrige Bitraten, die an einzelnen Stellen (Cold Open mit Musikbett)
+    bis +6 dB Ueberschwinger erzeugten (dieselbe Folge: -1,5 dBTP begrenzt -> +1,0 dBTP nach AAC, mit -2,0 sogar
+    +3,6). Bei 256 kbps bringen sie nichts: AAC_OPT schaltet beide ab (Ueberschwinger danach ~0,1 dB, Stimme naeher
+    am Original). Zur Sicherheit Begrenzer-Decke MASTER_TP - TP_CODEC_RESERVE_DB und Nachmessung: liegt der fertige
+    Master trotzdem ueber MASTER_TP, Decke um den Ueberschuss + Sicherheitsabstand senken und nur den Ton neu
+    codieren (Bild wird kopiert)."""
     m = _ebur128(wav)
     gain = MASTER_LUFS - m["I"]
-    af = (f"volume={gain:.2f}dB,aresample={SR * 4},"
-          f"alimiter=limit={10 ** (MASTER_TP / 20):.4f}:attack=2:release=80:level=disabled:latency=true,"
-          f"aresample={SR}")
-    run([FFMPEG, "-y", "-i", str(video), "-i", str(wav), "-map", "0:v", "-map", "1:a", "-c:v", "copy",
-         "-af", af, "-ar", str(SR), "-ac", str(CH), "-c:a", "aac", "-b:a", MASTER_KBPS,
-         "-shortest", "-movflags", "+faststart", str(out)])
-    return {"vorher": m, "verstaerkung_db": round(gain, 2), "nachher": _ebur128(out)}
+    decke = MASTER_TP - TP_CODEC_RESERVE_DB
+    versuche = []
+    for _ in range(TP_MAX_VERSUCHE):
+        af = (f"volume={gain:.2f}dB,aresample={SR * 4},"
+              f"alimiter=limit={10 ** (decke / 20):.4f}:attack=2:release=80:level=disabled:latency=true,"
+              f"aresample={SR}")
+        run([FFMPEG, "-y", "-i", str(video), "-i", str(wav), "-map", "0:v", "-map", "1:a", "-c:v", "copy",
+             "-af", af, "-ar", str(SR), "-ac", str(CH), "-c:a", "aac", "-b:a", MASTER_KBPS, *AAC_OPT,
+             "-shortest", "-movflags", "+faststart", str(out)])
+        nachher = _ebur128(out)
+        versuche.append({"decke_dbtp": round(decke, 2), "tp": nachher["TP"]})
+        neu = naechste_tp_decke(decke, nachher["TP"])
+        if neu is None:
+            break
+        decke = neu
+    return {"vorher": m, "verstaerkung_db": round(gain, 2), "nachher": nachher, "tp_versuche": versuche}
+
+
+AAC_OPT = ["-aac_pns", "0", "-aac_is", "0"]   # keine Rausch-Ersetzung/Intensity Stereo (Ueberschwinger bis +6 dB)
+TP_CODEC_RESERVE_DB = 0.3   # Rest-Ueberschwinger des AAC-Encoders ohne PNS/IS (gemessen 0,0-0,2 dB)
+TP_SICHERHEIT_DB = 0.2      # zusaetzlicher Abstand, wenn nachgeregelt werden muss
+TP_MAX_VERSUCHE = 3
+TP_MIN_DECKE = -4.0         # nie tiefer begrenzen (sonst hoerbares Pumpen); Abnahme meldet dann den Rest
+
+
+def naechste_tp_decke(decke: float, gemessen_tp: float) -> float | None:
+    """Neue Begrenzer-Decke (dBTP), wenn der fertig codierte Master ueber MASTER_TP liegt, sonst None (passt).
+    Senkt um den Ueberschuss plus TP_SICHERHEIT_DB, nie unter TP_MIN_DECKE. Pure Funktion, offline testbar."""
+    if gemessen_tp <= MASTER_TP:
+        return None
+    neu = max(TP_MIN_DECKE, decke - (gemessen_tp - MASTER_TP) - TP_SICHERHEIT_DB)
+    return round(neu, 2) if neu < decke - 0.01 else None
+
+
+def master_erneuern(work: Path, out: Path) -> dict:
+    """Nur den Master-Ton neu machen (Sekunden statt Stunden): aus dem ungemasterten Programmton _schnitt/
+    audio_all.wav und dem Bild _schnitt/video_all.mp4 eines fertigen Rohschnitts. Fuer Abnahme-Fehler, die nur den
+    Gesamtpegel betreffen (True Peak, integrierte Lautheit) - kein Neuschnitt, kein Warten auf die GPU."""
+    wav, vid = work / "audio_all.wav", work / "video_all.mp4"
+    if not (wav.exists() and vid.exists()):
+        raise FileNotFoundError(f"{work}: audio_all.wav/video_all.mp4 fehlen - nur ein Neuschnitt hilft")
+    tmp = out.with_name(out.stem + "_neu" + out.suffix)
+    res = master_ton(wav, vid, tmp)
+    tmp.replace(out)
+    rz = out.with_name(out.stem + "_renderzeiten.json")
+    try:
+        zeiten = json.loads(rz.read_text(encoding="utf-8")) if rz.exists() else {}
+        zeiten["ton_master"] = res
+        zeiten["ton_master_erneuert"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+        rz.write_text(json.dumps(zeiten, indent=2), encoding="utf-8")
+    except (OSError, ValueError):
+        pass
+    return res
 
 
 def xfade_join(v1: Path, v2: Path, len1: float, xd: float, out: Path):
@@ -398,7 +462,6 @@ def main():
     bilder = json.loads((test / "bilder.json").read_text(encoding="utf-8"))
     wanted = json.loads((test / "bildwahl.json").read_text(encoding="utf-8")) if (test / "bildwahl.json").exists() else {}
     aud = {t["id"]: test / "audio" / f"{t['id']}.wav" for t in texte}
-    abo = {t["id"]: t["abo_at"] for t in texte if "abo_at" in t}
     # Stimmen-Pruefung (Marlon 30.09.2026): jede gesprochene Datei muss nachweislich der Chatterbox-Klon Ramona
     # sein (24 kHz mono + Engine-Nachweis mit Hash; tools/weltlage_tts.py erzeugt beides). Piper ist abgewaehlt.
     from weltlage_tts import pruefe_stimme
@@ -415,6 +478,10 @@ def main():
         f = pruefe_stimme(VERABSCHIEDUNG_STIMME) if VERABSCHIEDUNG_STIMME else "keine stimme_wav in verabschiedung/aktiv.json"
         if f:
             stimm_fehler.append(f"Verabschiedung {VERABSCHIEDUNG.name}: {f} (tools/weltlage_verabschiedung.py build + freeze)")
+    if ABSCHLUSS:                         # eingefrorener Abschluss: dito
+        f = pruefe_stimme(ABSCHLUSS_STIMME) if ABSCHLUSS_STIMME else "keine stimme_wav in abschluss/aktiv.json"
+        if f:
+            stimm_fehler.append(f"Abschluss {ABSCHLUSS.name}: {f} (tools/weltlage_abschluss.py build + freeze)")
     if stimm_fehler:
         raise SystemExit("Nicht Lataras Chatterbox-Stimme - zuerst tools/weltlage_tts.py laufen lassen:\n  " +
                          "\n  ".join(stimm_fehler))
@@ -520,13 +587,17 @@ def main():
         stimm_szenen["Szene Begrüssung"] = (BEGRUESSUNG_STIMME, _begr_meta.get("stimme_vorlauf_s", 0.25), Lbg)
     else:
         Lbg = 0.0
-    # Logo-Wisch (Variante A, Marlon 30.09.2026): kurzer Marken-Uebergang zwischen Begruessung und
-    # Themen statt hartem Schnitt (config/brand/uebergang/aktiv.json, tools/weltlage_uebergang.py).
-    if UEBERGANG and UEBERGANG.exists():
+    # Logo-Wisch (Variante A, Marlon 30.09.2026): kurzer Marken-Uebergang statt hartem Schnitt
+    # (config/brand/uebergang/aktiv.json, tools/weltlage_uebergang.py). Seit 04.10.2026 zweimal eingesetzt:
+    # Begruessung->Themen (wie bisher) und Themen->Meldungen (Marlon: harter Schnitt beim Steh-Sitz-Wechsel).
+    def logo_wisch(suffix):
+        if not (UEBERGANG and UEBERGANG.exists()):
+            return
         Lu = round(dur(UEBERGANG) * FPS) / FPS
-        v = work / "s_uebergang.mp4"
+        v = work / f"s_uebergang_{suffix}.mp4"
         run([FFMPEG, "-y", "-i", str(UEBERGANG), "-an", "-vf", scale_crop(), *VENC, str(v)])
         add(v, ("extract", UEBERGANG), Lu, "Logo-Wisch")
+    logo_wisch("begr")
     # Themen: stehend am Pult, pro Folge neu - Latara nennt die heutigen Themen als kurze Aufzaehlung (Text
     # automatisch aus den Meldungs-Schlagzeilen gebaut, tools/weltlage_update_themen.py). Startet an einem
     # spaeten v6-Ruhepunkt, damit sich die Bewegung nicht mit der Begruessung wiederholt.
@@ -538,14 +609,14 @@ def main():
         start_th = max(0.0, dur(V6) - L_th - 0.1)
         if SZENE3 and SZENE3.exists():
             start_th = max([r for r in V6_RUHEPUNKTE if r <= start_th] or [0.0])
-    v_roh = work / "s_themen_ohne_abo.mp4"
-    if freisteller:
-        clip(host_scene("stehend", s_th, start_th, L_th, "themen", ort=ort_von.get("s_themen")), 0, L_th, v_roh)
-    else:
-        clip(V6, start_th, L_th, v_roh)
     v = work / "s_themen.mp4"
-    abo_overlay(v_roh, abo.get("s_themen", 0) + 0.25, v); add(v, s_th, L_th, "Szene Themen")
+    if freisteller:
+        clip(host_scene("stehend", s_th, start_th, L_th, "themen", ort=ort_von.get("s_themen")), 0, L_th, v)
+    else:
+        clip(V6, start_th, L_th, v)
+    add(v, s_th, L_th, "Szene Themen")
     stimm_szenen["Szene Themen"] = (s_th, 0.25, L_th)
+    logo_wisch("sitz")
     # Meldungen sitzend + Schnittbilder; Sitz-Spur läuft durchgehend weiter (Rückschnitte zeigen fortlaufende Bewegung)
     meldungen = [t for t in texte if t["szene"] == 5]
     if kurztest:
@@ -569,9 +640,11 @@ def main():
             sitz = host_scene("sitz", s5, 0.0, sum(L for _, L in s5) + 0.2, "s5")
     sitz_t = 0.0
     sitz_len = dur(sitz)
+    bild_platzierungen_roh = []       # fuer bilder_platzierung.json (video/einblendungen.py, Abnahme 7.)
     for t in meldungen:
         a = aud[t["id"]]
         L = dur(a) + 0.25 + GAP
+        dw = dur(a)
         ort_clip, ort_t = None, 0.0
         if t["id"] in vor_ort:                       # Sprechszene vor Ort, eigene Spur (Lipsync auf dem Freisteller)
             start_o = max([r for r in V6_RUHEPUNKTE if r + L <= dur(V6) - 0.1] or [0.0])
@@ -582,7 +655,11 @@ def main():
         segs, pos, k = [], 0.0, 0
         segs.append(("host", min(HOST_LEAD, L))); pos += segs[-1][1]
         while shots and pos + CUT_LEN + 1.5 <= L:
-            segs.append(("bild", CUT_LEN, shots[k % len(shots)])); pos += CUT_LEN; k += 1
+            shot = shots[k % len(shots)]
+            segs.append(("bild", CUT_LEN, shot))
+            bild_platzierungen_roh.append({"meldung": t["id"], "shot": shot, "start_in_meldung": pos,
+                                           "dauer": CUT_LEN, "text": t["text"], "narration_dauer": dw})
+            pos += CUT_LEN; k += 1
             back = min(HOST_BACK, L - pos)
             if L - pos - back < CUT_LEN + 1.5:
                 back = L - pos
@@ -619,10 +696,8 @@ def main():
         # Fassung.
         if VERABSCHIEDUNG and VERABSCHIEDUNG.exists() and not ort_von.get("s6_outro"):
             L6 = round(dur(VERABSCHIEDUNG) * FPS) / FPS
-            v_roh = work / "s6_ohne_abo.mp4"
-            run([FFMPEG, "-y", "-i", str(VERABSCHIEDUNG), "-an", "-vf", scale_crop(), *VENC, str(v_roh)])
             v = work / "s6.mp4"
-            abo_overlay(v_roh, abo.get("s6_outro", 0) + 0.25, v)
+            run([FFMPEG, "-y", "-i", str(VERABSCHIEDUNG), "-an", "-vf", scale_crop(), *VENC, str(v)])
             vorlauf = _verab_meta.get("stimme_vorlauf_s", 0.25)
             if VERABSCHIEDUNG_STIMME and VERABSCHIEDUNG_STIMME.exists():
                 verab_angeglichen = work / "s6_stimme_angeglichen.wav"
@@ -637,34 +712,58 @@ def main():
             # Alter Pro-Folge-Weg: gleicher stehender Freisteller wie Reinlaufen/Begruessung/Themen (Marlon
             # 29.09.), Ausschnitt aus der Taktmitte, damit sich die Bewegung nicht mit Begruessung/Themen wiederholt
             s6 = aud["s6_outro"]
-            L6 = dur(s6) + 0.25 + (0.6 if OUTRO.exists() else 1.8)
+            L6 = dur(s6) + 0.25 + (0.6 if (ABSCHLUSS and ABSCHLUSS.exists()) else 1.8)
             start6 = max(0.0, (dur(V6) - L6) / 2)
-            v_roh = work / "s6_ohne_abo.mp4"
-            if freisteller:
-                clip(host_scene("stehend", s6, start6, L6, "s6", ort=ort_von.get("s6_outro")), 0, L6, v_roh)
-            else:
-                clip(V6, start6, L6, v_roh)
             v = work / "s6.mp4"
-            abo_overlay(v_roh, abo.get("s6_outro", 0) + 0.25, v); add(v, s6, L6, "Szene Verabschiedung")
+            if freisteller:
+                clip(host_scene("stehend", s6, start6, L6, "s6", ort=ort_von.get("s6_outro")), 0, L6, v)
+            else:
+                clip(V6, start6, L6, v)
+            add(v, s6, L6, "Szene Verabschiedung")
             stimm_szenen["Szene Verabschiedung"] = (s6, 0.25, L6)
-        # Outro-Grafik (Task 20260929-030414-c4a6), eigene Musik
-        if OUTRO.exists():
-            Lo = round(dur(OUTRO) * FPS) / FPS
-            v = work / "s6b_outro.mp4"
-            run([FFMPEG, "-y", "-i", str(OUTRO), "-an", "-vf", scale_crop(), *VENC, str(v)])
-            add(v, ("extract", OUTRO), Lo, "Szene Outro-Grafik")
+        # Abschluss: wie Begruessung/Verabschiedung fest eingefroren (config/brand/abschluss/aktiv.json,
+        # tools/weltlage_abschluss.py) - kurzer, zeitloser Kanal-Abschluss mit Latara, WK-Logo und dem
+        # animierten Abo-Hinweis (ABO_ICON), ersetzt die alte reine Musik-/Logo-Outro-Grafik (Marlon 04.10.2026:
+        # "ein klarer, eigener Abschluss mit Latara und einem deutlichen Abo-Hinweis, keine leeren Felder").
+        if ABSCHLUSS and ABSCHLUSS.exists():
+            La = round(dur(ABSCHLUSS) * FPS) / FPS
+            v_roh = work / "s7_ohne_abo.mp4"
+            run([FFMPEG, "-y", "-i", str(ABSCHLUSS), "-an", "-vf", scale_crop(), *VENC, str(v_roh)])
+            v = work / "s7.mp4"
+            abo_overlay(v_roh, _abschl_meta.get("abo_at", 0.6) + 0.25, v)
+            vorlauf = _abschl_meta.get("stimme_vorlauf_s", 0.25)
+            if ABSCHLUSS_STIMME and ABSCHLUSS_STIMME.exists():
+                abschl_angeglichen = work / "s7_stimme_angeglichen.wav"
+                zeiten["pegel_abschluss_db"] = szene_stimme_angleichen(ABSCHLUSS_STIMME, ziel_sprache_lufs,
+                                                                        abschl_angeglichen)
+                quelle = abschl_angeglichen if zeiten["pegel_abschluss_db"] else ABSCHLUSS_STIMME
+                add(v, quelle, La, "Szene Abschluss", pre=vorlauf)
+            else:
+                add(v, ("extract", ABSCHLUSS), La, "Szene Abschluss")
+            stimm_szenen["Szene Abschluss"] = (ABSCHLUSS_STIMME, vorlauf, La)
 
     # Zusammenfügen
     parts = align_parts(parts, FPS, SR, work)
-    # Marken-Musik (Intro, Outro-Grafik) auf Hoehe der Stimme, damit es an den Uebergaengen nicht springt
+    # Marken-Musik (Intro) auf Hoehe der Stimme, damit es an den Uebergaengen nicht springt
     sprache = sorted(_ebur128(p[1])["I"] for p in parts if p[3].startswith("Szene Meldung"))
     if sprache:
         ref = sprache[len(sprache) // 2]
         zeiten["pegel_sprache_lufs"] = ref
         for i, p in enumerate(parts):
-            if p[3] in ("Szene Intro", "Szene Outro-Grafik"):
+            if p[3] == "Szene Intro":
                 ap_ = p[1].with_name(p[1].stem + "_pegel.wav")
                 g = marke_angleichen(p[1], ref, ap_)
+                zeiten[f"pegel_{p[3]}_db"] = g
+                if g:
+                    parts[i] = (p[0], ap_, *p[2:])
+            elif p[3] == "Logo-Wisch":
+                # Anders als Intro/Outro (Musik, nie anheben) ist der Logo-Wisch nur 1 s lang und sein eigener
+                # Ton (Wisch-Geraeusch) lag bisher unbehandelt oft 5-8 dB unter der Sprache (Abnahme 03.10.2026:
+                # zwei Lautstaerkespruenge Begruessung->Logo-Wisch->Themen). Darum wie eine eingefrorene
+                # Sprechszene (szene_stimme_angleichen) GENAU auf die Sprache dieser Folge angleichen, auch
+                # nach oben.
+                ap_ = p[1].with_name(p[1].stem + "_pegel.wav")
+                g = szene_stimme_angleichen(p[1], ref, ap_)
                 zeiten[f"pegel_{p[3]}_db"] = g
                 if g:
                     parts[i] = (p[0], ap_, *p[2:])
@@ -682,12 +781,31 @@ def main():
                  ("_kurztest" if kurztest else "") + ".mp4")
     zeiten["ton_master"] = master_ton(wav, vid, out)
     print("TON MASTER", zeiten["ton_master"], flush=True)
-    t, marks = 0.0, []
+    t, marks, meldung_start = 0.0, [], {}
     for p in parts:
         marks.append(f"{int(t//60):02d}:{t%60:05.2f}  {p[3]} ({p[2]:.1f} s)")
+        if p[3].startswith("Szene Meldung "):
+            meldung_start[p[3][len("Szene Meldung "):]] = t
         t += p[2]
     zm = out.with_name(out.stem + "_zeitmarken.txt") if _arg("--out") else test / "zeitmarken.txt"
     zm.write_text("\n".join(marks) + f"\nGesamt {t:.1f} s\n", encoding="utf-8")
+    # Quellen-Bild-Platzierung (Meldung, Karten-Pfad, Zeit im Master, gesprochener Satz) fuer die semantische
+    # Einblendungs-Pruefung (video/einblendungen.py, tools/weltlage_abnahme.py Abschnitt 7.)
+    from video.einblendungen import satz_bei
+    bilder_platzierung = []
+    for roh in bild_platzierungen_roh:
+        start_master = meldung_start.get(roh["meldung"])
+        if start_master is None:
+            continue
+        mitte = roh["start_in_meldung"] + roh["dauer"] / 2
+        plate = work / f"plate_{Path(roh['shot']['png']).stem}.png"
+        bilder_platzierung.append({
+            "meldung": roh["meldung"], "plate": str(plate.resolve()),
+            "t0": round(start_master + mitte, 3), "dauer": round(roh["dauer"], 3),
+            "satz": satz_bei(roh["text"], roh["narration_dauer"], mitte),
+            "domain": roh["shot"].get("domain", "")})
+    (test / "bilder_platzierung.json").write_text(json.dumps(bilder_platzierung, ensure_ascii=False, indent=1),
+                                                   encoding="utf-8")
     # Endpruefung: jede Sprechszene im fertigen Video == ihre nachgewiesene Chatterbox-Datei, sonst unbrauchbar
     from weltlage_stimmpruefung import pruefe_video, zusammenfassung
     t, pruef = 0.0, []
