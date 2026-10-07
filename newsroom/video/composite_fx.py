@@ -19,6 +19,25 @@ RIM_COL = np.array([1.0, 0.62, 0.30], np.float32)          # BGR kaltes Blau-Cya
 RIM_GAIN, WRAP = 0.30, 0.18
 GRAIN = 2.2 / 255
 
+# Performance (Task 20261007-150054-1995): alle Effekte (Schatten/Spiegelung/Rand) bleiben nachweislich innerhalb
+# der Figur +Spiegelung nach unten (REFL_LEN) +Rand fuer Weichzeichner-Ueberstand - ausserhalb bleibt das Bild exakt
+# der unveraenderte Hintergrund. compose() rechnet darum nur noch auf diesem Ausschnitt statt auf der vollen
+# 1920x1080-Leinwand (bei der stehenden Pose ca. 28 % der Flaeche -> die vielen GaussianBlur/remap-Aufrufe in
+# _grade/_rim_and_wrap/_ground_fx werden proportional schneller), Pixelwerte ausserhalb bleiben unveraendert.
+MARGIN_X = 60       # Schlagschatten-Scherung (CAST_SHEAR*d) + Randlicht/Light-Wrap-Weichzeichner
+MARGIN_TOP = 30
+MARGIN_BOTTOM = 30  # Weichzeichner-Ueberstand unter der Spiegelung
+
+
+def crop_box(mx: int, my: int, mw: int, mh: int, W: int, H: int) -> tuple[int, int, int, int]:
+    """Ausschnitt (x0, y0, x1, y1), der garantiert alle von compose() veraenderten Pixel enthaelt (Figur, Schatten,
+    Spiegelung bis REFL_LEN unter den Fuessen, Randlicht); einmal pro Szene berechnen, nicht pro Bild."""
+    x0 = max(0, mx - MARGIN_X)
+    x1 = min(W, mx + mw + MARGIN_X)
+    y0 = max(0, my - MARGIN_TOP)
+    y1 = min(H, my + mh + REFL_LEN + MARGIN_BOTTOM)
+    return x0, y0, x1, y1
+
 
 def load_bg(path, W: int, H: int, bg_size: tuple[int, int]) -> np.ndarray:
     """Hintergrund fuellend auf WxH skaliert und mittig beschnitten (wie studio_filter), float BGR 0..1."""
@@ -160,17 +179,27 @@ def _ground_fx(out, rgb, a, L, feet, W, H):
     return out, sh
 
 
-def compose(fg_rgba: np.ndarray, bg: np.ndarray, mx: int, my: int, mw: int, mh: int, seed: int = 0) -> np.ndarray:
-    """Ein Bild: Freisteller (RGBA) auf den Hintergrund (float BGR, 0..1) compositen. Liefert uint8 BGR."""
+def compose(fg_rgba: np.ndarray, bg: np.ndarray, mx: int, my: int, mw: int, mh: int, seed: int = 0,
+           box: tuple[int, int, int, int] | None = None) -> np.ndarray:
+    """Ein Bild: Freisteller (RGBA) auf den Hintergrund (float BGR, 0..1) compositen. Liefert uint8 BGR.
+    box: optionaler Ausschnitt (crop_box(), einmal pro Szene) - rechnet Platzierung/Gradation/Schatten/Spiegelung nur
+    darin (Rest bleibt unveraenderter Hintergrund, siehe crop_box); None = ganze Leinwand wie bisher."""
     H, W = bg.shape[:2]
-    rgb, a = _place(fg_rgba, mx, my, mw, mh, W, H)
-    L, feet = _feet_line(a, mh, W)
-    rgb = _grade(rgb, a, bg, mx, my, mw, mh, W, H)
+    if box is None:
+        box = (0, 0, W, H)
+    cx0, cy0, cx1, cy1 = box
+    cw, ch = cx1 - cx0, cy1 - cy0
+    bg_c = bg[cy0:cy1, cx0:cx1]
+    rgb, a = _place(fg_rgba, mx - cx0, my - cy0, mw, mh, cw, ch)
+    L, feet = _feet_line(a, mh, cw)
+    rgb = _grade(rgb, a, bg_c, mx - cx0, my - cy0, mw, mh, cw, ch)
     a2 = _soft_alpha(a)
-    rgb = _rim_and_wrap(rgb, a2, bg, my, mh, H)
-    out, sh = _ground_fx(bg.copy(), rgb, a, L, feet, W, H)
-    out = out * (1 - sh) + SHADOW_COL * sh
-    out = rgb * a2[..., None] + out * (1 - a2[..., None])
+    rgb = _rim_and_wrap(rgb, a2, bg_c, my - cy0, mh, ch)
+    out_c, sh = _ground_fx(bg_c.copy(), rgb, a, L, feet, cw, ch)
+    out_c = out_c * (1 - sh) + SHADOW_COL * sh
+    out_c = rgb * a2[..., None] + out_c * (1 - a2[..., None])
+    out = bg.copy()
+    out[cy0:cy1, cx0:cx1] = out_c
     rng = np.random.default_rng(seed)
     n = rng.normal(0, GRAIN, (H, W, 1)).astype(np.float32)
     n = cv2.GaussianBlur(n, (0, 0), 0.6)[..., None] * 1.6

@@ -162,9 +162,12 @@ def zoom_window(ffmpeg: str, src: Path, a: int, b: int, x: int, y: int, s: int, 
     ups = [cv2.resize(esrgan(f, sc), (size, size), interpolation=cv2.INTER_AREA) for f in frames]
     ups = restore(ups, GFP_IN)
     free()
+    # preset veryfast statt dem x264-Standard "medium": nur ein Zwischenstueck fuer LatentSync (wird sofort wieder
+    # decodiert), crf bleibt gleich -> gleiche Zielqualitaet, nur die Suche nach der effizientesten Kompression ist
+    # kuerzer (Task 20261007-150054-1995, Laufzeit-Hebel)
     ff = subprocess.Popen([ffmpeg, "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{size}x{size}",
-                           "-r", str(fps), "-i", "-", "-an", "-c:v", "libx264", "-crf", "10", "-pix_fmt", "yuv420p",
-                           str(out)], stdin=subprocess.PIPE)
+                           "-r", str(fps), "-i", "-", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "10",
+                           "-pix_fmt", "yuv420p", str(out)], stdin=subprocess.PIPE)
     for u in ups:
         ff.stdin.write(u.tobytes())
     ff.stdin.close()

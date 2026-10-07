@@ -372,8 +372,8 @@ def sync_chunk(tag, wav, grey_scene, a, b, box, cache: Path, ident: str, log) ->
         else:
             run([FFMPEG, "-y", "-v", "error", "-i", grey_scene, "-vf",
                  f"trim=start_frame={a}:end_frame={b + 5},setpts=PTS-STARTPTS,crop={s}:{s}:{x}:{y},"
-                 f"scale={ZOOM}:{ZOOM}:flags=lanczos", "-an", "-c:v", "libx264", "-crf", "10", "-pix_fmt", "yuv420p",
-                 seg_vid])
+                 f"scale={ZOOM}:{ZOOM}:flags=lanczos", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "10",
+                 "-pix_fmt", "yuv420p", seg_vid])
         tmp = out.with_suffix(".tmp.mp4")
         # bis zu 3 Versuche: am 29.09. lief ein Stueck ueber den VRAM, als Jarvis mittendrin seine Stimme neu in die GPU
         # lud (60 s pro Schritt statt 0,5 s) -> nach 15 min abbrechen, wieder auf freie GPU warten, neu versuchen
@@ -440,9 +440,11 @@ def lipsync_freisteller(pose: str, wav: Path, start: float, length: float, work:
     # 1) Freisteller auf neutralem Grau (LatentSync-Eingang), Gesicht verfolgen
     grey = work / f"{name}_freisteller_grau25.mp4"
     tr = FaceTracker(pose)
+    # preset veryfast: reines Zwischenstueck fuer LatentSync, sofort wieder decodiert; crf bleibt gleich (gleiche
+    # Zielqualitaet), nur schneller codiert (Task 20261007-150054-1995, Laufzeit-Hebel)
     ff = subprocess.Popen([FFMPEG, "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W0}x{H0}",
-                           "-r", str(FPS), "-i", "-", "-c:v", "libx264", "-crf", "10", "-pix_fmt", "yuv420p", str(grey)],
-                          stdin=subprocess.PIPE)
+                           "-r", str(FPS), "-i", "-", "-c:v", "libx264", "-preset", "veryfast", "-crf", "10",
+                           "-pix_fmt", "yuv420p", str(grey)], stdin=subprocess.PIPE)
     got = 0
     for rgba in source_frames(pose, f0, n + 5):
         a = rgba[..., 3:4].astype(np.float32) / 255
@@ -545,19 +547,22 @@ def _composite_studio_fx(pose: str, freisteller: Path, n: int, out: Path) -> Pat
     p = load_placement(pose)
     bg = fx.load_bg(P["bg"], OUT_W, OUT_H, P["bg_size"])
     mx, my, mw, mh = fx.placement_box(p, (P["w"], P["h"]), OUT_W, OUT_H, P["bg_size"])
+    box = fx.crop_box(mx, my, mw, mh, OUT_W, OUT_H)   # einmal pro Szene, nicht pro Bild (siehe composite_fx.compose)
     size = P["w"] * P["h"] * 4
     rd = subprocess.Popen([FFMPEG, "-v", "error", "-i", str(freisteller), "-frames:v", str(n), "-f", "rawvideo",
                            "-pix_fmt", "rgba", "-"], stdout=subprocess.PIPE)
+    # preset veryfast: Szenen-Zwischendatei, der Rohschnitt setzt/encodiert sie ohnehin neu zusammen; crf bleibt
+    # gleich (Task 20261007-150054-1995, Laufzeit-Hebel)
     wr = subprocess.Popen([FFMPEG, "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s",
-                           f"{OUT_W}x{OUT_H}", "-r", str(FPS), "-i", "-", "-c:v", "libx264", "-crf", "15",
-                           "-pix_fmt", "yuv420p", str(out)], stdin=subprocess.PIPE)
+                           f"{OUT_W}x{OUT_H}", "-r", str(FPS), "-i", "-", "-c:v", "libx264", "-preset", "veryfast",
+                           "-crf", "15", "-pix_fmt", "yuv420p", str(out)], stdin=subprocess.PIPE)
     got = 0
     for i in range(n):
         b = rd.stdout.read(size)
         if len(b) < size:
             break
         fg = np.frombuffer(b, np.uint8).reshape(P["h"], P["w"], 4)
-        wr.stdin.write(fx.compose(fg, bg, mx, my, mw, mh, seed=i).tobytes())
+        wr.stdin.write(fx.compose(fg, bg, mx, my, mw, mh, seed=i, box=box).tobytes())
         got += 1
     rd.stdout.close()
     rd.wait()
@@ -584,7 +589,8 @@ def composite_studio(pose: str, freisteller: Path, n: int, out: Path, ort: str |
     bg = ["-loop", "1", "-i", str(P["bg"])] if P["bg_still"] else ["-stream_loop", "-1", "-i", str(P["bg"])]
     desk = ["-loop", "1", "-i", str(P["desk"])] if P["desk"] is not None and p.get("desk_mask", True) else []
     run([FFMPEG, "-y", "-v", "error", *bg, "-i", freisteller, *desk, "-filter_complex", studio_filter(pose, p),
-         "-map", "[outv]", "-frames:v", str(n), "-r", str(FPS), "-c:v", "libx264", "-crf", "15", "-pix_fmt", "yuv420p", out])
+         "-map", "[outv]", "-frames:v", str(n), "-r", str(FPS), "-c:v", "libx264", "-preset", "veryfast", "-crf", "15",
+         "-pix_fmt", "yuv420p", out])
     return out
 
 
