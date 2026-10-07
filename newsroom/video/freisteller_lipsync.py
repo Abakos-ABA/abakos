@@ -11,7 +11,7 @@ FESTE REGEL (Marlon, 29.09.2026), gilt fuer alle Weltlage-Videos:
 Ablauf pro Szene (render_scene):
   Freisteller-Bilder lesen -> auf neutralem Grau als LatentSync-Eingang schreiben + Gesicht verfolgen (Haar, geglaettet)
   -> Ton an leisen Stellen in ~7-s-Stuecke teilen -> je Stueck ein enges Gesichtsfenster (2,2x Gesicht) auf 768x768
-  hochskalieren und mit LatentSync 1.6 syncen (20 Schritte, guidance config.settings.NEWS_WELTLAGE_LIPSYNC_GUIDANCE,
+  hochskalieren und mit LatentSync 1.6 syncen (12 Schritte, guidance config.settings.NEWS_WELTLAGE_LIPSYNC_GUIDANCE,
   Standard 2.0) -> Mundpartie weich in den Freisteller
   zurueck (<name>_freisteller_lipsync_prores4444.mov, mit Alpha) -> Studio-Composite 1920x1080/25 fps (<name>_studio.mp4).
 LatentSync-Stuecke werden nach Inhalt (Ton, Bildausschnitt, Einstellungen) in data/_latentsync_cache zwischengespeichert,
@@ -48,7 +48,9 @@ FPS = 25                      # LatentSync arbeitet mit 25 fps; der Schnitt setz
 CHUNK = 7.0                   # laengere Stuecke liefen am 29.09. ueber den VRAM
 ZOOM = 768                    # Kantenlaenge des hochskalierten Gesichtsfensters
 WIN = 2.2                     # Fensterkante in Gesichtsgroessen (eng: Gesicht fuellt den LatentSync-Eingang)
-STEPS = 20
+STEPS = 12                     # 12 statt 20 (Marlon 07.10., Vergleich 20/15/12 in Task 20261007-183020-9417: kein
+                                # sichtbarer Unterschied) - Feld "steps" in pipeline_signatur(), damit eingefrorene
+                                # Szenen die Aenderung nicht stillschweigend ignorieren
 try:                          # Mundbewegungs-Staerke konfigurierbar (config.settings), Standard 2.0 (Task 0180,
     from config.settings import NEWS_WELTLAGE_LIPSYNC_GUIDANCE as GUIDANCE   # 01.10. abends: 2.5 wirkte uebertrieben)
 except Exception:
@@ -74,7 +76,7 @@ def pipeline_signatur() -> dict:
     schattenlosen Rendergang, weil composite_fx kein Feld der damaligen Signatur war - ein neuer Pipeline-Schalter
     wurde nirgends automatisch mitgefuehrt. Kuenftige Schalter gehoeren in dieses eine Dict, nicht einzeln in jeden
     Builder und jede Pruefung verteilt."""
-    return {"guidance": GUIDANCE, "hd": HD, "composite_fx": COMPOSITE_FX}
+    return {"guidance": GUIDANCE, "hd": HD, "composite_fx": COMPOSITE_FX, "steps": STEPS}
 
 # Pro Pose: Freisteller-Quelle, Keyer, Gesichtssuche (min/max Groesse in Quellpixeln, Gesichtsmitte oberhalb y-Anteil),
 # Studio (Hintergrund, Platzierungsdatei samt Standardwerten, optionale Pult-Vordergrundmaske).
