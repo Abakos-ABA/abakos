@@ -220,6 +220,36 @@ def pad_wav(src: Path, pre: float, total: float, out: Path, ch: int = CH):
          "-ac", str(ch), "-t", f"{total:.3f}", str(out)])
 
 
+TON_GLEICH_MIN = 0.98
+
+
+def ton_abweichung(voice, length: float, fwork: Path, name: str) -> str | None:
+    """Wurde <name>_studio.mp4 mit genau dem Ton gerendert, den die Szene heute haette? Vergleicht die beim Rendern
+    geschriebenen <name>_ton*.wav mit dem heute gepolsterten Ton (wie host_scene). Vorfall 08.10.2026: eine Meldung
+    wurde nach dem Lippen-Rendern neu gesprochen, die wiederverwendete Szene hatte versetzte Lippen. Ohne alte
+    Tondatei (aeltere Folgen) keine Pruefung. Gibt die Abweichung als Text zurueck, sonst None."""
+    import numpy as np
+    teile = ([(src, L, fwork / f"{name}_ton_{j:02d}.wav") for j, (src, L) in enumerate(voice)]
+             if isinstance(voice, list) else [(voice, length, fwork / f"{name}_ton.wav")])
+    tmp = fwork / f"_{name}_tonvergleich.wav"
+    try:
+        for src, L, alt in teile:
+            if not alt.exists():
+                return None
+            pad_wav(src, 0.25, L, tmp, ch=1)
+            with wave.open(str(alt)) as a, wave.open(str(tmp)) as b:
+                if a.getnframes() != b.getnframes():
+                    return f"{Path(src).name}: Laenge {b.getnframes() / b.getframerate():.2f} s statt "                            f"{a.getnframes() / a.getframerate():.2f} s"
+                x = np.frombuffer(a.readframes(a.getnframes()), dtype=np.int16).astype(np.float64)
+                y = np.frombuffer(b.readframes(b.getnframes()), dtype=np.int16).astype(np.float64)
+            k = float(x @ y / (np.linalg.norm(x) * np.linalg.norm(y) + 1e-9))
+            if k < TON_GLEICH_MIN:          # gleiche Datei ~1,0; andere Aufnahme desselben Texts ~0
+                return f"{Path(src).name}: anderer Ton als beim Rendern (Korrelation {k:.3f})"
+    finally:
+        tmp.unlink(missing_ok=True)
+    return None
+
+
 def extract_audio(src: Path, length: float, out: Path):
     """Ton aus einer Video-/Audiodatei als PCM 48 kHz Stereo (Musik bleibt Stereo, keine Neucodierung dazwischen)."""
     run([FFMPEG, "-y", "-i", str(src), "-vn", "-ac", str(CH), "-ar", str(SR), "-t", f"{length:.3f}", str(out)])
@@ -435,6 +465,10 @@ def main():
         fwork.mkdir(exist_ok=True)
         fertig = fwork / f"{name}_studio.mp4"
         if name in skip_szenen and fertig.exists():
+            abweichung = ton_abweichung(voice, length, fwork, name)
+            if abweichung:
+                raise SystemExit(f"{name}: fertiges Lippen-Video passt nicht mehr zum Ton ({abweichung}) - Ton "
+                                 "wiederherstellen oder die Szene ohne NEWS_WELTLAGE_SKIP_SZENEN neu rendern")
             zeiten[name] = 0.0
             print(f"{name}: wiederverwendet (schon fertig) -> {fertig}", flush=True)
             return fertig

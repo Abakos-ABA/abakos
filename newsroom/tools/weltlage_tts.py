@@ -96,6 +96,25 @@ def sprechtext_veraltet(text: str, wav: Path) -> str | None:
     return None
 
 
+def lippen_video(ordner: Path, sid: str) -> Path | None:
+    """Fertig gerendertes Lippen-Video (_schnitt/_freisteller/<name>_studio.mp4 von weltlage_rohschnitt.host_scene),
+    in dem audio/<sid>.wav schon steckt - sonst None."""
+    fw = ordner / "_schnitt" / "_freisteller"
+    namen = {"s_coldopen": ["coldopen"], "s_themen": ["themen"], "s6_outro": ["s6"]}.get(sid)
+    if namen is None and sid.startswith("s5_"):
+        namen = ["s5"] + [p.name[:-len("_studio.mp4")] for p in fw.glob(f"s5_{sid}_*_studio.mp4")]
+    return next((fw / f"{n}_studio.mp4" for n in namen or [] if (fw / f"{n}_studio.mp4").exists()), None)
+
+
+def lexikon_nur_geaendert(text: str, wav: Path) -> bool:
+    """Ist nur das Aussprache-Lexikon neuer als die Datei, der Szenentext selbst aber gleich? Dateien vor dem
+    08.10.2026 haben kein text_roh_sha256 - dann zaehlt der Text als gleich (nach dem Lippen-Rendern aendert der
+    Tageslauf texte.json nicht mehr; wer den Text von Hand aendert, spricht mit --neu <id> neu)."""
+    meta = json.loads(_nachweis(wav).read_text(encoding="utf-8"))
+    roh = meta.get("text_roh_sha256")
+    return roh is None or roh == hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 def _pruefe_einstellung():
     ref = _P["ref_pfad"]
     if not ref.exists() or sha256(ref) != REF_SHA256:
@@ -154,7 +173,8 @@ def sprich(text: str, out: Path, versuche: int = 3, log: Path | None = None) -> 
             "profil": _P["profil"], "ref": _P["ref"], "ref_sha256": REF_SHA256, "exaggeration": EXAGGERATION,
             "cfg": CFG, "tempo": TEMPO, "veredelt": NEWS_WELTLAGE_STIMME_VEREDELN,
             "temperature": _P["temperature"], "max_chars": _P["max_chars"], "seed": _P.get("seed"), "sr": sr, "laenge_s": round(laenge, 2), "versuche": v, "kontrolle": k,
-            "text_sha256": hashlib.sha256(norm.encode("utf-8")).hexdigest(), "wav_sha256": sha256(out),
+            "text_sha256": hashlib.sha256(norm.encode("utf-8")).hexdigest(),
+            "text_roh_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(), "wav_sha256": sha256(out),
             "zeit": time.strftime("%Y-%m-%d %H:%M:%S"), "dauer_s": round(time.time() - t0, 1)}
     _nachweis(out).write_text(json.dumps(meta, indent=1, ensure_ascii=False), encoding="utf-8")
     log = log or out.parent / "tts_engine.log"
@@ -188,6 +208,13 @@ def main():
         if out.exists() and s["id"] not in neu and not pruefe_stimme(out):
             veraltet = sprechtext_veraltet(s["text"], out)
             if not veraltet:
+                continue
+            lippen = lippen_video(ordner, s["id"])
+            if lippen and lexikon_nur_geaendert(s["text"], out):
+                # Vorfall 08.10.2026: die Aussprache-Pflege fand bei jedem Neustart neue Namen (Aramco, Reuters), die
+                # Meldung wurde neu gesprochen und passte nicht mehr zum fertigen Lippen-Video (Lippen versetzt).
+                print(f"  {s['id']}: nur das Lexikon ist neuer, Lippen-Video {lippen.name} ist schon gerendert - "
+                      "Ton bleibt", flush=True)
                 continue
             print(f"  {s['id']}: {veraltet} - neu sprechen", flush=True)
         meta = sprich(s["text"], out)

@@ -364,6 +364,19 @@ class Puenktlichkeit(Basis):
         self.assertIsNone(tl.vorrang_fuer("2026-10-07_14:00", z, jetzt, 7, 18, slots, vor_schnitt_h=3), "12+7 <= 20")
         self.assertIn("braucht die Karte", tl.vorrang_fuer("2026-10-07_14:00", z, jetzt, 9, 18, slots, vor_schnitt_h=3))
 
+    def test_reine_montage_wartet_nicht_auf_regulaere(self):
+        # Vorfall 08.10.2026: fertig gerenderte Folge als neuer Slot, regulaere 11:00/19:00 produzieren gerade
+        from unittest import mock
+        z = {"2026-10-08_11:00": {"status": "laeuft", "schritt": "schnitt"},
+             "2026-10-08_19:00": {"status": "laeuft", "schritt": "thema"}}
+        jetzt = datetime.now().astimezone()
+        slot_t = jetzt + timedelta(hours=4)
+        with mock.patch.object(tl, "_laden", return_value=z), mock.patch.object(tl, "taktung", return_value={}),                 mock.patch.object(tl, "vorlauf_stunden", return_value=17),                 mock.patch.object(tl, "_prozesse", return_value=[]), mock.patch.object(tl, "_eintrag"),                 mock.patch.object(tl.time, "sleep", side_effect=AssertionError("wartet")):
+            with mock.patch.dict(tl.os.environ, {"NEWS_WELTLAGE_SKIP_SZENEN": "coldopen,s5"}):
+                tl.schnitt_vorbereiten("2026-10-08_06:40", Path("x"), slot_t, lambda *_: None)
+            with mock.patch.dict(tl.os.environ, {"NEWS_WELTLAGE_SKIP_SZENEN": ""}),                     mock.patch.object(tl, "schnitt_stunden", return_value=0.5), self.assertRaises(AssertionError):
+                tl.schnitt_vorbereiten("2026-10-08_06:40", Path("x"), slot_t, lambda *_: None)
+
     def test_frist_vor_dem_rohschnitt(self):
         slot = tl.slot_zeit("2026-10-07", "03:00")
         # Vorfall 07.10.: um 14:05 einen ~9,8-h-Rohschnitt fuer den 03:00-Slot (Frist 13:00) beginnen = sinnlos

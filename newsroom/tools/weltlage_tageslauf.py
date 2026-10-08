@@ -675,7 +675,7 @@ def _run(cmd: list, log, timeout_h: float = 6, python=None, ordner: Path | None 
 
 def schnitt_vorbereiten(key: str, ordner: Path, slot_t: datetime, log, warte_s: float = 300):
     """Vor jedem Rohschnitt-Versuch: (1) Frist pruefen - wird die Folge damit nicht mehr rechtzeitig fertig, Abbruch
-    ohne zu rechnen; (2) ausserhalb der regulaeren Slots den regulaeren Folgen den Vortritt lassen; (3) auf einen
+    ohne zu rechnen; (2) ausserhalb der regulaeren Slots den regulaeren Folgen den Vortritt lassen (nicht bei reiner Montage); (3) auf einen
     laufenden Rohschnitt einer anderen Folge warten (nacheinander statt verzahnt) - ausser es wird nur montiert
     (NEWS_WELTLAGE_SKIP_SZENEN, kein Lipsync, braucht die Karte nicht; Vorfall 07.10.2026: ein reiner Neuschnitt der
     03:00-Folge wartete 8 h hinter einem fremden Rohschnitt). Waehrend des Wartens wird die Frist laufend geprueft."""
@@ -690,8 +690,11 @@ def schnitt_vorbereiten(key: str, ordner: Path, slot_t: datetime, log, warte_s: 
         if problem:
             raise Abbruch(f"zu spät: {problem}")
         tk = taktung()
-        grund = vorrang_fuer(key, z, jetzt, sh, {sl: vorlauf_stunden(slot=sl) for sl in NEWS_WELTLAGE_SLOTS},
-                             vor_schnitt_h=tk.get("vor_schnitt_h") or VOR_SCHNITT_STUNDEN)
+        # reine Montage braucht die Karte nicht und laesst auch regulaeren Folgen keinen Vortritt (Vorfall 08.10.2026:
+        # die fertig gerenderte 07.10.-19:00-Folge haette sonst ~14 h hinter den Rohschnitten von 11:00/19:00 gewartet)
+        grund = None if nur_montage else vorrang_fuer(
+            key, z, jetzt, sh, {sl: vorlauf_stunden(slot=sl) for sl in NEWS_WELTLAGE_SLOTS},
+            vor_schnitt_h=tk.get("vor_schnitt_h") or VOR_SCHNITT_STUNDEN)
         if not grund and not nur_montage:
             pids = fremde_laeufe(_prozesse("weltlage_rohschnitt.py"), "weltlage_rohschnitt.py", ordner, False)
             grund = f"Rohschnitt einer anderen Folge läuft (PID {', '.join(map(str, pids))})" if pids else None
