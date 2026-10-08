@@ -82,6 +82,22 @@ def guidance_probleme(meta: dict, guidance: float, hd: bool) -> list[str]:
     return probleme
 
 
+# Signatur-Felder, die nur die Rechenzeit betreffen, nicht das Bild: eine damit anders eingefrorene Szene ist nicht
+# schlechter (steps: 20 statt 12 seit 07.10.2026, Marlon: kein sichtbarer Unterschied) - nur Hinweis, kein Abbruch.
+# Vorfall 08.10.2026: das neue Feld "steps" liess jede Folge an Begruessung/Abschluss durchfallen.
+NUR_AUFWAND = {"steps"}
+
+
+def pipeline_hinweise(meta: dict, aktuell: dict) -> list[str]:
+    """Abweichungen nur bei NUR_AUFWAND-Feldern (Warnung, kein Fehler). Pure Funktion."""
+    pipeline = meta.get("pipeline")
+    if pipeline is None:
+        return []
+    return [f"Pipeline-Signatur ohne Feld '{k}' (gebaut vor dessen Einfuehrung) - beim naechsten Einfrieren nachgezogen"
+            if k not in pipeline else f"eingefroren mit {k}={pipeline[k]} statt Standard {soll} (nur Rechenzeit)"
+            for k, soll in aktuell.items() if k in NUR_AUFWAND and pipeline.get(k) != soll]
+
+
 def pipeline_probleme(meta: dict, aktuell: dict) -> list[str]:
     """Vergleicht die vollstaendige Pipeline-Signatur (aktiv.json-Feld "pipeline", geschrieben von
     video.freisteller_lipsync.pipeline_signatur() beim Bau) generisch gegen die aktuellen Einstellungen - anders
@@ -95,6 +111,8 @@ def pipeline_probleme(meta: dict, aktuell: dict) -> list[str]:
                 "beim Bau nicht geprueft, bei Zweifel neu bauen (build + freeze)"]
     probleme = []
     for key, soll in aktuell.items():
+        if key in NUR_AUFWAND:
+            continue
         if key not in pipeline:
             probleme.append(f"Pipeline-Signatur ohne Feld '{key}' - neu bauen (build + freeze)")
         elif isinstance(soll, float):
@@ -231,6 +249,7 @@ def pruefen(ordner: Path, video: Path) -> dict:
             warnungen.append(f"{label}: {pprobleme[0]}")
         elif pprobleme:
             fehler.append(f"{label}: " + "; ".join(pprobleme) + " - neu bauen (build + freeze)")
+        warnungen += [f"{label}: {h}" for h in pipeline_hinweise(meta, aktuelle_pipeline)]
     # 4d. Welt-Bumper-Ton: gleiche Laenge wie frueher, darum per Kreuzkorrelation gegen die aktive Datei pruefen
     cob = next((s for s in szenen if "Welt-Bumper" in s["label"]), None)
     if BUMPER and BUMPER.exists() and cob:

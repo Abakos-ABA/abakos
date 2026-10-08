@@ -46,5 +46,17 @@ class PipelineProbleme(unittest.TestCase):
         self.assertTrue(any("irgendein_neuer_schalter" in p for p in probleme))
 
 
+    def test_steps_nur_rechenzeit_ist_warnung(self):
+        """Vorfall 08.10.2026: das neue Signatur-Feld "steps" (Lipsync 12 statt 20 Schritte) liess jede Folge an der
+        eingefrorenen Begruessung/Abschluss durchfallen - steps aendert nur die Rechenzeit, nie ein Abbruch."""
+        aktuell = {"guidance": 2.0, "hd": True, "composite_fx": True, "steps": 12}
+        alt = {"pipeline": {"guidance": 2.0, "hd": True, "composite_fx": True}}
+        self.assertEqual(a.pipeline_probleme(alt, aktuell), [])
+        self.assertIn("'steps'", a.pipeline_hinweise(alt, aktuell)[0])
+        self.assertIn("steps=20", a.pipeline_hinweise({"pipeline": {**alt["pipeline"], "steps": 20}}, aktuell)[0])
+        self.assertEqual(a.pipeline_hinweise({"pipeline": {**alt["pipeline"], "steps": 12}}, aktuell), [])
+        self.assertTrue(a.pipeline_probleme({"pipeline": {"hd": True, "composite_fx": True, "steps": 12}}, aktuell),
+                        "fehlende Bild-Felder bleiben ein Fehler")
+
 if __name__ == "__main__":
     unittest.main()
