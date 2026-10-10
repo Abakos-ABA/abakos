@@ -66,22 +66,38 @@ def free():
 
 def esrgan(rgb: np.ndarray, scale: int, tile: int = 384, pad: int = 16) -> np.ndarray:
     """Real-ESRGAN x2/x4plus gekachelt (uint8 HxWx3 -> uint8)."""
+    return esrgan_many([rgb], scale, tile, pad, batch=1)[0]
+
+
+def esrgan_many(frames: list, scale: int, tile: int = 384, pad: int = 16, batch: int = 1) -> list:
+    """Wie esrgan(), aber fuer mehrere gleich grosse Bilder: `batch` davon zusammen in einer Stapel-Dimension durchs
+    Netz (gleiche Gewichte, gleiche Kachel-Aufteilung, rechnerisch dasselbe wie batch=1 je Bild einzeln - siehe
+    tests/test_gesicht_hd_batch.py). batch=1 ist exakt der alte Weg (Liste mit einem Bild pro Aufruf), nur ohne die
+    doppelte Funktionsdefinition. Grund fuer das Buendeln (Task 20261010-081311-ca9f): bei einem 768-px-Fenster
+    ueberwiegt auf der RTX 4090 der Python-/CUDA-Startaufwand pro Aufruf die eigentliche Rechenzeit."""
     import torch
     dev = _dev()
     m = model(f"RealESRGAN_x{scale}plus")
     dt = torch.float16 if dev == "cuda" else torch.float32
-    t = torch.from_numpy(np.ascontiguousarray(rgb)).to(dev).permute(2, 0, 1)[None].to(dt) / 255
-    H, W = rgb.shape[:2]
-    out = torch.zeros(1, 3, H * scale, W * scale, device=dev, dtype=dt)
-    for y in range(0, H, tile):
-        for x in range(0, W, tile):
-            y0, x0, y1, x1 = max(0, y - pad), max(0, x - pad), min(H, y + tile + pad), min(W, x + tile + pad)
-            with torch.inference_mode():
-                o = m(t[:, :, y0:y1, x0:x1])
-            h, w = (min(y + tile, H) - y) * scale, (min(x + tile, W) - x) * scale
-            oy, ox = (y - y0) * scale, (x - x0) * scale
-            out[:, :, y * scale:y * scale + h, x * scale:x * scale + w] = o[:, :, oy:oy + h, ox:ox + w]
-    return (out[0].float().clamp(0, 1) * 255 + 0.5).byte().permute(1, 2, 0).cpu().numpy()
+    H, W = frames[0].shape[:2]
+    outs = [None] * len(frames)
+    step = max(1, batch)
+    for i0 in range(0, len(frames), step):
+        grp = frames[i0:i0 + step]
+        t = torch.stack([torch.from_numpy(np.ascontiguousarray(f)) for f in grp]).to(dev).permute(0, 3, 1, 2).to(dt) / 255
+        out = torch.zeros(len(grp), 3, H * scale, W * scale, device=dev, dtype=dt)
+        for y in range(0, H, tile):
+            for x in range(0, W, tile):
+                y0, x0, y1, x1 = max(0, y - pad), max(0, x - pad), min(H, y + tile + pad), min(W, x + tile + pad)
+                with torch.inference_mode():
+                    o = m(t[:, :, y0:y1, x0:x1])
+                h, w = (min(y + tile, H) - y) * scale, (min(x + tile, W) - x) * scale
+                oy, ox = (y - y0) * scale, (x - x0) * scale
+                out[:, :, y * scale:y * scale + h, x * scale:x * scale + w] = o[:, :, oy:oy + h, ox:ox + w]
+        res = (out.float().clamp(0, 1) * 255 + 0.5).byte().permute(0, 2, 3, 1).cpu().numpy()
+        for j in range(len(grp)):
+            outs[i0 + j] = res[j]
+    return outs
 
 
 _FA = None
@@ -125,20 +141,52 @@ _MASK = None
 
 def gfpgan(rgb: np.ndarray, kps: np.ndarray, weight: float) -> np.ndarray:
     """GFPGAN 1.4 auf dem nach FFHQ ausgerichteten 512er-Gesicht, nur untere Gesichtshaelfte, Anteil `weight`."""
-    import torch
-    global _MASK
+    return gfpgan_many([rgb], [kps], weight, batch=1)[0]
+
+
+def _gfpgan_align(rgb: np.ndarray, kps: np.ndarray):
+    """CPU-Teil von gfpgan(): Ausrichtung aufs 512er FFHQ-Raster. Guenstig genug, um pro Bild einzeln zu bleiben."""
     M = cv2.estimateAffinePartial2D(kps, FFHQ_512, method=cv2.LMEDS)[0]
     crop = cv2.warpAffine(rgb, M, (512, 512), flags=cv2.INTER_AREA if M[0, 0] < 1 else cv2.INTER_CUBIC,
                           borderMode=cv2.BORDER_REFLECT)
-    t = torch.from_numpy(crop).to(_dev()).permute(2, 0, 1)[None].float() / 255
-    with torch.inference_mode():
-        o = model("GFPGANv1.4")(t)
-    o = o[0] if isinstance(o, (tuple, list)) else o
-    res = (o[0].clamp(0, 1) * 255 + 0.5).byte().permute(1, 2, 0).cpu().numpy()
+    return crop, M
+
+
+def gfpgan_many(frames: list, kps_list: list, weight: float, batch: int = 1) -> list:
+    """Wie gfpgan(), aber fuer mehrere Bilder: Ausrichtung/Rueckwarpen bleiben pro Bild (CPU, billig), nur der
+    GFPGAN-Netzdurchlauf laeuft fuer bis zu `batch` Bilder gleichzeitig (gleiche Gewichte, rechnerisch dasselbe wie
+    batch=1 je Bild - siehe tests/test_gesicht_hd_batch.py). Bilder ohne Gesichtspunkte (kps None) bleiben
+    unveraendert. batch=1 ist exakt der alte Weg."""
+    import torch
+    global _MASK
     if _MASK is None:
         _MASK = np.zeros((512, 512), np.float32)
         _MASK[285:-40, 70:-70] = 1                       # Augen (y=240) bleiben Original
         _MASK = cv2.GaussianBlur(_MASK, (0, 0), 14)
+    idx = [i for i, k in enumerate(kps_list) if k is not None]
+    outs = list(frames)
+    if not idx:
+        return outs
+    aligned = [_gfpgan_align(frames[i], kps_list[i]) for i in idx]
+    dev = _dev()
+    step = max(1, batch)
+    for b0 in range(0, len(aligned), step):
+        grp = aligned[b0:b0 + step]
+        # contiguous(): die CPU-Umsetzung von GFPGAN (spandrel) verlangt ein zusammenhaengendes Tensor-Layout fuer
+        # ihr internes view() bei Stapelgroesse > 1 - auf der GPU (Produktionsweg) war das nie noetig, schadet dort
+        # aber auch nicht (no-op, wenn schon zusammenhaengend).
+        t = torch.stack([torch.from_numpy(crop) for crop, _ in grp]).to(dev).permute(0, 3, 1, 2).contiguous().float() / 255
+        with torch.inference_mode():
+            o = model("GFPGANv1.4")(t)
+        o = o[0] if isinstance(o, (tuple, list)) else o
+        res = (o.clamp(0, 1) * 255 + 0.5).byte().permute(0, 2, 3, 1).cpu().numpy()
+        for j, (crop, M) in enumerate(grp):
+            i = idx[b0 + j]
+            outs[i] = _gfpgan_blend(frames[i], M, res[j], weight)
+    return outs
+
+
+def _gfpgan_blend(rgb: np.ndarray, M: np.ndarray, res: np.ndarray, weight: float) -> np.ndarray:
     H, W = rgb.shape[:2]
     Mi = cv2.invertAffineTransform(M)
     back = cv2.warpAffine(res, Mi, (W, H), flags=cv2.INTER_LANCZOS4)
@@ -146,21 +194,23 @@ def gfpgan(rgb: np.ndarray, kps: np.ndarray, weight: float) -> np.ndarray:
     return np.clip(rgb * (1 - mb) + back * mb + 0.5, 0, 255).astype(np.uint8)
 
 
-def restore(frames: list, weight: float) -> list:
-    """GFPGAN mit geglaetteten Gesichtspunkten auf einer Bildfolge (Bilder ohne Gesicht bleiben)."""
+def restore(frames: list, weight: float, batch: int = 1) -> list:
+    """GFPGAN mit geglaetteten Gesichtspunkten auf einer Bildfolge (Bilder ohne Gesicht bleiben). batch > 1 buendelt
+    den Netzdurchlauf (gesicht_hd.gfpgan_many), rechnerisch dasselbe wie batch=1."""
     kp = smooth_kps([kps_of(f) for f in frames])
-    return [gfpgan(f, k, weight) if k is not None else f for f, k in zip(frames, kp)]
+    return gfpgan_many(frames, kp, weight, batch=batch)
 
 
-def zoom_window(ffmpeg: str, src: Path, a: int, b: int, x: int, y: int, s: int, size: int, out: Path, fps: int) -> Path:
+def zoom_window(ffmpeg: str, src: Path, a: int, b: int, x: int, y: int, s: int, size: int, out: Path, fps: int,
+                batch: int = 1) -> Path:
     """Bilder [a, b) von src im Fenster (x, y, s): Real-ESRGAN -> size x size, GFPGAN (GFP_IN) -> H.264 crf 10."""
     p = subprocess.run([ffmpeg, "-v", "error", "-i", str(src), "-vf",
                         f"trim=start_frame={a}:end_frame={b},setpts=PTS-STARTPTS,crop={s}:{s}:{x}:{y}",
                         "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True, check=True)
     frames = np.frombuffer(p.stdout, np.uint8).reshape(-1, s, s, 3)
     sc = 4 if s * 2 < size else 2
-    ups = [cv2.resize(esrgan(f, sc), (size, size), interpolation=cv2.INTER_AREA) for f in frames]
-    ups = restore(ups, GFP_IN)
+    ups = [cv2.resize(f, (size, size), interpolation=cv2.INTER_AREA) for f in esrgan_many(list(frames), sc, batch=batch)]
+    ups = restore(ups, GFP_IN, batch=batch)
     free()
     # preset veryfast statt dem x264-Standard "medium": nur ein Zwischenstueck fuer LatentSync (wird sofort wieder
     # decodiert), crf bleibt gleich -> gleiche Zielqualitaet, nur die Suche nach der effizientesten Kompression ist

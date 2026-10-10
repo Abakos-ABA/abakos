@@ -64,6 +64,14 @@ try:                          # Studio-Compositing mit Schatten/Spiegelung/Licht
     from config.settings import NEWS_WELTLAGE_COMPOSITE_FX as COMPOSITE_FX
 except Exception:
     COMPOSITE_FX = True
+try:                          # Real-ESRGAN/GFPGAN mehrere Bilder gleichzeitig durchs Netz (video/gesicht_hd.py),
+    from config.settings import NEWS_WELTLAGE_GESICHT_HD_BATCH as HD_BATCH    # Default 1 = alter Weg, unveraendert
+except Exception:
+    HD_BATCH = 1
+# Grobe VRAM-Schaetzung fuer die Warteschlange bei HD_BATCH > 1 (echte Messung steht noch aus, siehe Bericht Task
+# 20261010-081311-ca9f): Aktivierungsspeicher waechst mit der Stapelgroesse, nicht die Gewichte selbst.
+_ZOOM_VRAM_MB = 3000 if HD_BATCH <= 1 else min(3000 + 350 * (HD_BATCH - 1), 9000)
+_RESTORE_VRAM_MB = 2000 if HD_BATCH <= 1 else min(2000 + 250 * (HD_BATCH - 1), 6000)
 SHADOW_REF = 0.32             # Referenzskala, auf die der Schlagschatten abgestimmt ist (composite_host.py)
 
 
@@ -368,8 +376,9 @@ def sync_chunk(tag, wav, grey_scene, a, b, box, cache: Path, ident: str, log) ->
         if HD:                                             # Real-ESRGAN + GFPGAN statt Lanczos (braucht die GPU)
             from video import gesicht_hd
             t = time.time()
-            _run_with_gpu("zoom", 3000, log,
-                          lambda: gesicht_hd.zoom_window(FFMPEG, Path(grey_scene), a, b + 5, x, y, s, ZOOM, seg_vid, FPS))
+            _run_with_gpu("zoom", _ZOOM_VRAM_MB, log,
+                          lambda: gesicht_hd.zoom_window(FFMPEG, Path(grey_scene), a, b + 5, x, y, s, ZOOM, seg_vid,
+                                                         FPS, batch=HD_BATCH))
             log(f"  {tag}: Gesichtsfenster {s} px KI-hochskaliert auf {ZOOM} in {time.time() - t:.0f} s")
         else:
             run([FFMPEG, "-y", "-v", "error", "-i", grey_scene, "-vf",
@@ -418,7 +427,8 @@ def sync_chunk(tag, wav, grey_scene, a, b, box, cache: Path, ident: str, log) ->
     if HD and frames:                                      # Mundpartie der Ausgabe nachzeichnen (GFPGAN)
         from video import gesicht_hd
         t = time.time()
-        frames = _run_with_gpu("restore", 2000, log, lambda: gesicht_hd.restore(frames, gesicht_hd.GFP_OUT))
+        frames = _run_with_gpu("restore", _RESTORE_VRAM_MB, log,
+                              lambda: gesicht_hd.restore(frames, gesicht_hd.GFP_OUT, batch=HD_BATCH))
         gesicht_hd.free()
         log(f"  {tag}: Mund nachgezeichnet (GFPGAN) in {time.time() - t:.0f} s")
     frames = [cv2.resize(fr, (s, s), interpolation=cv2.INTER_AREA) for fr in frames]

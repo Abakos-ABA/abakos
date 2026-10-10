@@ -265,6 +265,14 @@ NEWS_WELTLAGE_COMPOSITE_FX = os.environ.get("NEWS_WELTLAGE_COMPOSITE_FX", "1") =
 # jedes _fenster.json unter <ordner>/_schnitt/_freisteller tatsaechlich mit HD gerechnet wurde.
 NEWS_WELTLAGE_LIPSYNC_HD = os.environ.get("NEWS_WELTLAGE_LIPSYNC_HD", "1") == "1"
 
+# --- Weltlage Kompakt: Real-ESRGAN/GFPGAN im Gesichtsfenster gebuendelt statt Bild fuer Bild durchs Netz (Task
+# 20261010-081311-ca9f, Laufzeit-Analyse): video/gesicht_hd.py rief esrgan()/gfpgan() bisher einzeln pro Bild auf,
+# auf der RTX 4090 bei einem 768-px-Fenster ueberwiegt dort der Python/CUDA-Startaufwand die eigentliche Rechenzeit.
+# Gleiche Gewichte, gleiche Tile-Aufteilung, nur mehrere Bilder in einer Stapel-Dimension -> rechnerisch das Gleiche
+# (siehe tests/test_gesicht_hd_batch.py, Abweichung < 2/255). Default 1 = alter Weg, unveraendert (kein Risiko fuer
+# einen laufenden Render); zum Messen z.B. 8 setzen.
+NEWS_WELTLAGE_GESICHT_HD_BATCH = int(os.environ.get("NEWS_WELTLAGE_GESICHT_HD_BATCH", "1"))
+
 # --- Weltlage Kompakt: LatentSync-Staerke der Mundbewegung (video/freisteller_lipsync.py GUIDANCE, Task
 # 20261001-202910-0180): die Probe vom 29.09. (Task 1fa2) hatte bewusst auf 2,5 erhoeht (Mund ~50 % staerker als mit
 # LatentSync-Standard 1,5). 01.10. auf 2,0, 02.10. nachts kurz 1,5 (Task 6861), dann Marlons Entscheid 02.10. mittags
