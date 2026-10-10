@@ -403,5 +403,29 @@ class Puenktlichkeit(Basis):
         self.assertIsNone(rs.naechste_tp_decke(rs.TP_MIN_DECKE, -1.0), "an der Mindestdecke: nicht weiter")
 
 
+class Sofort(Basis):
+    """Marlons «sofort veröffentlichen» pro Lauf (10.10.2026, Task 3ba8)."""
+
+    def test_schalter_nur_fuer_den_einen_lauf(self):
+        self.assertFalse(tl.sofort_aktiv("2026-10-10_19:00"))
+        e = tl.sofort_setzen("2026-10-10_19:00", "Marlon per Telegram")
+        self.assertTrue(e["sofort"] and e["sofort_grund"] == "Marlon per Telegram" and e["sofort_seit"])
+        self.assertTrue(tl.sofort_aktiv("2026-10-10_19:00"))
+        self.assertFalse(tl.sofort_aktiv("2026-10-10_11:00"), "anderer Lauf bleibt beim normalen Ablauf")
+        self.assertTrue(tl.sofort_aktiv("2026-10-10_19:00"), "mehrfach lesbar, bleibt gesetzt")
+
+    def test_sofort_schaltet_vorab_upload_ab(self):
+        alt = tl.NEWS_WELTLAGE_UPLOAD_VORAB, tl.NEWS_WELTLAGE_UPLOAD_VISIBILITY
+        try:
+            tl.NEWS_WELTLAGE_UPLOAD_VORAB, tl.NEWS_WELTLAGE_UPLOAD_VISIBILITY = True, "public"
+            self.assertTrue(tl.vorab_upload())
+            self.assertTrue(tl.vorab_fuer("2026-10-10_19:00"), "ohne sofort: privat vorab wie bisher")
+            tl.sofort_setzen("2026-10-10_19:00")
+            self.assertFalse(tl.vorab_fuer("2026-10-10_19:00"), "mit sofort: direkt öffentlich")
+            self.assertTrue(tl.vorab_fuer("2026-10-10_11:00"))
+        finally:
+            tl.NEWS_WELTLAGE_UPLOAD_VORAB, tl.NEWS_WELTLAGE_UPLOAD_VISIBILITY = alt
+
+
 if __name__ == "__main__":
     unittest.main()

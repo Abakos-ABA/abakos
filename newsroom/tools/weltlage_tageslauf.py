@@ -69,6 +69,11 @@ Pause ohne Code-Aenderung: Datei state/weltlage_tageslauf.pause anlegen (loesche
                                             [--nur thema,skript] [--trocken] [--themenwahl-min 2] [--freigabe-min 2]
     python tools/weltlage_tageslauf.py metadaten <folgenordner>
     python tools/weltlage_tageslauf.py master-neu <folgenordner> <master.mp4>   (nur Master-Ton neu, Sekunden)
+    python tools/weltlage_tageslauf.py sofort 2026-10-10_19:00 [--grund "Marlon per Telegram"]
+        (seit 10.10.2026, Task 3ba8: Marlons «sofort veröffentlichen» für EINEN Lauf - Schritt warten überspringt
+        Freigabefenster/Slot, freigabe stellt keine Rückfrage, upload geht direkt in NEWS_WELTLAGE_UPLOAD_VISIBILITY
+        statt privat vorab. Ein schon laufender Tageslauf liest den Schalter erst beim nächsten Start seines Schritts;
+        schläft er bereits im Schritt warten, Langlauf abbrechen und neu starten - fertige Schritte werden übersprungen.)
 """
 import argparse
 import json
@@ -715,6 +720,23 @@ def vorab_upload() -> bool:
     return NEWS_WELTLAGE_UPLOAD_VORAB and NEWS_WELTLAGE_UPLOAD_VISIBILITY != "private"
 
 
+def sofort_aktiv(key: str) -> bool:
+    """Marlon hat fuer diesen Lauf «sofort veroeffentlichen» gegeben (`weltlage_tageslauf.py sofort <key>`, Zustand
+    Feld "sofort", 10.10.2026 Task 3ba8): kein Warten auf das Freigabefenster oder den Slot, keine Freigabe-Frage,
+    Upload direkt in der Ziel-Sichtbarkeit statt privat vorab. Gilt nur fuer diesen einen Schluessel."""
+    return bool((_laden().get(key) or {}).get("sofort"))
+
+
+def vorab_fuer(key: str) -> bool:
+    """Privat vorab hochladen? Nein, wenn Marlon fuer den Lauf «sofort» gegeben hat."""
+    return vorab_upload() and not sofort_aktiv(key)
+
+
+def sofort_setzen(key: str, grund: str = "Marlon") -> dict:
+    return _eintrag(key, sofort=True, sofort_seit=datetime.now().astimezone().isoformat(timespec="seconds"),
+                    sofort_grund=grund)
+
+
 def laenge_reparatur_noetig(info: dict, runden: int) -> str | None:
     """Prueft, ob eine durchgefallene Abnahme (abnahme.json-Inhalt) am Fehler "Folge zu kurz" lag (Abnahme 4i,
     Marlons Entscheid 04.10.2026 23:53) und noch ein automatischer Verlaengerungsversuch uebrig ist
@@ -746,7 +768,8 @@ def bilder_holen(ordner: Path, log) -> dict:
             dst = ordner / "bilder" / f"m{b['idx']}_{s['index']}.png"
             shutil.copy(s["png"], dst)
             res[b["idx"]].append({"png": str(dst), "source": s["source"], "domain": s["domain"], "title": s["title"],
-                                  "url": s["url"], "textzeichen": s.get("textzeichen")})
+                                  "url": s["url"], "textzeichen": s.get("textzeichen"),
+                                  "schlagzeile": s.get("schlagzeile")})
         shutil.rmtree(DATA_DIR / "broll" / f"{praefix}_{b['idx']}", ignore_errors=True)
         log(f"Bilder Meldung {b['idx']}: {len(shots)} ({', '.join(s['source'] for s in shots)})")
     if not any(res.values()):
@@ -1127,6 +1150,9 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
             log(f"Titel: {m['title']} | {len(m['description'])} Zeichen Beschreibung | {len(m['tags'])} Tags")
         elif schritt == "warten":
             jetzt = datetime.now().astimezone()
+            if sofort_aktiv(key):
+                log(f"fertig um {jetzt:%H:%M} - Marlon: sofort veröffentlichen, kein Warten auf Freigabefenster/Slot")
+                return
             # pro Lauf ueberschreibbar (Zustand "max_verspaetung_h"), z.B. wenn ein fertig produzierter Lauf nach
             # einem Abbruch gerettet/nachgeholt wird; sonst NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN
             max_h = float((_laden().get(key) or {}).get("max_verspaetung_h") or NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN)
@@ -1145,6 +1171,10 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
             e = _laden().get(key) or {}
             if e.get("freigabe") or e.get("video_id"):
                 log(f"Freigabe schon erledigt ({e.get('freigabe')})")
+                return
+            if sofort_aktiv(key):
+                log(f"Freigabe: Marlon hat «sofort» gegeben ({e.get('sofort_grund') or 'Marlon'}) - keine Rückfrage")
+                _eintrag(key, freigabe="sofort (Marlon)")
                 return
             ergebnis = freigabe_einholen(key, slot, ordner, master, log, freigabe_min, trocken,
                                          lambda schritte: [schritt_ausfuehren(s) for s in schritte])
@@ -1165,7 +1195,7 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
                 _eintrag(key, upload={"trocken": True, "datei": str(datei)})
                 return
             from upload.youtube_playwright import upload_datei
-            vorab = vorab_upload()
+            vorab = vorab_fuer(key)
             res = upload_datei(datei, meta, ordner / "thumbnails" / "thumbnail.jpg",
                                visibility="private" if vorab else NEWS_WELTLAGE_UPLOAD_VISIBILITY,
                                log_path=ordner / "upload.log", debug_dir=ordner / "upload_shots")
@@ -1281,7 +1311,14 @@ def main():
     mn = sub.add_parser("master-neu", help="nur den Master-Ton neu (Pegel-Fehler der Abnahme), B-Roll/Abnahme verwerfen")
     mn.add_argument("ordner", type=Path)
     mn.add_argument("master", type=Path)
+    so = sub.add_parser("sofort", help="Marlons Freigabe «sofort veröffentlichen» für einen Lauf: kein Warten auf "
+                                       "Freigabefenster/Slot, keine Rückfrage, Upload direkt öffentlich")
+    so.add_argument("key", help="z.B. 2026-10-10_19:00")
+    so.add_argument("--grund", default="Marlon")
     a = ap.parse_args()
+    if a.cmd == "sofort":
+        print(json.dumps(sofort_setzen(a.key, a.grund), indent=1, ensure_ascii=False, default=str))
+        return
     if a.cmd == "lauf":
         sys.exit(lauf(a.datum, a.slot, a.ordner, a.bis, a.nur.split(",") if a.nur else None,
                       True if a.trocken else None, a.themenwahl_min, a.freigabe_min))

@@ -84,6 +84,31 @@ def _synthesize_piper(text: str, out_path):
             _piper.synthesize(text, w, length_scale=NEWS_PIPER_LENGTH_SCALE, sentence_silence=0.25)
 
 
+WORKER_ANLAEUFE = 2       # Anlaeufe fuer einen abgestuerzten GPU-Worker (Exit-Code = Windows-Ausnahmecode)
+WORKER_PAUSE_S = 20
+
+
+def worker_mit_wiederholung(lauf, out_path, name: str = "worker", log=print, anlaeufe: int = WORKER_ANLAEUFE,
+                            pause_s: float = WORKER_PAUSE_S):
+    """Fuehrt lauf() (subprocess.run eines GPU-Workers, Rueckgabe CompletedProcess) aus und wiederholt es, wenn der
+    Worker ABGESTUERZT ist (Exit-Code >= 0xC0000000 bzw. negativ, z.B. 0xC0000409 Fail-Fast im NVIDIA-Treiber
+    nvcuda64.dll, 10.10.2026) - nicht bei regulaeren Fehlern (Exit 1: falscher Text, fehlende Referenz, ...), die
+    bleiben wie bisher sofort ein Fehler. Vor jedem Anlauf wird eine halbfertige Ausgabedatei entfernt."""
+    from tts.veredelung import exit_text, ist_absturz
+    result = None
+    for anlauf in range(1, max(1, int(anlaeufe)) + 1):
+        Path(out_path).unlink(missing_ok=True)
+        result = lauf()
+        if not ist_absturz(result.returncode):
+            return result
+        log(f"{name} abgestuerzt ({exit_text(result.returncode)}, typisch NVIDIA-Treiber nvcuda64.dll) - "
+            f"Anlauf {anlauf}/{anlaeufe}")
+        if anlauf < anlaeufe and pause_s > 0:
+            import time
+            time.sleep(pause_s)
+    return result
+
+
 def _synthesize_chatterbox(text: str, out_path):
     """Chatterbox Multilingual in its own venv (tts/chatterbox_worker.py); the host's voice is the
     fixed reference wav in config/brand/voice_ref.wav, so every video sounds like the same person."""
@@ -111,12 +136,16 @@ def _synthesize_chatterbox(text: str, out_path):
     if NEWS_WELTLAGE_STIMME_VEREDELN:
         cmd += ["--veredeln"]
     import gpu_budget                                      # zentrale GPU-Warteschlange (29.09.), Fallback ohne
-    with gpu_budget.slot("tts", name="tts chatterbox (newsroom)", vram_mb=5000):
-        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                                cwd=str(BASE_DIR))
+
+    def _lauf():
+        with gpu_budget.slot("tts", name="tts chatterbox (newsroom)", vram_mb=5000):
+            return subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                                  cwd=str(BASE_DIR))
+    result = worker_mit_wiederholung(_lauf, out_path, name="chatterbox worker", log=logger.warning)
     Path(text_file).unlink(missing_ok=True)
     if result.returncode != 0 or not Path(out_path).exists():
-        raise RuntimeError(f"chatterbox worker failed:\n{result.stderr[-2500:]}")
+        from tts.veredelung import exit_text
+        raise RuntimeError(f"chatterbox worker failed ({exit_text(result.returncode)}):\n{result.stderr[-2500:]}")
     _tempo(out_path, float(st.get("tempo", 1.0)))
     if NEWS_WELTLAGE_STIMME_VEREDELN:
         from tts.veredelung import veredeln                # Schritt 2: Resemble Enhance + Klangkette, 24 kHz bleibt
