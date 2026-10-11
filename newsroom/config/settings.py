@@ -311,6 +311,16 @@ NEWS_WELTLAGE_UPLOAD_VORAB = os.environ.get("NEWS_WELTLAGE_UPLOAD_VORAB", "1") =
 # Upload im Browser: so lange auf 100 Prozent Dateitransfer + Verarbeitungsstart warten (Minuten)
 NEWS_UPLOAD_TIMEOUT_MINUTEN = float(os.environ.get("NEWS_UPLOAD_TIMEOUT_MINUTEN", "60"))
 
+# --- Weltlage Kompakt: Shorts aus der fertigen Folge (tools/weltlage_shorts.py, Marlon 11.10.2026) ---
+# Analyse 11.10.2026 (reports/youtube-kanal/weltlage-analyse-20261011): der Kanal hatte trotz fertiger
+# Shorts-Technik noch keine einzige echte Short veroeffentlicht. Nach der Veroeffentlichung einer Folge
+# schneidet der Tageslauf bis zu SHORTS_MAX vertikale Kurzclips heraus, wartet SHORTS_VERZUG_MINUTEN
+# (zeitversetzt, nicht gleichzeitig mit der Folge), dann dieselbe Freigabe-Regel wie bei Folgen
+# (FREIGABE_MINUTEN ohne Reaktion -> automatisch oeffentlich).
+NEWS_WELTLAGE_SHORTS = os.environ.get("NEWS_WELTLAGE_SHORTS", "1") == "1"
+NEWS_WELTLAGE_SHORTS_MAX = int(os.environ.get("NEWS_WELTLAGE_SHORTS_MAX", "3"))
+NEWS_WELTLAGE_SHORTS_VERZUG_MINUTEN = float(os.environ.get("NEWS_WELTLAGE_SHORTS_VERZUG_MINUTEN", "30"))
+
 # --- Weltlage Kompakt: Themenwahl nur wirklich neue Themen (Marlon 07.10.2026, Task 20261007-174635-f7ff) ---
 # Seit der Vortagswahl (THEMENWAHL-Fenster beginnt ~16 h vor dem Slot) reicht das alte 48-h-Fenster nicht mehr aus,
 # um nur aktuelle Meldungen vorzuschlagen; jetzt nur noch die letzten THEMEN_STUNDEN Stunden Rohmeldungen.

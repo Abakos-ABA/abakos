@@ -92,7 +92,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from config.settings import (DATA_DIR, NEWS_WELTLAGE_BROLL, NEWS_WELTLAGE_BROLL_OHNE_KI,
                              NEWS_WELTLAGE_FREIGABE_MINUTEN,  # noqa: E402
                              NEWS_WELTLAGE_MAX_FEEDBACK_RUNDEN, NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN,
-                             NEWS_WELTLAGE_PRODUKTION_STUNDEN, NEWS_WELTLAGE_SLOTS, NEWS_WELTLAGE_TAEGLICH,
+                             NEWS_WELTLAGE_PRODUKTION_STUNDEN, NEWS_WELTLAGE_SHORTS, NEWS_WELTLAGE_SHORTS_MAX,
+                             NEWS_WELTLAGE_SHORTS_VERZUG_MINUTEN, NEWS_WELTLAGE_SLOTS, NEWS_WELTLAGE_TAEGLICH,
                              NEWS_WELTLAGE_THEMENWAHL_MINUTEN, NEWS_WELTLAGE_TROCKENLAUF,
                              NEWS_WELTLAGE_UPLOAD_VISIBILITY, NEWS_WELTLAGE_UPLOAD_VORAB,
                              NEWS_WELTLAGE_UPLOAD_VORLAUF_MINUTEN, STATE_DIR)
@@ -103,7 +104,7 @@ PY = ROOT / ".venv" / "Scripts" / "python.exe"
 PYW = ROOT / ".venv" / "Scripts" / "pythonw.exe"
 LS_PY = ROOT / ".venv-lipsync" / "Scripts" / "python.exe"
 SCHRITTE = ["thema", "skript", "aussprache", "bilder", "stimme", "schnitt", "broll", "abnahme", "thumbnail",
-            "metadaten", "warten", "freigabe", "upload", "veroeffentlichen", "meldung"]
+            "metadaten", "warten", "freigabe", "upload", "veroeffentlichen", "meldung", "shorts"]
 PRODUKTION = ["stimme", "schnitt", "broll", "abnahme", "thumbnail", "metadaten"]   # nach Feedback erneut
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 KI_HINWEIS = ("Moderatorin Latara und ihre Stimme sind KI-generiert. Fakten und Zitate stammen aus den unten "
@@ -968,6 +969,57 @@ def telegram_fassung(datei: Path, ordner: Path, log) -> Path | None:
         return None
 
 
+def shorts_erzeugen_und_freigeben(key: str, slot: str, ordner: Path, log):
+    """Schritt shorts (Marlon 11.10.2026, Analyse reports/youtube-kanal/weltlage-analyse-20261011): aus der
+    gerade veroeffentlichten Folge 1-3 vertikale Shorts schneiden (tools/weltlage_shorts.py), SHORTS_VERZUG
+    Minuten warten (zeitversetzt, nicht gleichzeitig mit der Folge), dann je Short dieselbe Freigabe-Regel
+    wie bei Folgen: Telegram/Beta-Frage, ohne Reaktion in FREIGABE_MINUTEN automatisch oeffentlich."""
+    import weltlage_entscheid as ent
+    if NEWS_WELTLAGE_SHORTS_VERZUG_MINUTEN > 0:
+        log(f"Shorts: warte {NEWS_WELTLAGE_SHORTS_VERZUG_MINUTEN:.0f} min nach der Veröffentlichung (zeitversetzt)")
+        time.sleep(NEWS_WELTLAGE_SHORTS_VERZUG_MINUTEN * 60)
+    # eigener Unterprozess wie Rohschnitt/TTS (nicht im Tageslauf-Prozess importiert): weltlage_shorts.py braucht
+    # NEWS_FORMAT=shorts fuer die 9:16-Geometrie, der Tageslauf selbst laeuft aber mit NEWS_FORMAT=landscape und
+    # haette das als bereits geladenes Modul (config.settings/video.layout) nicht mehr umschalten koennen.
+    rc = _run(["tools/weltlage_shorts.py", ordner, "--max", str(NEWS_WELTLAGE_SHORTS_MAX)], log, timeout_h=1,
+             ordner=ordner)
+    if rc != 0:
+        log("Shorts-Schnitt fehlgeschlagen (siehe Log)")
+        return
+    shorts_dir = ordner / "shorts"
+    shorts = []
+    for meta_pfad in sorted(shorts_dir.glob("short_*.json")):
+        meta = json.loads(meta_pfad.read_text(encoding="utf-8"))
+        mp4 = meta_pfad.with_suffix(".mp4")
+        if mp4.exists():
+            shorts.append({"mp4": mp4, "meta": meta})
+    if not shorts:
+        log("Shorts: keine passende Szene gefunden (keine unter 60 s mit eigenem Sprechtext)")
+        return
+    from upload.youtube_playwright import upload_datei
+    video_ids = []
+    for i, s in enumerate(shorts, start=1):
+        skey = f"{key}_short{i}"
+        frist = datetime.now().astimezone() + timedelta(minutes=NEWS_WELTLAGE_FREIGABE_MINUTEN)
+        text = (f"Short {i}/{len(shorts)} aus Weltlage {slot}: {s['meta']['title']} ({s['meta'].get('dauer_s', 0):.0f} s).\n"
+                f"Ohne Antwort bis {frist:%H:%M} veröffentliche ich sie automatisch auf YouTube. "
+                "Freigeben = sofort, Stopp = nicht veröffentlichen.")
+        e = ent.fragen(skey, "freigabe_short", text, {"freigeben": "Freigeben", "stopp": "Stopp"}, frist,
+                       titel=f"Weltlage {slot}: Short {i}/{len(shorts)}", dokument=s["mp4"], log=log)
+        ant = ent.warten(e["id"], log)
+        if ant and ant["wahl"] == "stopp":
+            log(f"Short {i}: Stopp - nicht hochgeladen")
+            continue
+        res = upload_datei(s["mp4"], s["meta"], None, visibility=NEWS_WELTLAGE_UPLOAD_VISIBILITY,
+                           log_path=ordner / "shorts" / f"short_{i}_upload.log")
+        video_ids.append(res.get("video_id"))
+        log(f"Short {i} hochgeladen: https://youtu.be/{res.get('video_id')}")
+    _eintrag(key, shorts_video_ids=video_ids)
+    if video_ids:
+        _melden(f"Weltlage {slot}", f"{len(video_ids)} Short(s) veröffentlicht: "
+                + ", ".join(f"https://youtu.be/{v}" for v in video_ids), log)
+
+
 def freigabe_einholen(key: str, slot: str, ordner: Path, master: Path, log, minuten: float, trocken: bool,
                       produktion) -> str:
     """Schritt freigabe. Rueckgabe "freigegeben" | "automatisch"; Stopp -> Gestoppt; Feedback -> Ueberarbeitung +
@@ -1244,6 +1296,22 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
                     f"https://youtu.be/{res.get('video_id')}\nThumbnail: {res.get('thumbnail')}", log)
             _eintrag(key, status="veroeffentlicht" if ok else "unbestaetigt",
                      fertig=datetime.now().astimezone().isoformat(timespec="seconds"))
+        elif schritt == "shorts":
+            if trocken or not NEWS_WELTLAGE_SHORTS:
+                return
+            e = _laden().get(key) or {}
+            if e.get("shorts_erledigt"):
+                log("Shorts bereits erledigt")
+                return
+            res = e.get("upload") or {}
+            if not res.get("video_id"):
+                log("Shorts: Folge hat keine Video-ID - uebersprungen")
+                return
+            try:
+                shorts_erzeugen_und_freigeben(key, slot, ordner, log)
+            except Exception as ex:  # noqa: BLE001 - Shorts sind ein Zusatznutzen, duerfen die Folge nie gefaehrden
+                log(f"Shorts fehlgeschlagen: {ex}")
+            _eintrag(key, shorts_erledigt=True)
 
     schritt = "start"
     try:
