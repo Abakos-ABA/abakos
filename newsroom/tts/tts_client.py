@@ -109,9 +109,17 @@ def worker_mit_wiederholung(lauf, out_path, name: str = "worker", log=print, anl
     return result
 
 
-def _synthesize_chatterbox(text: str, out_path):
+def _synthesize_chatterbox(text: str, out_path, seed: int | None = None):
     """Chatterbox Multilingual in its own venv (tts/chatterbox_worker.py); the host's voice is the
-    fixed reference wav in config/brand/voice_ref.wav, so every video sounds like the same person."""
+    fixed reference wav in config/brand/voice_ref.wav, so every video sounds like the same person.
+
+    `seed` ueberschreibt, wenn angegeben, das Stimm-Profil (das selbst meist seed=null hat): Chatterbox
+    sampelt sonst mit unkontrolliertem RNG-Stand, darum klingt derselbe Name (z.B. "Tramp" aus dem
+    Aussprache-Lexikon) von Aufruf zu Aufruf unterschiedlich deutlich/undeutlich (Marlons Beobachtung
+    13.10.2026: Eigennamen "oft, aber nicht immer" falsch betont). weltlage_tts.sprich() setzt hier pro
+    Versuch einen aus Text+Versuch abgeleiteten festen Seed: gleicher Text+Versuch -> reproduzierbar,
+    ein neuer Versuch bei schlechter Kontrolle bekommt trotzdem einen anderen Seed und damit eine echte
+    zweite Chance."""
     import subprocess
     import tempfile
 
@@ -130,8 +138,9 @@ def _synthesize_chatterbox(text: str, out_path):
         raise FileNotFoundError(f"{st['ref_pfad']} fehlt - Lataras Stimme braucht die Referenz, kein Rueckfall")
     cmd += ["--ref", str(st["ref_pfad"]), "--exaggeration", str(st["exaggeration"]), "--cfg", str(st["cfg"]),
             "--temperature", str(st["temperature"]), "--max-chars", str(st["max_chars"])]
-    if st.get("seed") is not None:
-        cmd += ["--seed", str(st["seed"])]
+    seed = seed if seed is not None else st.get("seed")
+    if seed is not None:
+        cmd += ["--seed", str(seed)]
     from config.settings import NEWS_WELTLAGE_STIMME_VEREDELN       # Variante A (Marlon 01.10.2026), Default an
     if NEWS_WELTLAGE_STIMME_VEREDELN:
         cmd += ["--veredeln"]

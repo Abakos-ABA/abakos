@@ -24,6 +24,12 @@ Nachweis wird abgelehnt, weltlage_rohschnitt.py bricht dann ab.
 
 Chatterbox haengt gelegentlich einen Kauderwelsch-Nachsatz an (Testlauf 29.09.): jede Datei wird darum mit
 faster-whisper (CPU, keine GPU) abgeschrieben und bei zu vielen Zusatzwoertern bis zu zweimal neu gesprochen.
+
+Seed pro Versuch (13.10.2026, Marlons Auftrag "Eigennamen wie Trump oft, aber nicht immer falsch"):
+alle Stimm-Profile haben seed=null, Chatterbox sampelte also mit unkontrolliertem RNG-Stand - derselbe
+Lexikon-Eintrag (z.B. Trump -> Tramp) klang von Rendern zu Rendern unterschiedlich deutlich. _versuch_seed()
+leitet jetzt aus Text+Versuchsnummer einen festen Seed ab: reproduzierbar fuer Diagnose, aber ein neuer
+Versuch nach verworfener Kontrolle bekommt trotzdem einen eigenen Seed statt den ersten Fehlschlag zu wiederholen.
 """
 import difflib
 import hashlib
@@ -154,13 +160,24 @@ def _kontrolle(text: str, wav: Path) -> dict:
             "abschrift": ab.strip()}
 
 
+def _versuch_seed(text: str, versuch: int) -> int:
+    """Fester, aus Text+Versuch abgeleiteter Seed (Marlons Auftrag 13.10.2026: Eigennamen wie "Tramp"
+    klangen "oft, aber nicht immer" falsch - Ursache war Chatterbox' unkontrollierter RNG-Stand, da alle
+    Stimm-Profile seed=null haben). Gleicher Text+Versuch -> bitidentische, reproduzierbare Ausgabe (fuer
+    Diagnose/Hoerproben); ein neuer Versuch nach einer verworfenen Kontrolle bekommt trotzdem einen
+    anderen Seed, die Wiederholung ist also keine blosse Kopie des ersten Fehlschlags."""
+    h = hashlib.sha256(f"{text}|{versuch}".encode("utf-8")).hexdigest()
+    return int(h[:8], 16)
+
+
 def sprich(text: str, out: Path, versuche: int = 3, log: Path | None = None) -> dict:
     from tts.normalize_de import normalize_for_tts
     from tts.tts_client import _synthesize_chatterbox
     norm = normalize_for_tts(text)
     for v in range(1, versuche + 1):
         t0 = time.time()
-        _synthesize_chatterbox(norm, out)
+        seed = _versuch_seed(norm, v)
+        _synthesize_chatterbox(norm, out, seed=seed)
         k = _kontrolle(text, out)
         if k["ok"] or v == versuche:
             break
@@ -172,7 +189,7 @@ def sprich(text: str, out: Path, versuche: int = 3, log: Path | None = None) -> 
     meta = {"engine": ENGINE, "modell": "ChatterboxMultilingualTTS (chatterbox-tts 0.1.7, .venv-tts)",
             "profil": _P["profil"], "ref": _P["ref"], "ref_sha256": REF_SHA256, "exaggeration": EXAGGERATION,
             "cfg": CFG, "tempo": TEMPO, "veredelt": NEWS_WELTLAGE_STIMME_VEREDELN,
-            "temperature": _P["temperature"], "max_chars": _P["max_chars"], "seed": _P.get("seed"), "sr": sr, "laenge_s": round(laenge, 2), "versuche": v, "kontrolle": k,
+            "temperature": _P["temperature"], "max_chars": _P["max_chars"], "seed": seed, "sr": sr, "laenge_s": round(laenge, 2), "versuche": v, "kontrolle": k,
             "text_sha256": hashlib.sha256(norm.encode("utf-8")).hexdigest(),
             "text_roh_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(), "wav_sha256": sha256(out),
             "zeit": time.strftime("%Y-%m-%d %H:%M:%S"), "dauer_s": round(time.time() - t0, 1)}
