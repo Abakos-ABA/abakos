@@ -48,9 +48,14 @@ FPS = 25                      # LatentSync arbeitet mit 25 fps; der Schnitt setz
 CHUNK = 7.0                   # laengere Stuecke liefen am 29.09. ueber den VRAM
 ZOOM = 768                    # Kantenlaenge des hochskalierten Gesichtsfensters
 WIN = 2.2                     # Fensterkante in Gesichtsgroessen (eng: Gesicht fuellt den LatentSync-Eingang)
-STEPS = 12                     # 12 statt 20 (Marlon 07.10., Vergleich 20/15/12 in Task 20261007-183020-9417: kein
-                                # sichtbarer Unterschied) - Feld "steps" in pipeline_signatur(), damit eingefrorene
-                                # Szenen die Aenderung nicht stillschweigend ignorieren
+STEPS = 8                      # 8 statt 12 (Marlons Auftrag 14.10., Task 20261014-192918-98bb: Produktion auf ~2 h
+                                # straffen; Vergleich 12 vs. 8 x Batch 1/4 in tools/lipsync_steps_vergleich.py,
+                                # Bericht reports/lipsync_steps_vergleich_20261014/ergebnis.json: SyncNet-Konfidenz
+                                # und Mundbewegungs-Kennzahl bei 8 Schritten unveraendert ggue. 12, kein Versatz,
+                                # ~20-25 % schnelleres LatentSync pro Stueck). Davor 12 statt 20 (Marlon 07.10.,
+                                # Vergleich 20/15/12 in Task 20261007-183020-9417: kein sichtbarer Unterschied) -
+                                # Feld "steps" in pipeline_signatur(), damit eingefrorene Szenen die Aenderung nicht
+                                # stillschweigend ignorieren
 try:                          # Mundbewegungs-Staerke konfigurierbar (config.settings), Standard 2.0 (Task 0180,
     from config.settings import NEWS_WELTLAGE_LIPSYNC_GUIDANCE as GUIDANCE   # 01.10. abends: 2.5 wirkte uebertrieben)
 except Exception:

@@ -269,9 +269,11 @@ NEWS_WELTLAGE_LIPSYNC_HD = os.environ.get("NEWS_WELTLAGE_LIPSYNC_HD", "1") == "1
 # 20261010-081311-ca9f, Laufzeit-Analyse): video/gesicht_hd.py rief esrgan()/gfpgan() bisher einzeln pro Bild auf,
 # auf der RTX 4090 bei einem 768-px-Fenster ueberwiegt dort der Python/CUDA-Startaufwand die eigentliche Rechenzeit.
 # Gleiche Gewichte, gleiche Tile-Aufteilung, nur mehrere Bilder in einer Stapel-Dimension -> rechnerisch das Gleiche
-# (siehe tests/test_gesicht_hd_batch.py, Abweichung < 2/255). Default 1 = alter Weg, unveraendert (kein Risiko fuer
-# einen laufenden Render); zum Messen z.B. 8 setzen.
-NEWS_WELTLAGE_GESICHT_HD_BATCH = int(os.environ.get("NEWS_WELTLAGE_GESICHT_HD_BATCH", "1"))
+# (siehe tests/test_gesicht_hd_batch.py, Abweichung < 2/255). Seit 14.10.2026 (Task 20261014-192918-98bb, Marlons
+# Auftrag "Produktion auf 2 h straffen"): echt gemessen (tools/lipsync_steps_vergleich.py) statt nur geschaetzt -
+# Batch 4 spart auf der RTX 4090 pro 7-s-Stueck real Zeit (kein SyncNet-/Mundbewegungs-Unterschied messbar), darum
+# jetzt Standard 4 statt 1.
+NEWS_WELTLAGE_GESICHT_HD_BATCH = int(os.environ.get("NEWS_WELTLAGE_GESICHT_HD_BATCH", "4"))
 
 # --- Weltlage Kompakt: LatentSync-Staerke der Mundbewegung (video/freisteller_lipsync.py GUIDANCE, Task
 # 20261001-202910-0180): die Probe vom 29.09. (Task 1fa2) hatte bewusst auf 2,5 erhoeht (Mund ~50 % staerker als mit
