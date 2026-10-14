@@ -1138,6 +1138,12 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
             for versuch in range(1, SCHNITT_VERSUCHE + 1):
                 if master.exists():
                     break
+                # Vorfall 14.10.2026: C: voll, ffmpeg brach mitten im s5-Lipsync ab (tools/weltlage_speicher.py)
+                import weltlage_speicher
+                try:
+                    weltlage_speicher.sichern(ordner, log)
+                except weltlage_speicher.SpeicherVoll as ex:
+                    raise Abbruch(str(ex)) from ex
                 schnitt_vorbereiten(key, ordner, veroeffentlichen, log)
                 rc = _run(["tools/weltlage_rohschnitt.py", ordner, "--out", master], log,
                           timeout_h=SCHNITT_MAX_STUNDEN, python=LS_PY, ordner=ordner, still_min=STILLSTAND_MIN)
