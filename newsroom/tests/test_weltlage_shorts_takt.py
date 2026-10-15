@@ -22,16 +22,23 @@ NOW = datetime(2026, 10, 14, 8, 17).astimezone()
 
 
 class ShortsTaktTest(unittest.TestCase):
-    def _setup(self, upload):
+    def _setup(self, upload, thumbnail=None):
         tmp = Path(tempfile.mkdtemp())
         self.gemeldet = []
+        self.thumbnail_aufrufe = []
         fake_up = types.ModuleType("upload.youtube_playwright")
         fake_up.upload_datei = upload
         fake_ent = types.ModuleType("weltlage_entscheid")
         fake_ent.mitteilen = lambda titel, text, log=None: self.gemeldet.append(text)
+
+        def _thumb(video_id, mp4, log=print):
+            self.thumbnail_aufrufe.append((video_id, mp4))
+            return thumbnail if thumbnail is not None else False
+
         for p in (mock.patch.object(takt_mod, "QUEUE_PFAD", tmp / "q.json"),
                   mock.patch.object(takt_mod, "VERLAUF_PFAD", tmp / "v.json"),
                   mock.patch.object(takt_mod, "slots", lambda: ["08:00"]),
+                  mock.patch.object(takt_mod, "_thumbnail_setzen_versucht", _thumb),
                   mock.patch.dict(sys.modules, {"upload.youtube_playwright": fake_up, "weltlage_entscheid": fake_ent})):
             p.start()
             self.addCleanup(p.stop)
@@ -55,6 +62,24 @@ class ShortsTaktTest(unittest.TestCase):
         res = takt_mod.takt(NOW)
         self.assertIs(res["oeffentlich_bestaetigt"], True)
         self.assertTrue(self.gemeldet[0].startswith("Short veröffentlicht"))
+
+    def test_bestaetigt_versucht_thumbnail_zu_setzen(self):
+        """15.10.2026 (Task t-20261015-092430-e232, Beta): upload_datei() lud Shorts bisher IMMER mit
+        thumb_path=None hoch, Studio waehlte selbst einen Zufalls-Frame. Nach bestaetigter Veroeffentlichung
+        soll ein Standbild aus der Titelkarte gesetzt werden, das Ergebnis landet im Verlauf."""
+        self._setup(lambda *a, **k: {"video_id": "abcdefghijk", "oeffentlich_bestaetigt": True}, thumbnail=True)
+        takt_mod.takt(NOW)
+        self.assertEqual([vid for vid, _ in self.thumbnail_aufrufe], ["abcdefghijk"])
+        v = json.loads(takt_mod.VERLAUF_PFAD.read_text(encoding="utf-8"))
+        self.assertIs(v["hochgeladen"][-1]["thumbnail"], True)
+
+    def test_nicht_bestaetigt_versucht_kein_thumbnail(self):
+        """Bleibt die Veroeffentlichung unbestaetigt (Entwurf), waere ein Thumbnail-Versuch unnoetige Studio-Last -
+        die stuendliche Nachpruefung zieht das Video ohnehin nach."""
+        self._setup(lambda *a, **k: {"video_id": "ZkkmGOjf68w", "oeffentlich_bestaetigt": False,
+                                     "studio_status": "ENTWURF"})
+        takt_mod.takt(NOW)
+        self.assertEqual(self.thumbnail_aufrufe, [])
 
     def test_abbruch_nach_dateiuebergabe_wird_vermerkt_statt_wiederholt(self):
         def upload(*a, **k):

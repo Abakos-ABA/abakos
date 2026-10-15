@@ -42,6 +42,39 @@ VERLAUF_PFAD = STATE_DIR / "weltlage_shorts_verlauf.json"
 VIDEO_ID_IN_TEXT = re.compile(r"Upload ([A-Za-z0-9_-]{11}) nach")   # Text von UploadHaltedForReview (upload_datei)
 FENSTER_MINUTEN = 110  # Toleranz je Slot (etwas unter 2 h, damit eine ausgefallene Stunden-Runde noch nachholt,
                         # aber niemals zwei Slots verschmelzen - die Wache laeuft stuendlich)
+THUMB_ZEIT_S = 1.5   # liegt im eingeblendeten Titelband (0-4 s, tools.weltlage_shorts._titelkarte)
+
+
+def _thumbnail_aus_titelkarte(mp4: Path, log=print) -> Path | None:
+    """Standbild aus der Titelkarten-Phase des fertigen Shorts (t=THUMB_ZEIT_S) - bisher lud upload_datei() Shorts
+    IMMER mit thumb_path=None hoch (Studio waehlte selbst einen Zufalls-Frame), obwohl Studio bei Shorts ein
+    eigenes Thumbnail-Upload-Feld erlaubt (Live-Check 15.10.2026, Task t-20261015-092430-e232 von Beta: zuvor nur
+    unverifizierte Annahme 'nein' im Bericht). Gibt None zurueck, wenn ffmpeg fehlschlaegt - ein Thumbnail ist
+    Zusatznutzen, kein Pflichtschritt."""
+    from tools.weltlage_shorts import _ffmpeg
+    ziel = mp4.with_name(mp4.stem + "_thumb.jpg")
+    try:
+        _ffmpeg(["-ss", str(THUMB_ZEIT_S), "-i", str(mp4), "-frames:v", "1", "-q:v", "2", str(ziel)], log)
+    except Exception as e:   # noqa: BLE001
+        log(f"Thumbnail: Standbild aus {mp4.name} fehlgeschlagen ({type(e).__name__}: {e})")
+        return None
+    return ziel if ziel.exists() else None
+
+
+def _thumbnail_setzen_versucht(video_id: str, mp4: Path, log=print) -> bool:
+    bild = _thumbnail_aus_titelkarte(mp4, log)
+    if bild is None:
+        return False
+    try:
+        from upload.youtube_playwright import set_thumbnail
+        set_thumbnail(video_id, str(bild))
+        log(f"Thumbnail: {video_id} gesetzt ({bild.name})")
+        return True
+    except Exception as e:   # noqa: BLE001 - z.B. Profil-Sperre belegt, nie den Takt scheitern lassen
+        log(f"Thumbnail: {video_id} nicht gesetzt ({type(e).__name__}: {e})")
+        return False
+    finally:
+        bild.unlink(missing_ok=True)
 
 
 def _lesen(pfad: Path, default):
@@ -151,12 +184,14 @@ def takt(now: datetime | None = None, trocken: bool = False) -> dict:
     # Vorfall 14.10.2026: upload_datei meldete den 08:00-Short nicht bestaetigt (Studio: Entwurf), der Takt meldete
     # trotzdem "veroeffentlicht". Jetzt zaehlt nur Studios Bestaetigung (oeffentlich_bestaetigt).
     bestaetigt = bool(res.get("oeffentlich_bestaetigt"))
+    thumbnail = _thumbnail_setzen_versucht(res["video_id"], mp4) if bestaetigt and res.get("video_id") else False
     verlauf.setdefault("hochgeladen", []).append({"szene_id": eintrag["szene_id"], "video_id": res.get("video_id"),
                                                   "zeit": now.isoformat(timespec="seconds"), "key": eintrag["key"],
                                                   "titel": eintrag["meta"]["title"],
                                                   "oeffentlich_bestaetigt": bestaetigt,
                                                   "studio_status": res.get("studio_status"),
-                                                  "fehler": res.get("nachzug_fehler")})
+                                                  "fehler": res.get("nachzug_fehler"),
+                                                  "thumbnail": thumbnail})
     verlauf["hochgeladen"] = verlauf["hochgeladen"][-200:]
     verlauf.setdefault("erledigte_slots", []).append(schluessel)
     verlauf["erledigte_slots"] = verlauf["erledigte_slots"][-60:]
