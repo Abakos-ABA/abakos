@@ -61,8 +61,20 @@ def _thumbnail_aus_titelkarte(mp4: Path, log=print) -> Path | None:
     return ziel if ziel.exists() else None
 
 
-def _thumbnail_setzen_versucht(video_id: str, mp4: Path, log=print) -> bool:
-    bild = _thumbnail_aus_titelkarte(mp4, log)
+def _thumbnail_setzen_versucht(video_id: str, mp4: Path, meta: dict | None = None, log=print) -> bool:
+    """Bevorzugt das eigene, komponierte Thumbnail (Text+Branding in der Safe-Zone, von
+    weltlage_shorts_thumbnail.fuer_short() beim Schneiden des Shorts gebaut und in meta['thumbnail']
+    hinterlegt, Marlons Auftrag 15.10.2026 - Problem vorher: kein eigenes Vorschaubild, Studio/ffmpeg-Grab
+    zeigte nur einen rohen Videoframe, die Kachelansicht schnitt oben/unten je rund ein Viertel ab). Fehlt
+    das Komposit (altes meta ohne 'thumbnail'-Feld, oder Bild zwischenzeitlich geloescht), faellt es auf den
+    alten ffmpeg-Standbild-Grab zurueck, statt ganz ohne Thumbnail hochzuladen."""
+    eigenes = Path(meta["thumbnail"]) if meta and meta.get("thumbnail") else None
+    aufgeraeumt = False
+    if eigenes and eigenes.exists():
+        bild = eigenes
+    else:
+        bild = _thumbnail_aus_titelkarte(mp4, log)
+        aufgeraeumt = True
     if bild is None:
         return False
     try:
@@ -74,7 +86,8 @@ def _thumbnail_setzen_versucht(video_id: str, mp4: Path, log=print) -> bool:
         log(f"Thumbnail: {video_id} nicht gesetzt ({type(e).__name__}: {e})")
         return False
     finally:
-        bild.unlink(missing_ok=True)
+        if aufgeraeumt:
+            bild.unlink(missing_ok=True)
 
 
 def _lesen(pfad: Path, default):
@@ -98,20 +111,29 @@ def warteschlange() -> list[dict]:
 def einreihen(key: str, slot: str, ordner: Path, shorts: list[dict]) -> int:
     """Haengt frisch geschnittene Shorts (aus weltlage_tageslauf.shorts_erzeugen_und_einreihen) ans Ende der
     Warteschlange. shorts: [{"mp4": Path, "meta": dict}, ...] wie weltlage_shorts.baue() liefert. Jede Szene hat
-    eine eigene ID (Dateiname short_<i>_<szene>), damit nichts doppelt eingereiht wird."""
+    eine eigene ID (Dateiname short_<i>_<szene>), damit nichts doppelt eingereiht wird.
+
+    Fehlerfund 16.10.2026 (Task 20261016-103819-3966): die Dedup-Pruefung verglich nur die nackte szene_id
+    (z.B. 'short_2_s_coldopen_s5_a5_gegenargument'). Diese ID kommt aus der abstrakten Analyse-Skriptstruktur
+    (Abschnitt/Argument-Nummer) und wiederholt sich darum zwischen VERSCHIEDENEN Folgen mit voellig anderem
+    Thema - ein am 14.10. hochgeladener 'gegenargument'-Short einer Iran-fernen Folge blockierte am 15.10. den
+    tatsaechlich neuen 'gegenargument'-Short der Iran-Folge; die fertig geschnittene, 55 s lange Datei wurde
+    stillschweigend NIE eingereiht und ging verloren (nur per Zufallsfund in den Dateien bemerkt). Der
+    Eindeutigkeits-Schluessel ist jetzt (key, szene_id) statt nur szene_id - key ist die Folge, nie zwei Folgen
+    teilen sich einen key."""
     q = warteschlange()
-    bekannt = {e["szene_id"] for e in q}
+    bekannt = {(e.get("key"), e["szene_id"]) for e in q}
     verlauf = _lesen(VERLAUF_PFAD, {"hochgeladen": []})
-    bekannt |= {e["szene_id"] for e in verlauf.get("hochgeladen") or [] if e.get("szene_id")}
+    bekannt |= {(e.get("key"), e["szene_id"]) for e in verlauf.get("hochgeladen") or [] if e.get("szene_id")}
     neu = 0
     for s in shorts:
         mp4 = Path(s["mp4"])
         szene_id = mp4.stem
-        if szene_id in bekannt:
+        if (key, szene_id) in bekannt:
             continue
         q.append({"szene_id": szene_id, "mp4": str(mp4), "meta": s["meta"], "key": key, "slot": slot,
                   "ordner": str(ordner), "eingereiht_am": datetime.now().astimezone().isoformat(timespec="seconds")})
-        bekannt.add(szene_id)
+        bekannt.add((key, szene_id))
         neu += 1
     if neu:
         _schreiben(QUEUE_PFAD, q)
@@ -184,14 +206,20 @@ def takt(now: datetime | None = None, trocken: bool = False) -> dict:
     # Vorfall 14.10.2026: upload_datei meldete den 08:00-Short nicht bestaetigt (Studio: Entwurf), der Takt meldete
     # trotzdem "veroeffentlicht". Jetzt zaehlt nur Studios Bestaetigung (oeffentlich_bestaetigt).
     bestaetigt = bool(res.get("oeffentlich_bestaetigt"))
-    thumbnail = _thumbnail_setzen_versucht(res["video_id"], mp4) if bestaetigt and res.get("video_id") else False
+    # Befund 16.10.2026 (Task 20261016-103819-3966): das Setzen DIREKT nach dem Upload scheitert bei einem
+    # frisch veroeffentlichten Short manchmal lautlos (Studio verarbeitet die Videoqualitaeten noch) - darum
+    # zaehlt dieser erste Versuch nicht als letzte Chance, siehe thumbnail_nachtrag() unten, das denselben
+    # Aufruf ueber mehrere Wache-Runden hinweg wiederholt, solange "thumbnail" noch nicht True ist.
+    thumbnail = (_thumbnail_setzen_versucht(res["video_id"], mp4, eintrag.get("meta"))
+                if bestaetigt and res.get("video_id") else False)
     verlauf.setdefault("hochgeladen", []).append({"szene_id": eintrag["szene_id"], "video_id": res.get("video_id"),
                                                   "zeit": now.isoformat(timespec="seconds"), "key": eintrag["key"],
                                                   "titel": eintrag["meta"]["title"],
                                                   "oeffentlich_bestaetigt": bestaetigt,
                                                   "studio_status": res.get("studio_status"),
                                                   "fehler": res.get("nachzug_fehler"),
-                                                  "thumbnail": thumbnail})
+                                                  "thumbnail": thumbnail, "thumbnail_versuche": 1,
+                                                  "ordner": eintrag.get("ordner"), "mp4": str(mp4)})
     verlauf["hochgeladen"] = verlauf["hochgeladen"][-200:]
     verlauf.setdefault("erledigte_slots", []).append(schluessel)
     verlauf["erledigte_slots"] = verlauf["erledigte_slots"][-60:]
@@ -209,6 +237,51 @@ def takt(now: datetime | None = None, trocken: bool = False) -> dict:
     return {"faellig": True, "slot": schluessel, "hochgeladen": True, "video_id": res.get("video_id"),
            "titel": eintrag["meta"]["title"], "rest_warteschlange": len(q), "oeffentlich_bestaetigt": bestaetigt,
            "studio_status": res.get("studio_status")}
+
+
+THUMBNAIL_VERSUCHE_MAX = 4          # danach aufgeben, nicht endlos jede Stunde gegen Studio laufen
+THUMBNAIL_NACHTRAG_WARTE_MIN = 15   # erster Nachtrag-Versuch fruehestens so lange nach dem Erstversuch
+THUMBNAIL_NACHTRAG_FENSTER_MIN = 8 * 60   # nach 8 h nicht mehr automatisch nachfassen (sehr alte Shorts)
+
+
+def thumbnail_nachtrag(now: datetime | None = None) -> dict:
+    """Wiederholt das Thumbnail-Setzen fuer kuerzlich hochgeladene Shorts, bei denen es beim ersten Versuch
+    (direkt im Anschluss an takt(), siehe oben) nicht gegriffen hat. Befund 16.10.2026 (Task
+    20261016-103819-3966, Marlon-Meldung 'die zwei neusten Shorts sehen wieder alt aus'): set_thumbnail() lief
+    beim allerersten Versuch (Sekunden nach der Veroeffentlichung) ohne Fehler durch, das komponierte Bild blieb
+    aber live nicht sichtbar - derselbe Aufruf Stunden spaeter (manueller Nachtrag) hat zuverlaessig funktioniert.
+    Vermutliche Ursache: YouTube verarbeitet die Videoqualitaeten eines frisch veroeffentlichten Shorts noch, ein
+    in diesem Fenster gesetztes Vorschaubild wird dabei verworfen. Wird stuendlich von der Weltlage-Wache
+    aufgerufen (jarvis/tools/weltlage_wache.py), genau wie takt() selbst - idempotent, darf beliebig oft auf
+    denselben Short angewendet werden."""
+    now = now or datetime.now().astimezone()
+    verlauf = _lesen(VERLAUF_PFAD, {"hochgeladen": [], "erledigte_slots": []})
+    ergebnisse = []
+    geaendert = False
+    for eintrag in verlauf.get("hochgeladen", []):
+        if eintrag.get("thumbnail") is True or not eintrag.get("oeffentlich_bestaetigt") or not eintrag.get("video_id"):
+            continue
+        versuche = eintrag.get("thumbnail_versuche") or 0
+        if versuche >= THUMBNAIL_VERSUCHE_MAX:
+            continue
+        try:
+            alter_min = (now - datetime.fromisoformat(eintrag["zeit"])).total_seconds() / 60
+        except (KeyError, ValueError):
+            continue
+        if alter_min < THUMBNAIL_NACHTRAG_WARTE_MIN or alter_min > THUMBNAIL_NACHTRAG_FENSTER_MIN:
+            continue
+        ordner, mp4 = eintrag.get("ordner"), eintrag.get("mp4")
+        if not ordner or not mp4 or not Path(mp4).exists():
+            continue
+        meta = _lesen(Path(ordner) / "shorts" / f"{eintrag['szene_id']}.json", None)
+        ok = _thumbnail_setzen_versucht(eintrag["video_id"], Path(mp4), meta)
+        eintrag["thumbnail"] = ok
+        eintrag["thumbnail_versuche"] = versuche + 1
+        ergebnisse.append({"video_id": eintrag["video_id"], "versuch": versuche + 1, "gesetzt": ok})
+        geaendert = True
+    if geaendert:
+        _schreiben(VERLAUF_PFAD, verlauf)
+    return {"versucht": len(ergebnisse), "ergebnisse": ergebnisse}
 
 
 def status_text() -> str:
@@ -232,9 +305,13 @@ def main():
     t = sub.add_parser("takt")
     t.add_argument("--trocken", action="store_true")
     sub.add_parser("status")
+    sub.add_parser("thumbnail_nachtrag")
     a = p.parse_args()
     if a.cmd == "status":
         print(status_text())
+        return
+    if a.cmd == "thumbnail_nachtrag":
+        print(json.dumps(thumbnail_nachtrag(), ensure_ascii=False))
         return
     erg = takt(trocken=a.trocken)
     print(json.dumps(erg, ensure_ascii=False))
