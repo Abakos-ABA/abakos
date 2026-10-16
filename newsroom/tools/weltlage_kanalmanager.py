@@ -17,8 +17,13 @@ sich dieses Modul einmal pro Tag um den KANAL selbst, nie um laufende Produktion
      Groessere Ideen (Aufbau, Stil, Stimme, Studio, Schnitt) werden NIE direkt uebernommen: hoechstens EIN
      Experiment gleichzeitig (experiment_vorschlagen/experiment_stand/experiment_antwort), Marlon antwortet per
      Telegram/Chat mit ja/nein - die Antwort kommt ueber jarvis/tools/weltlage_kanalmanager.py hierher
-     (experiment-antwort), nie automatisch uebernommen ohne sein ja.
-  4. run() liefert ein JSON-Ergebnis; der Jarvis-Tagesauftrag baut daraus den kurzen Bericht fuer Marlon.
+     (experiment-antwort), nie automatisch uebernommen ohne sein ja. Jede wirklich gesetzte Aenderung
+     (risikoarm_anwenden) landet automatisch im Kanal-Aenderungsprotokoll des jarvis-Repos (tools/
+     kanal_protokoll.py, Cross-Repo-Import gegen den LIVE-Jarvis-Ordner) - Vorher-Kennzahlen + 7-/28-Tage-
+     Nachvergleich, damit sich spaeter erklaeren laesst, warum sich Zahlen veraendert haben.
+  4. run() liefert ein JSON-Ergebnis; der Jarvis-Tagesauftrag baut daraus den kurzen Bericht fuer Marlon. run()
+     holt dabei auch faellige 7-/28-Tage-Auswertungen aus dem Kanal-Aenderungsprotokoll nach (Feld
+     "kanal_protokoll_auswertungen") - der Tagesauftrag nennt ein faelliges Ergebnis kurz im Bericht.
 
 CLI:
     .venv\\Scripts\\python -m tools.weltlage_kanalmanager run [--trocken]
@@ -45,6 +50,18 @@ EXPERIMENT_PFAD = KANAL_DIR / "experiment.json"
 TAGESLAUF_PFAD = STATE_DIR / "weltlage_tageslauf.json"
 SHORTS_VERLAUF_PFAD = STATE_DIR / "weltlage_shorts_verlauf.json"
 MIN_MESSPUNKTE_FUER_MUSTER = 5     # unter dieser Anzahl taeglicher Snapshots keine automatische Anpassung
+
+# Kanal-Aenderungsprotokoll (Marlon 15.10.2026, jarvis-Repo tools/kanal_protokoll.py): Cross-Repo-Import wie
+# jarvis/tools/jarvis_kanal_broll.py es umgekehrt tut - immer gegen den LIVE-Jarvis-Ordner, nie ein Worktree.
+# Fehlt das Modul (vor der ersten Uebernahme des jarvis-Zweigs, der es anlegt), bleibt das hier folgenlos.
+_JARVIS_TOOLS = Path(r"C:\Users\Marlon\projekte\jarvis\tools")
+
+
+def _kanal_protokoll():
+    if str(_JARVIS_TOOLS) not in sys.path:
+        sys.path.insert(0, str(_JARVIS_TOOLS))
+    import kanal_protokoll
+    return kanal_protokoll
 
 
 def _lesen(pfad: Path, default):
@@ -278,6 +295,13 @@ def risikoarm_anwenden(vorschlaege: list[dict]) -> list[dict]:
             else:
                 continue
             angewendet.append(v)
+            try:
+                _kanal_protokoll().eintrag(
+                    kanal="weltlage", art=v["art"], alt=v.get("alt"), neu=v["neu"], video_ids=[v["video_id"]],
+                    video_titel=v.get("video_titel"), grund=v.get("grund", ""),
+                    ausloeser="weltlage_kanalmanager.risikoarm_anwenden")
+            except Exception:   # noqa: BLE001 - Protokoll darf eine echte Kanal-Aenderung nie gefaehrden
+                pass
         except Exception as e:   # noqa: BLE001 - ein fehlgeschlagener Vorschlag haelt den Lauf nicht an
             v["fehler"] = str(e)[:300]
     return angewendet
@@ -324,9 +348,15 @@ def run(trocken: bool = False, debug_dir: str | None = None) -> dict:
         _schreiben(VERLAUF_PFAD, verlauf)
     strategie = strategie_ableiten(uploads, analytics, verlauf)
     angewendet = [] if trocken else risikoarm_anwenden(strategie.get("risikoarm_vorschlaege") or [])
+    faellige_auswertungen = []
+    if not trocken:
+        try:
+            faellige_auswertungen = _kanal_protokoll().auswerten_alle_faelligen()
+        except Exception:   # noqa: BLE001 - die 7-/28-Tage-Auswertung darf den Tageslauf nie zum Absturz bringen
+            pass
     return {"zeit": now.isoformat(timespec="seconds"), "uploads": uploads, "analytics": analytics,
             "erkenntnisse": strategie.get("erkenntnisse") or [], "angewendet": angewendet,
-            "experiment": experiment_stand()}
+            "experiment": experiment_stand(), "kanal_protokoll_auswertungen": faellige_auswertungen}
 
 
 if __name__ == "__main__":

@@ -142,32 +142,29 @@ class UploadFortschritt(unittest.TestCase):
 
 class SlotPlanung(unittest.TestCase):
     def setUp(self):
-        # seit Task fa4b (03.10.): Vorlauf = vorlauf_stunden() (Themenwahl + gemessene Produktion), hier fest 4 h
-        # Produktion fest 3 h: seit 05.10. misst produktion_stunden() echte Laeufe (~11 h), das kippte den Test
-        self._alt = (wt.NEWS_WELTLAGE_SLOTS, wt.vorlauf_stunden, wt.NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN,
-                     wt.produktion_stunden)
-        wt.NEWS_WELTLAGE_SLOTS, wt.vorlauf_stunden, wt.NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN = ["07:00"], lambda *a: 4, 5
-        wt.produktion_stunden = lambda *a: 3
+        # seit 16.10.2026: Slot = Produktionsstart direkt (keine Vorlauf-Rueckrechnung, kein Verspaetungs-Limit mehr)
+        self._alt = wt.NEWS_WELTLAGE_SLOTS
+        wt.NEWS_WELTLAGE_SLOTS = ["07:00"]
 
     def tearDown(self):
-        (wt.NEWS_WELTLAGE_SLOTS, wt.vorlauf_stunden, wt.NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN,
-         wt.produktion_stunden) = self._alt
+        wt.NEWS_WELTLAGE_SLOTS = self._alt
 
     def test_fenster(self):
         t = wt.slot_zeit("2026-10-02", "07:00")
-        self.assertEqual(wt.faellig(t - timedelta(hours=5), {}), [])
-        self.assertEqual(wt.faellig(t - timedelta(hours=4), {}), [("2026-10-02", "07:00")])
-        self.assertEqual(wt.faellig(t + timedelta(hours=6), {}), [])
+        self.assertEqual(wt.faellig(t - timedelta(hours=1), {}), [], "vor dem Slot noch nicht faellig")
+        self.assertEqual(wt.faellig(t, {}), [("2026-10-02", "07:00")], "ab dem Slot sofort faellig")
+        self.assertEqual(wt.faellig(t + timedelta(hours=6), {}), [("2026-10-02", "07:00")],
+                         "nie wegen Verspaetung verworfen")
         # schon gestartet und Prozess lebt (eigene PID) -> nicht nochmals
         import os
         z = {"2026-10-02_07:00": {"status": "laeuft", "pid": os.getpid()}}
-        self.assertEqual(wt.faellig(t - timedelta(hours=3), z), [])
+        self.assertEqual(wt.faellig(t + timedelta(hours=1), z), [])
         # fertig -> nie nochmals
         z = {"2026-10-02_07:00": {"status": "veroeffentlicht"}}
-        self.assertEqual(wt.faellig(t, z), [])
-        # abgestuerzt (PID weg) -> Wiederaufnahme
+        self.assertEqual(wt.faellig(t + timedelta(hours=6), z), [])
+        # abgestuerzt (PID weg) -> Wiederaufnahme, auch Stunden spaeter
         z = {"2026-10-02_07:00": {"status": "laeuft", "pid": 999999, "neustarts": 0}}
-        self.assertEqual(wt.faellig(t, z), [("2026-10-02", "07:00")])
+        self.assertEqual(wt.faellig(t + timedelta(hours=6), z), [("2026-10-02", "07:00")])
 
     def test_ausgeschaltet_startet_nichts(self):
         alt = wt.NEWS_WELTLAGE_TAEGLICH

@@ -64,33 +64,32 @@ class Zeitplan(Basis):
     def test_produktion_ohne_messung_fallback(self):
         self.assertEqual(tl.produktion_stunden(self.tmp / "leer"), tl.PRODUKTION_FALLBACK_STUNDEN)
 
-    def test_faellig_fenster_und_fortsetzen(self):
+    def test_faellig_ab_slot_nie_verworfen(self):
+        """Seit 16.10.2026: Slot = Produktionsstart direkt, kein Vorlauf, kein Verspaetungs-Limit mehr."""
         slots = tl.NEWS_WELTLAGE_SLOTS
         tl.NEWS_WELTLAGE_SLOTS = ["11:00", "19:00"]
         try:
             t = tl.slot_zeit("2026-10-03", "11:00")
-            self.assertEqual(tl.faellig(t - timedelta(hours=9), {}, vorlauf=8, produktion=6), [])
-            self.assertEqual(tl.faellig(t - timedelta(hours=7), {}, vorlauf=8, produktion=6), [("2026-10-03", "11:00")])
+            self.assertEqual(tl.faellig(t - timedelta(hours=1), {}), [], "vor dem Slot noch nicht faellig")
+            self.assertEqual(tl.faellig(t, {}), [("2026-10-03", "11:00")], "ab dem Slot sofort faellig")
+            self.assertIn(("2026-10-03", "11:00"), tl.faellig(t + timedelta(hours=10), {}),
+                         "nie wegen Verspaetung verworfen, egal wie spaet")
             z = {"2026-10-03_11:00": {"status": "angehalten", "pid": None}}
-            self.assertEqual(tl.faellig(t - timedelta(hours=1), z, vorlauf=8), [], "angehalten ohne Markierung bleibt")
+            self.assertEqual(tl.faellig(t + timedelta(hours=1), z), [], "angehalten ohne Markierung bleibt")
             z["2026-10-03_11:00"]["auto_fortsetzen"] = True
-            self.assertEqual(tl.faellig(t - timedelta(hours=1), z, vorlauf=8), [("2026-10-03", "11:00")])
+            self.assertEqual(tl.faellig(t + timedelta(hours=1), z), [("2026-10-03", "11:00")])
             z = {"2026-10-03_11:00": {"status": "ersetzt"}}
-            self.assertEqual(tl.faellig(t - timedelta(hours=1), z, vorlauf=8), [])
+            self.assertEqual(tl.faellig(t + timedelta(hours=1), z), [])
             z = {"2026-10-03_11:00": {"status": "laeuft", "pid": None, "neustarts": tl.MAX_NEUSTARTS}}
-            self.assertEqual(tl.faellig(t - timedelta(hours=1), z, vorlauf=8), [], "Neustart-Grenze")
-            # Vorfall 02.10. 23:55: vergangener Slot desselben Tages startet nie neu (Produktion passt nicht mehr)
-            self.assertEqual(tl.faellig(tl.slot_zeit("2026-10-02", "23:55"), {}, vorlauf=8.2, produktion=6.7)
-                             , [], "19:00-Slot um 23:55 nicht mehr neu starten")
+            self.assertEqual(tl.faellig(t + timedelta(hours=1), z), [], "Neustart-Grenze")
             self.assertIn(("2026-10-03", "11:00"),
-                          tl.faellig(t + timedelta(hours=1), {"2026-10-03_11:00": {"status": "laeuft", "pid": None}},
-                                     vorlauf=8, produktion=6.7),
-                             "abgestuerzter Lauf darf im ganzen Fenster weiter")
-            # nur vorgemerkt (Vorgabe ohne Status) -> startet normal
-            self.assertEqual(tl.faellig(t - timedelta(hours=7), {"2026-10-03_11:00": {"vorgabe": {"titel": "x?"}}},
-                                        vorlauf=8, produktion=6.7), [("2026-10-03", "11:00")])
-            # 07:00 ist kein Slot mehr
-            self.assertEqual(tl.faellig(tl.slot_zeit("2026-10-03", "06:00"), {}, vorlauf=1), [])
+                          tl.faellig(t + timedelta(hours=1), {"2026-10-03_11:00": {"status": "laeuft", "pid": None}}),
+                             "abgestuerzter Lauf darf weiter, egal wie spaet")
+            # nur vorgemerkt (Vorgabe ohne Status) -> startet normal ab dem Slot
+            self.assertEqual(tl.faellig(t, {"2026-10-03_11:00": {"vorgabe": {"titel": "x?"}}}),
+                             [("2026-10-03", "11:00")])
+            # 06:00 ist kein Slot mehr
+            self.assertEqual(tl.faellig(tl.slot_zeit("2026-10-03", "06:00"), {}), [])
         finally:
             tl.NEWS_WELTLAGE_SLOTS = slots
 
@@ -330,61 +329,123 @@ class Freigabe(Basis):
         runden = [g[2] for g in self.gesendet if g[0] == "tg" and g[1] == "freigabe"]
         self.assertEqual(runden, [1, 2], "nach Feedback neue Runde mit neuem Video verschickt")
 
+    def test_freigabe_warnt_bei_ueberholtem_thema(self):
+        """13.10.2026 (Marlons Kritik: Themen zu frueh gewaehlt, bis zur Veroeffentlichung nicht mehr aktuell):
+        der Aktualitaets-Check laeuft jetzt schon in der Freigabe-Nachricht selbst, nicht erst ueber die spaetere,
+        separate Nachpruefung der Weltlage-Wache - Marlon sieht neue Meldungen sofort bei seiner Freigabe-Entscheidung
+        und kann mit Feedback/Stopp reagieren, statt dass die Folge unbemerkt veroeffentlicht wird."""
+        ordner, master = self._folge()
+        alt = th.aktualitaet_pruefen
+        th.aktualitaet_pruefen = lambda ordner: {"titel": "X?", "neue_artikel": [
+            {"title": "Neue Entwicklung im Fall", "source": "Agentur"}]}
+        self.addCleanup(lambda: setattr(th, "aktualitaet_pruefen", alt))
+        r = tl.freigabe_einholen("k2", "11:00", ordner, master, tl._Log(self.tmp / "l"), 0.003, True, lambda s: None)
+        self.assertEqual(r, "automatisch")
+        tg = [g for g in self.gesendet if g[0] == "tg"]
+        self.assertIn("überholt", tg[0][3])
+        self.assertIn("Neue Entwicklung im Fall", tg[0][3])
+
+    def test_freigabe_ohne_hinweis_wenn_nicht_ueberholt(self):
+        ordner, master = self._folge()
+        alt = th.aktualitaet_pruefen
+        th.aktualitaet_pruefen = lambda ordner: None
+        self.addCleanup(lambda: setattr(th, "aktualitaet_pruefen", alt))
+        tl.freigabe_einholen("k3", "11:00", ordner, master, tl._Log(self.tmp / "l"), 0.003, True, lambda s: None)
+        tg = [g for g in self.gesendet if g[0] == "tg"]
+        self.assertNotIn("überholt", tg[0][3])
+
+    def _aktualitaet_mocken(self, neue_szenen: dict | None):
+        """Hilfsfunktion fuer die drei Tests unten: th.aktualitaet_pruefen findet eine neue Meldung,
+        ub.vorschlag liefert neue_szenen (None/leer = Modell findet nichts Konkretes)."""
+        alt_th = th.aktualitaet_pruefen
+        th.aktualitaet_pruefen = lambda ordner: {"titel": "X?", "neue_artikel": [
+            {"title": "Neue Entwicklung im Fall", "source": "Agentur", "published_at": "2026-10-16T12:00"}]}
+        self.addCleanup(lambda: setattr(th, "aktualitaet_pruefen", alt_th))
+        alt_ub = ub.vorschlag
+        ub.vorschlag = lambda texte, fb, modell=None, max_wachstum_prozent=None: {
+            "szenen": neue_szenen or {}, "zusammenfassung": "aktueller Stand ergänzt"}
+        self.addCleanup(lambda: setattr(ub, "vorschlag", alt_ub))
+
+    def test_aktualitaet_automatisch_ergaenzt_wenn_zeit_reicht(self):
+        """16.10.2026 (Rueckfall: die blosse Warnung vom 13.10. aenderte nichts, wenn niemand reagierte - der
+        Normalfall war automatisch veroeffentlichen). Bleibt genug Zeit bis zum Slot, ergaenzt der Tageslauf jetzt
+        selbst einen kurzen, aktuellen Satz ueber dieselbe Feedback-Maschine, OHNE auf Marlon zu warten."""
+        ordner, master = self._folge()
+        (ordner / "texte.json").write_text(json.dumps(_texte()), encoding="utf-8")
+        self._aktualitaet_mocken({"s5_a2": "Meldung zwei, laut Agentur inzwischen neu entwickelt."})
+        produziert = []
+
+        def produktion(schritte):
+            produziert.append(schritte)
+            master.write_bytes(b"neu")
+
+        key = "kakt1"
+        r = tl.freigabe_einholen(key, "11:00", ordner, master, tl._Log(self.tmp / "l"), 0.003, False, produktion)
+        self.assertEqual(r, "automatisch")
+        self.assertEqual(produziert, [tl.PRODUKTION], "automatische Aktualisierung rendert ueber produktion()")
+        self.assertEqual(tl._laden()[key]["aktualitaet_auto"], "umgesetzt")
+        tg = [g for g in self.gesendet if g[0] == "tg"]
+        self.assertIn("automatisch", tg[-1][3])
+        self.assertNotIn("Achtung, Thema evtl. überholt", tg[-1][3], "keine blosse Warnung mehr, wurde ja behoben")
+
+    def test_aktualitaet_automatisch_nichts_gefunden(self):
+        """Findet das Modell nichts Konkretes (leeres szenen-Objekt), bleibt es bei der Warnung statt einen
+        bedeutungslosen Render anzustossen."""
+        ordner, master = self._folge()
+        (ordner / "texte.json").write_text(json.dumps(_texte()), encoding="utf-8")
+        self._aktualitaet_mocken(None)
+        produziert = []
+        key = "kakt3"
+        r = tl.freigabe_einholen(key, "11:00", ordner, master, tl._Log(self.tmp / "l"), 0.003, False,
+                                 lambda s: produziert.append(s))
+        self.assertEqual(r, "automatisch")
+        self.assertEqual(produziert, [], "nichts Konkretes gefunden -> kein Render")
+        self.assertEqual(tl._laden()[key]["aktualitaet_auto"], "nichts_zu_tun")
+        tg = [g for g in self.gesendet if g[0] == "tg"]
+        self.assertIn("Achtung, Thema evtl. überholt", tg[-1][3])
+
 
 class Puenktlichkeit(Basis):
-    """07.10.2026 (Task 3432): Freigabe vor dem Slot, Taktung, Vorrang regulaerer Slots, Frist vor dem Rohschnitt,
-    True-Peak-Regelung im Master."""
-
-    def test_freigabe_endet_vor_dem_slot(self):
-        t = tl.slot_zeit("2026-10-08", "11:00")
-        self.assertEqual(tl.freigabe_beginn(t, 60, 45), t - timedelta(minutes=105))
-        self.assertEqual(tl.freigabe_beginn(t, 60, 0), t - timedelta(minutes=60))
-
-    def test_taktung_legt_rohschnitte_hintereinander(self):
-        r = tl.taktung_rechnen(["11:00", "19:00"], 9.75, 4.3, 2.5)
-        self.assertTrue(r["machbar"])
-        # 19:00 muss bis 16:30 fertig sein -> Beginn 06:45; 11:00 muss davor fertig sein -> Beginn 21:00 am Vortag
-        self.assertEqual(r["schnitt_ab"], {"11:00": "21:00", "19:00": "06:45"})
-        self.assertAlmostEqual(r["vorlauf_h"]["11:00"], 14 + 4.3)
-        self.assertAlmostEqual(r["vorlauf_h"]["19:00"], 12.25 + 4.3)
-        kurz = tl.taktung_rechnen(["11:00", "19:00"], 3, 4.3, 2.5)
-        self.assertEqual(kurz["vorlauf_h"], {"11:00": 9.8, "19:00": 9.8}, "kurze Rohschnitte: keine Verschiebung")
-        self.assertFalse(tl.taktung_rechnen(["11:00", "19:00"], 13, 4.3, 2.5)["machbar"], "2 x 13 h > 24 h")
+    """07.10.2026 (Task 3432): Vorrang regulaerer Slots, True-Peak-Regelung im Master. Seit 16.10.2026 (keine festen
+    Veroeffentlichungs-Slots mehr) ohne Taktung/Vorlauf/Frist-Pruefung vor dem Rohschnitt."""
 
     def test_vorrang_regulaerer_slots(self):
         slots = ["11:00", "19:00"]
-        jetzt = tl.slot_zeit("2026-10-07", "12:00")
+        jetzt = tl.slot_zeit("2026-10-07", "09:00")
         self.assertTrue(tl.regulaer("2026-10-07_11:00", slots))
         self.assertFalse(tl.regulaer("2026-10-07_03:00", slots))
-        self.assertIsNone(tl.vorrang_fuer("2026-10-07_19:00", {}, jetzt, 9, 17, slots), "regulaer wartet nie")
-        z = {"2026-10-07_19:00": {"status": "laeuft", "schritt": "stimme"}}
-        self.assertIn("produziert gerade", tl.vorrang_fuer("2026-10-07_03:00", z, jetzt, 9, 17, slots))
-        # nichts laeuft, naechster regulaerer Lauf (08.10. 11:00) beginnt 18 h vorher = 17:00, Karte ab 20:00
-        z = {"2026-10-07_19:00": {"status": "veroeffentlicht"}}
-        self.assertIsNone(tl.vorrang_fuer("2026-10-07_14:00", z, jetzt, 7, 18, slots, vor_schnitt_h=3), "12+7 <= 20")
-        self.assertIn("braucht die Karte", tl.vorrang_fuer("2026-10-07_14:00", z, jetzt, 9, 18, slots, vor_schnitt_h=3))
+        self.assertIsNone(tl.vorrang_fuer("2026-10-07_11:00", {}, jetzt, 9, slots), "regulaer wartet nie")
+        z = {"2026-10-07_11:00": {"status": "laeuft", "schritt": "stimme"}}
+        self.assertIn("produziert gerade", tl.vorrang_fuer("2026-10-07_03:00", z, jetzt, 9, slots))
+        # 11:00-Slot (Start = Slot, seit 16.10.2026 keine Vorlauf-Rueckrechnung mehr) noch nicht gestartet,
+        # braucht die Karte ab 14:00 (Start 11:00 + vor_schnitt_h 3)
+        self.assertIsNone(tl.vorrang_fuer("2026-10-07_05:00", {}, jetzt, 4, slots, vor_schnitt_h=3),
+                          "9 Uhr + 4 h Rohschnitt = 13 Uhr, noch vor 14 Uhr")
+        self.assertIn("braucht die Karte", tl.vorrang_fuer("2026-10-07_05:00", {}, jetzt, 6, slots, vor_schnitt_h=3))
 
     def test_reine_montage_wartet_nicht_auf_regulaere(self):
         # Vorfall 08.10.2026: fertig gerenderte Folge als neuer Slot, regulaere 11:00/19:00 produzieren gerade
+        # Seit 16.10.2026 gilt das nur noch, wenn NEWS_WELTLAGE_SKIP_SZENEN wirklich ALLE Szenen abdeckt (_nur_montage) -
+        # sonst braucht ein teilweiser Neuschnitt (z.B. Feedback-Runde mit 1-2 geaenderten Szenen) die Karte noch.
         from unittest import mock
+        ordner = self.tmp
+        (ordner / "texte.json").write_text(json.dumps(_texte()), encoding="utf-8")
+        alle_szenen = ",".join(s["id"] for s in _texte()["szenen"])
+        slots = tl.NEWS_WELTLAGE_SLOTS
+        tl.NEWS_WELTLAGE_SLOTS = ["11:00", "19:00"]
         z = {"2026-10-08_11:00": {"status": "laeuft", "schritt": "schnitt"},
              "2026-10-08_19:00": {"status": "laeuft", "schritt": "thema"}}
-        jetzt = datetime.now().astimezone()
-        slot_t = jetzt + timedelta(hours=4)
-        with mock.patch.object(tl, "_laden", return_value=z), mock.patch.object(tl, "taktung", return_value={}),                 mock.patch.object(tl, "vorlauf_stunden", return_value=17),                 mock.patch.object(tl, "_prozesse", return_value=[]), mock.patch.object(tl, "_eintrag"),                 mock.patch.object(tl.time, "sleep", side_effect=AssertionError("wartet")):
-            with mock.patch.dict(tl.os.environ, {"NEWS_WELTLAGE_SKIP_SZENEN": "coldopen,s5"}):
-                tl.schnitt_vorbereiten("2026-10-08_06:40", Path("x"), slot_t, lambda *_: None)
-            with mock.patch.dict(tl.os.environ, {"NEWS_WELTLAGE_SKIP_SZENEN": ""}),                     mock.patch.object(tl, "schnitt_stunden", return_value=0.5), self.assertRaises(AssertionError):
-                tl.schnitt_vorbereiten("2026-10-08_06:40", Path("x"), slot_t, lambda *_: None)
-
-    def test_frist_vor_dem_rohschnitt(self):
-        slot = tl.slot_zeit("2026-10-07", "03:00")
-        # Vorfall 07.10.: um 14:05 einen ~9,8-h-Rohschnitt fuer den 03:00-Slot (Frist 13:00) beginnen = sinnlos
-        self.assertIn("zu spät", "zu spät: " + (tl.schnitt_frist_problem(
-            tl.slot_zeit("2026-10-07", "14:05"), slot, 10, 9.8) or ""))
-        self.assertIsNotNone(tl.schnitt_frist_problem(tl.slot_zeit("2026-10-07", "14:05"), slot, 10, 9.8))
-        self.assertIsNone(tl.schnitt_frist_problem(tl.slot_zeit("2026-10-07", "05:43"), slot, 10, 0.5),
-                          "Montage aus dem Cache haette noch gereicht")
+        try:
+            with mock.patch.object(tl, "_laden", return_value=z), \
+                    mock.patch.object(tl, "_prozesse", return_value=[]), mock.patch.object(tl, "_eintrag"), \
+                    mock.patch.object(tl.time, "sleep", side_effect=AssertionError("wartet")):
+                with mock.patch.dict(tl.os.environ, {"NEWS_WELTLAGE_SKIP_SZENEN": alle_szenen}):
+                    tl.schnitt_vorbereiten("2026-10-08_06:40", ordner, lambda *_: None)
+                with mock.patch.dict(tl.os.environ, {"NEWS_WELTLAGE_SKIP_SZENEN": "s_coldopen"}), \
+                        mock.patch.object(tl, "schnitt_stunden", return_value=0.5), self.assertRaises(AssertionError):
+                    tl.schnitt_vorbereiten("2026-10-08_06:40", ordner, lambda *_: None)
+        finally:
+            tl.NEWS_WELTLAGE_SLOTS = slots
 
     def test_nur_pegel_fehler(self):
         self.assertTrue(tl.nur_pegel_fehler({"fehler": ["True Peak -0.9 dBTP ueber -1.5"]}))

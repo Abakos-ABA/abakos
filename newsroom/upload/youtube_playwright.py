@@ -806,6 +806,50 @@ def _open_upload_page(page):
         page.wait_for_selector("input[type=file]", state="attached")
 
 
+_STUDIO_FEHLERSEITE = re.compile(r"ein fehler ist aufgetreten|an error occurred", re.I)
+
+
+def _ist_fehlerseite(page) -> bool:
+    """Studios eigene, generische Absturz-/Ladefehlerseite (Maskottchen + 'Ein Fehler ist aufgetreten') -
+    kein Login-/Berechtigungsproblem, sondern ein client-seitiger Ladefehler, der bei Systemlast (mehrere
+    gleichzeitige Playwright-Sitzungen auf demselben Profil, Vorfall 15.10.2026 beim Shorts-Thumbnail-
+    Nachtrag) öfter auftritt und mit einem einfachen Neuladen meist verschwindet."""
+    try:
+        return bool(_STUDIO_FEHLERSEITE.search(page.inner_text("body")))
+    except Exception:   # noqa: BLE001
+        return False
+
+
+def _goto_edit_page(page, video_id: str, warte_auf: str, shots=None):
+    """Studio-Bearbeiten-Seite eines einzelnen, bereits veroeffentlichten Videos (get_metadata,
+    set_metadata, set_thumbnail). Zwei unabhaengige Fehlerbilder gefunden beim Shorts-Thumbnail-Nachtrag
+    (15.10.2026): (1) das Browser-Profil ist mit anderen Kanaelen/Konten desselben Google-Kontos geteilt
+    (siehe _switch_channel) - ist beim Start ein falscher Kanal aktiv, laedt die Seite gar nicht erst.
+    (2) Studios eigene generische Ladefehlerseite (_ist_fehlerseite) bei hoher Systemlast (mehrere
+    gleichzeitige Playwright-Sitzungen desselben Profils) - verschwindet meist nach einem Neuladen, ganz
+    ohne Kanalwechsel. Erst ein paar Neuladeversuche, dann erst der (teurere) Kanalwechsel. shots (optional)
+    bekommt bei endgueltigem Fehlschlag noch einen Screenshot, bevor der TimeoutError weitergereicht wird."""
+    url = f"https://studio.youtube.com/video/{video_id}/edit?hl=en"
+    page.goto(url, wait_until="domcontentloaded")
+    for versuch in range(3):
+        try:
+            page.wait_for_selector(warte_auf, state="attached", timeout=20_000)
+            return
+        except Exception:
+            if not _ist_fehlerseite(page):
+                break
+            page.wait_for_timeout(5000)
+            page.goto(url, wait_until="domcontentloaded")
+    _switch_channel(page)
+    page.goto(url, wait_until="domcontentloaded")
+    try:
+        page.wait_for_selector(warte_auf, state="attached")
+    except Exception:
+        if shots:
+            page.screenshot(path=str(shots / "00_goto_fehlgeschlagen.png"), full_page=True)
+        raise
+
+
 def _fill_textbox(page, selector: str, text: str):
     box = page.locator(selector).first
     box.click()
@@ -925,8 +969,7 @@ def get_metadata(video_id: str, debug_dir: str | None = None) -> dict:
         page = context.new_page()
         page.set_default_timeout(STEP_TIMEOUT_MS)
         try:
-            page.goto(f"https://studio.youtube.com/video/{video_id}/edit?hl=en", wait_until="domcontentloaded")
-            page.wait_for_selector("#title-textarea #textbox", state="attached")
+            _goto_edit_page(page, video_id, "#title-textarea #textbox", shots)
             if shots:
                 page.screenshot(path=str(shots / "meta_01_edit_page.png"))
             title = page.locator("#title-textarea #textbox").first.inner_text()
@@ -949,8 +992,7 @@ def set_metadata(video_id: str, title: str | None = None, description: str | Non
         page = context.new_page()
         page.set_default_timeout(STEP_TIMEOUT_MS)
         try:
-            page.goto(f"https://studio.youtube.com/video/{video_id}/edit?hl=en", wait_until="domcontentloaded")
-            page.wait_for_selector("#title-textarea #textbox", state="attached")
+            _goto_edit_page(page, video_id, "#title-textarea #textbox", shots)
             if shots:
                 page.screenshot(path=str(shots / "meta_01_edit_page.png"))
             if title is not None:
@@ -986,8 +1028,7 @@ def set_thumbnail(video_id: str, thumb_path: str, debug_dir: str | None = None) 
         page = context.new_page()
         page.set_default_timeout(STEP_TIMEOUT_MS)
         try:
-            page.goto(f"https://studio.youtube.com/video/{video_id}/edit?hl=en", wait_until="domcontentloaded")
-            page.wait_for_selector("#file-loader", state="attached")
+            _goto_edit_page(page, video_id, "#file-loader", shots)
             if shots:
                 page.screenshot(path=str(shots / "01_edit_page.png"))
             page.set_input_files("#file-loader", str(thumb_path))

@@ -1753,6 +1753,486 @@
    "sprich": "Selenski",
    "quelle": "manuell",
    "hinzugefuegt": "2026-10-13"
+  },
+  "Grynkewich": {
+   "sprich": "Grinkewitsch",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-13",
+   "folge": "weltlage_20261014_1100"
+  },
+  "Marcin Kierwinski": {
+   "sprich": "Martschin Kjerwinski",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-13",
+   "folge": "weltlage_20261014_1100"
+  },
+  "Kierwinski": {
+   "sprich": "Kjerwinski",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-13",
+   "folge": "weltlage_20261014_1100"
+  },
+  "Tomasz Siemoniak": {
+   "sprich": "Tomasch Schemonjak",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-13",
+   "folge": "weltlage_20261014_1100"
+  },
+  "Siemoniak": {
+   "sprich": "Schemonjak",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-13",
+   "folge": "weltlage_20261014_1100"
+  },
+  "Ars Technica": {
+   "sprich": "Ars Teknika",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-13",
+   "folge": "weltlage_20261014_1100"
+  },
+  "Mitch McConnell": {
+   "sprich": "Mitsch Mäkonnell",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-14",
+   "folge": "weltlage_20261014_1900"
+  },
+  "Mohamed bin Zayed": {
+   "sprich": "Mohammed bin Sajed",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-14",
+   "folge": "weltlage_20261014_1900"
+  },
+  "Rodion Miroshnik": {
+   "sprich": "Rodion Miroschnik",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-14",
+   "folge": "weltlage_20261014_1900"
+  },
+  "Majda Ruge": {
+   "sprich": "Maida Ruge",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-14",
+   "folge": "weltlage_20261014_1900"
+  },
+  "Starlink": {
+   "sprich": "Sstaar-link",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-14",
+   "folge": "weltlage_20261014_1100"
+  },
+  "Elon Musk": {
+   "sprich": "Iilen Mask",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-14",
+   "folge": "weltlage_20261014_1100"
+  },
+  "US-Senatoren": {
+   "sprich": "U-Es-Senatoren",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-14",
+   "folge": "weltlage_20261014_1900"
+  },
+  "US-Wirtschaftssender": {
+   "sprich": "U-Es-Wirtschaftssender",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-14",
+   "folge": "weltlage_20261014_1900"
+  },
+  "US-Radiosender": {
+   "sprich": "U-Es-Radiosender",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-14",
+   "folge": "weltlage_20261014_1900"
+  },
+  "US-Wahlen": {
+   "sprich": "U-Es-Wahlen",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-14",
+   "folge": "weltlage_20261014_1900"
+  },
+  "Facebook": {
+   "sprich": "Fejsbuck",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-14",
+   "folge": "weltlage_20261014_1900"
+  },
+  "WEN": {
+   "sprich": "wen",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-14",
+   "folge": "weltlage_20261015_1100"
+  },
+  "OpenAI": {
+   "sprich": "Open Ei Ai",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-14",
+   "folge": "weltlage_20261015_1100"
+  },
+  "ChatGPT": {
+   "sprich": "Tschätt Dschi Pi Ti",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-14",
+   "folge": "weltlage_20261015_1100"
+  },
+  "Abdulrahman Alfozan": {
+   "sprich": "Abdurachman Alfosan",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-14",
+   "folge": "weltlage_20261015_1100"
+  },
+  "Alfozan": {
+   "sprich": "Alfosan",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-14",
+   "folge": "weltlage_20261015_1100"
+  },
+  "Kash Patel": {
+   "sprich": "Käsch Patell",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-14",
+   "folge": "weltlage_20261015_1100"
+  },
+  "San Francisco": {
+   "sprich": "Sän Frän-sisko",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-14",
+   "folge": "weltlage_20261015_1100"
+  },
+  "TechCrunch": {
+   "sprich": "Täck-Krantsch",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-14",
+   "folge": "weltlage_20261015_1100"
+  },
+  "Nate Evans": {
+   "sprich": "Neit Ewwens",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-14",
+   "folge": "weltlage_20261015_1100"
+  },
+  "David Robinson": {
+   "sprich": "Dejwid Robbinsen",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-14",
+   "folge": "weltlage_20261015_1100"
+  },
+  "Starshield": {
+   "sprich": "Stahr-Schield",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261015_1900"
+  },
+  "SpaceX": {
+   "sprich": "Speis-Ex",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261015_1900"
+  },
+  "GFS Pride": {
+   "sprich": "Ge-Ef-Es Preid",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261015_1900"
+  },
+  "GFS Giselle": {
+   "sprich": "Ge-Ef-Es Schisell",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261015_1900"
+  },
+  "Cape Dao": {
+   "sprich": "Kejp Dao",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261015_1900"
+  },
+  "Marisks": {
+   "sprich": "Mar-Risks",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261015_1900"
+  },
+  "Nord Stream": {
+   "sprich": "Nord Striem",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261015_1900"
+  },
+  "Mychajlo Fedorow": {
+   "sprich": "Mychailo Fjodorow",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261015_1900"
+  },
+  "Fedorow": {
+   "sprich": "Fjodorow",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261015_1900"
+  },
+  "Serhij Kusnezow": {
+   "sprich": "Serhij Kusnezoff",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261015_1900"
+  },
+  "Kusnezow": {
+   "sprich": "Kusnezoff",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261015_1900"
+  },
+  "Serhij Beskrestnow": {
+   "sprich": "Serhij Beskrestnoff",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261015_1900"
+  },
+  "Nicola Canestrini": {
+   "sprich": "Nikola Kanestrini",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261015_1900"
+  },
+  "Chatbot": {
+   "sprich": "Tschättbott",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261015_1100"
+  },
+  "Cyberkriminelle": {
+   "sprich": "Saiberkriminelle",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261015_1100"
+  },
+  "Insider-Risiken": {
+   "sprich": "Insaider-Risiken",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261015_1100"
+  },
+  "Air Force One": {
+   "sprich": "Ähr Fohrs Wann",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261016_1100"
+  },
+  "S&P 500": {
+   "sprich": "Es and Pi fünfhundert",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261016_1100"
+  },
+  "YouGov": {
+   "sprich": "Ju-Gaff",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261016_1100"
+  },
+  "Amazon": {
+   "sprich": "Ämmesonn",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261016_1100"
+  },
+  "Angelita Soriano": {
+   "sprich": "Anchelita Sorjano",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261016_1100"
+  },
+  "Soriano": {
+   "sprich": "Sorjano",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261016_1100"
+  },
+  "Data Center Watch": {
+   "sprich": "Däita Senter Wotsch",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261016_1100"
+  },
+  "Chloe Autio": {
+   "sprich": "Kloh-i Autio",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-15",
+   "folge": "weltlage_20261016_1100"
+  },
+  "Nicușor Dan": {
+   "sprich": "Nikuschor Dan",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261016_1900"
+  },
+  "Wes Streeting": {
+   "sprich": "Wess Striting",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261016_1900"
+  },
+  "Streeting": {
+   "sprich": "Striting",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261016_1900"
+  },
+  "Yara J": {
+   "sprich": "Jara Dschei",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261016_1900"
+  },
+  "Wine Trader": {
+   "sprich": "Wein Treider",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261016_1900"
+  },
+  "Sea Destiny": {
+   "sprich": "Ssi Destini",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261016_1900"
+  },
+  "Dania J": {
+   "sprich": "Dania Dschei",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261016_1900"
+  },
+  "Andrij Rajkowytsch": {
+   "sprich": "Andri Raikowitsch",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261016_1900"
+  },
+  "Kasim Buhaibeh": {
+   "sprich": "Kasim Buhaibe",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261016_1900"
+  },
+  "Sulina-Kanals": {
+   "sprich": "Suhlina-Kanals",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261016_1900"
+  },
+  "Sulina-Kanal": {
+   "sprich": "Suhlina-Kanal",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261016_1900"
+  },
+  "Arizona": {
+   "sprich": "Ärisohna",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261016_1100"
+  },
+  "Harris": {
+   "sprich": "Härris",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261016_1100"
+  },
+  "Louisiana": {
+   "sprich": "Luisiäna",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261017_0600"
+  },
+  "Delaware": {
+   "sprich": "Dällawär",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261017_0600"
+  },
+  "Connecticut": {
+   "sprich": "Konnettikat",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261017_0600"
+  },
+  "Secretary of State": {
+   "sprich": "Sekretäri off Steit",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261017_0600"
+  },
+  "Alex Padilla": {
+   "sprich": "Alex Padija",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261017_0600"
+  },
+  "Padilla": {
+   "sprich": "Padija",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261017_0600"
+  },
+  "Frank LaRose": {
+   "sprich": "Fränk Larohs",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261017_0600"
+  },
+  "Adrian Fontes": {
+   "sprich": "Eidrien Fontes",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261017_0600"
+  },
+  "Chuck Schumer": {
+   "sprich": "Tschack Schuhmer",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261017_0600"
+  },
+  "Brendan Donahue": {
+   "sprich": "Bränden Donnahju",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261017_0600"
+  },
+  "Trent McCotter": {
+   "sprich": "Tränt Mäkkotter",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261017_0600"
+  },
+  "McCotter": {
+   "sprich": "Mäkkotter",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261017_0600"
+  },
+  "Shirley Weber": {
+   "sprich": "Schörli Wäbber",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261017_0600"
+  },
+  "Weber": {
+   "sprich": "Wäbber",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261017_0600"
+  },
+  "Webers": {
+   "sprich": "Wäbbers",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261017_0600"
+  },
+  "Markwayne Mullen": {
+   "sprich": "Markwein Mallen",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-16",
+   "folge": "weltlage_20261017_0600"
   }
  }
 }

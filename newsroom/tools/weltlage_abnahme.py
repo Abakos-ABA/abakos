@@ -39,8 +39,42 @@ Prueft und schreibt <master>_abnahme.json + <master>_begleittext.txt (Themen, Zi
      Kompressions-/Farbrauschen zu unterscheiden (Differenz in einer componierten Szene ohne jede Figur ~0,04, in
      der betroffenen Begruessung ~0,024 - kein brauchbarer Abstand). Siehe Memory weltlage-szenen-workflow.md fuer
      den Stand und eine Idee fuer einen zuverlaessigeren Nachweis.
+  4g. Abo-Hinweis: der animierte Button (config/brand/endscreen/abo_hinweis_icon.mov, tools/endscreen_overlay.py)
+     muss sichtbaren Text haben (Marlon 04.10.2026: die alte Fassung war nur ein Glocken-Symbol ohne Schrift) -
+     geprueft wird die Metadatei daneben (<name>.json, Feld "text"), kein Bild-/OCR-Nachweis (abo_hinweis_probleme).
+  4h. Steh-/Sitz-Wechsel: beide Uebergaenge der Folge (Begruessung->Themen, Themen->Meldungen) muessen ueber den
+     Logo-Wisch laufen statt als harter Schnitt aneinanderzustossen (Marlon 04.10.2026: Themen->Meldungen lief
+     bisher ohne jeden Uebergang; uebergang_fehlt_probleme prueft die Zeitmarken-Reihenfolge).
   5. Zitate: alle Zitate aus skript.json geprueft («ok»), jedes steht wortgleich im Sprechtext von texte.json.
   5b. Orte: jeder in texte.json benutzte "ort"-Slug muss in config/brand/orte/orte.json existieren (video/orte.py).
+  6. B-Roll-Variante (Marlon 04.10.2026): kein Clip in broll_lizenzen.json darf noch die Variante "wand" (Video auf
+     der Studiowand HINTER Latara) tragen - seit diesem Datum nur noch pip (daneben) oder voll.
+  6b. Quellen-Screenshots (Marlon 04.10.2026, korrigiert 04.10.2026: keine Domain pauschal gesperrt - auch
+     france24.com darf einen Screenshot liefern, wenn er inhaltlich passt): jedes Bild in bilder.json muss genug
+     Schlagzeilen-/Lead-Text zeigen (video.sources.MIN_HEADLINE_TEXT Zeichen im "textzeichen"-Feld), statt eines
+     Hero-Bilds/Werbung/Kopfnavigation. Fehlt "textzeichen" (Aufnahme von vor diesem Datum), nur eine Warnung.
+     Erweitert 08.10.2026 (wiederkehrender Fehler: ein Screenshot pro Folge war in eine einzelne Zeile/einen
+     Ausschnitt reingezoomt statt den ganzen Artikel zu zeigen): liegt die Bilddatei noch vor, prueft
+     video.sources.struktur_probleme() zusaetzlich Aufloesung, Seitenverhaeltnis (ein duenner Streifen = Fehler)
+     und ob die beim Aufnehmen gefundene Schlagzeile zum erwarteten Artikeltitel passt - echte Bild-Analyse statt
+     nur der gespeicherten Zeichenzahl zu vertrauen, als Fehler (nicht nur Warnung) in dieser Abnahme.
+  4i. Mindestlaenge (Marlons Entscheid 04.10.2026 23:53): die fertige Folge muss mindestens MIN_DAUER_S (8:00 Min.)
+     dauern, sonst erlaubt YouTube keine Mid-Roll-Werbung. Gilt ab dieser Aenderung; frueher produzierte, kuerzere
+     Folgen bleiben unberuehrt. tools/weltlage_skript.py zielt seither auf 850-1080 Woerter (rund 8:30 bis 10:00),
+     reicht das trotzdem nicht, verlaengert tools/weltlage_tageslauf.py (Schritt abnahme) das Skript einmal
+     automatisch ueber tools/weltlage_ueberarbeiten.py und rendert die betroffenen Szenen neu (Muster "nie
+     blockieren, ersetzen" wie bei der Einblendungs-Reparatur oben) - erst danach, bei erneutem Fehlschlag, bricht
+     die Folge ab und wird nicht veroeffentlicht.
+  7. Einblendungs-Inhalt (Marlon 04.10.2026, video/einblendungen.py): JEDE visuelle Einblendung (Quellen-Bild-Karte,
+     B-Roll-Clip, kuenftig Text-Karten) bekommt ein repraesentatives Standbild plus den zeitgleich gesprochenen
+     Satz vor ein Vision-Modell (primaer die Claude-CLI, Fallback ein lokales Ollama-Vision-Modell) - kein
+     Zufallsfoto, keine Seitenteile/Werbung/Cookie-Banner, der Inhalt muss zur Aussage passen, nicht nur grob zum
+     Thema. Eine nicht passende Einblendung blockiert die Folge seit demselben Tag NIE mehr (pruefen_mit_reparatur
+     statt pruefen): ein B-Roll-Clip wird gegen bis zu 2 neue Kandidaten aus tools/weltlage_broll.py getauscht,
+     passt keiner, wird die Stelle entfernt (Latara bleibt im Studio sichtbar); eine Quellen-Bild-Karte kann ohne
+     Teil-Neuschnitt nicht sicher ersetzt werden und wird nur protokolliert. Alles davon landet als Warnung im
+     Bericht, nie in "fehler". Ohne broll_lizenzen.json/bilder_platzierung.json (Folge ohne B-Roll/Quellen-Bilder
+     oder von vor diesem Datum) wird nichts geprueft. Abschaltbar mit NEWS_WELTLAGE_EINBLENDUNG_PRUEFUNG=0.
 Exit 1, sobald etwas durchfaellt. Veroeffentlicht und verschickt nichts.
 """
 import json
@@ -54,16 +88,24 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from weltlage_rohschnitt import (FFMPEG, FFPROBE, MASTER_LUFS, MASTER_TP, MARKE_UEBER_SPRACHE_DB,  # noqa: E402
-                                  dur, INTRO, SZENE3, BEGRUESSUNG, UEBERGANG, OUTRO, BUMPER, VERABSCHIEDUNG, FPS)
+                                  dur, INTRO, SZENE3, BEGRUESSUNG, UEBERGANG, ABSCHLUSS, ABO_ICON, BUMPER,
+                                  VERABSCHIEDUNG, FPS)
 from video import orte as orte_mod  # noqa: E402
 from video import freisteller_lipsync as fl  # noqa: E402
-from config.settings import NEWS_WELTLAGE_LIPSYNC_HD, NEWS_WELTLAGE_LIPSYNC_GUIDANCE  # noqa: E402
+from video import einblendungen as einblendungen_mod  # noqa: E402
+from config.settings import (NEWS_WELTLAGE_LIPSYNC_HD, NEWS_WELTLAGE_LIPSYNC_GUIDANCE,  # noqa: E402
+                             NEWS_WELTLAGE_EINBLENDUNG_PRUEFUNG)
 
-SPRUNG_DB = 4.0          # benachbarte hoerbare Szenen duerfen sich hoechstens so stark unterscheiden
+SPRUNG_DB = 3.5          # benachbarte hoerbare Szenen duerfen sich hoechstens so stark unterscheiden; geschaerft von
+                         # 4.0 (Task 20261003-201442-8908, Marlon: zwei Lautstaerkespruenge am 03.10. 19 Uhr genau am
+                         # unbehandelten Logo-Wisch, 4.8 dB, wurde erst knapp erkannt). Gesunde Folgen zeigen hier
+                         # konstant -2,6 dB (Reinlaufen->Begruessung, siehe data/weltlage_20261003_1100 und _1900),
+                         # darum noch genug Abstand ohne Fehlalarme.
 SZENE_MAX_UEBER_DB = MARKE_UEBER_SPRACHE_DB + 1.5   # Szene lauter als Sprache
 SZENE_MAX_UNTER_DB = 6.0                            # Sprechszene leiser als die mittlere Sprache
 TON_MIN_KBPS = 230
 BUMPER_MIN_KORR = 0.6    # Bumper-Ton im Master vs. aktive Bumper-Datei (Pegel/Crossfade aendern wenig, fremder Ton < 0,3)
+MIN_DAUER_S = 480.0      # 8:00 Minuten (Marlons Entscheid 04.10.2026 23:53): erst ab hier erlaubt YouTube Mid-Roll-Werbung
 
 
 def guidance_probleme(meta: dict, guidance: float, hd: bool) -> list[str]:
@@ -121,6 +163,85 @@ def pipeline_probleme(meta: dict, aktuell: dict) -> list[str]:
         elif bool(pipeline[key]) != bool(soll):
             probleme.append(f"eingefroren mit {key}={pipeline[key]} statt Standard {soll}")
     return probleme
+
+
+def laenge_probleme(dauer_s: float) -> list[str]:
+    """Mindestlaenge der fertigen Folge (Marlons Entscheid 04.10.2026 23:53): unter MIN_DAUER_S (8:00 Minuten)
+    erlaubt YouTube keine Mid-Roll-Werbung. Leere Liste = passt. Pure Funktion, offline testbar."""
+    if dauer_s < MIN_DAUER_S:
+        return [f"Folge zu kurz: {dauer_s:.0f} s statt mindestens {MIN_DAUER_S:.0f} s (8:00 Min., erst ab da "
+                "erlaubt YouTube Mid-Roll-Werbung) - Skript verlängern und betroffene Szenen neu rendern"]
+    return []
+
+
+def broll_wand_probleme(clips: list[dict]) -> list[str]:
+    """B-Roll-Clips (broll_lizenzen.json["clips"]), die noch mit der Variante "wand" (Video auf der Studiowand
+    HINTER Latara) eingesetzt wurden - seit 04.10.2026 nicht mehr Standard (Marlon: "neben ihr sah gut aus"), nur
+    noch pip/voll. Leere Liste = passt. Pure Funktion, offline testbar."""
+    return [f"Stelle {c.get('nr')} ({c.get('zeit')}): B-Roll-Variante 'wand' verwendet - seit 04.10.2026 nicht mehr "
+            f"erlaubt (nur noch pip/voll), Folge neu einbauen" for c in clips if c.get("variante") == "wand"]
+
+
+def quellen_screenshot_probleme(bilder: dict) -> tuple[list[str], list[str]]:
+    """Quellen-Screenshots (bilder.json: {meldung_idx: [{domain, textzeichen, png, title, schlagzeile, ...}]})
+    pruefen. Liegt die Bilddatei noch vor ("png" vorhanden und existiert), uebernimmt video.sources.
+    struktur_probleme() die volle Bild-Analyse (Aufloesung, Seitenverhaeltnis - ein duenner Streifen ist die
+    wiederkehrende "in eine Zeile reingezoomt"-Masche vom 08.10.2026 -, Textmenge, Schlagzeile-vs-Titel-Abgleich):
+    dieselbe Funktion, die schon video.sources.capture() selbst zur Selbstkontrolle aufruft, damit beide Stellen
+    nie auseinanderlaufen. Fehlt die Bilddatei (z.B. aufgeraeumter data/broll-Ordner einer alten Folge), faellt
+    die Pruefung auf den blossen "textzeichen"-Nachweis zurueck wie bisher (04.10.2026: zu wenig Schlagzeilen-/
+    Lead-Text ist ein Fehler, keine Domain ist pauschal gesperrt; fehlt "textzeichen" ganz, nur eine Warnung).
+    (fehler, warnungen). Pure Funktion, offline testbar (ohne Bilddatei: reiner Zahlenvergleich)."""
+    from video.sources import MIN_HEADLINE_TEXT, struktur_probleme
+    fehler, warnungen = [], []
+    for idx, liste in (bilder or {}).items():
+        for b in liste or []:
+            dom = (b.get("domain") or "").lower()
+            png = b.get("png")
+            if png and Path(png).exists():
+                probleme = struktur_probleme(Path(png), int(b.get("textzeichen") or 0), b.get("title", ""),
+                                             b.get("schlagzeile", ""))
+                fehler += [f"Meldung {idx}: Quellen-Screenshot von {dom or 'unbekannt'}: {p}" for p in probleme]
+                continue
+            if "textzeichen" not in b:
+                warnungen.append(f"Meldung {idx}: Quellen-Screenshot von {dom or 'unbekannt'} ohne "
+                                 f"'textzeichen'-Nachweis (Aufnahme von vor 04.10.2026)")
+            elif int(b.get("textzeichen") or 0) < MIN_HEADLINE_TEXT:
+                fehler.append(f"Meldung {idx}: Quellen-Screenshot von {dom or 'unbekannt'} zeigt zu wenig "
+                              f"Schlagzeilen-/Lead-Text ({b.get('textzeichen')} Zeichen, Mindestwert "
+                              f"{MIN_HEADLINE_TEXT}) - vermutlich Hero-Bild/Werbung statt Artikeltext")
+    return fehler, warnungen
+
+
+def uebergang_fehlt_probleme(szenen: list[dict]) -> list[str]:
+    """Prueft, dass die beiden Steh-/Sitz-Wechsel der Folge (Begruessung->Themen und Themen->Meldungen) ueber den
+    Logo-Wisch laufen statt als harter Schnitt direkt aneinanderzustossen (Marlon 04.10.2026: der Wechsel von der
+    stehenden Themen-Szene in die sitzende erste Meldung lief bisher ohne jeden Uebergang). szenen = die geparsten
+    Zeitmarken-Labels in Reihenfolge (siehe _zeitmarken); eine fehlende Begruessung/Themen-Szene (z.B. --kurztest
+    ohne die jeweils andere Szene) wird nicht geprueft - nur ein tatsaechlich vorhandenes Paar ohne Logo-Wisch
+    dazwischen ist ein Problem. Leere Liste = passt. Pure Funktion, offline testbar."""
+    labels = [s["label"] for s in szenen]
+    probleme = []
+    # direktes Nachbarpaar (vorher, Szene mit nachher_praefix) ohne "Logo-Wisch" dazwischen = harter Schnitt
+    for vorher, nachher_praefix in (("Szene Begrüssung", "Szene Themen"), ("Szene Themen", "Szene Meldung")):
+        for i in range(len(labels) - 1):
+            if labels[i] == vorher and labels[i + 1].startswith(nachher_praefix):
+                probleme.append(f"harter Schnitt {vorher} -> {labels[i + 1]} ohne Logo-Wisch dazwischen")
+    return probleme
+
+
+def abo_hinweis_probleme(meta: dict | None) -> list[str]:
+    """Prueft die Metadatei neben dem animierten Abo-Hinweis (tools/endscreen_overlay.render_abo_icon schreibt sie
+    als <abo_hinweis_icon>.json) auf einen echten, nicht-leeren Text - Marlon 04.10.2026: der alte Button bestand
+    nur aus dem Glocken-Symbol ohne jede Schrift. meta=None (Datei fehlt, z.B. alter Render vor diesem Datum) ist
+    ebenfalls ein Problem, kein stiller Rueckfall. Pure Funktion, offline testbar."""
+    if meta is None:
+        return ["abo_hinweis_icon.json fehlt - Abo-Hinweis nicht nachweisbar mit Text (tools/endscreen_overlay.py "
+                "abo-icon neu bauen)"]
+    text = (meta.get("text") or "").strip()
+    if not text:
+        return ["Abo-Hinweis ohne Text (leerer/textloser Button) - tools/endscreen_overlay.py abo-icon neu bauen"]
+    return []
 
 
 def _lautheit(video: Path, start: float | None = None, dauer: float | None = None) -> dict:
@@ -194,7 +315,8 @@ def pruefen(ordner: Path, video: Path) -> dict:
             continue
         if d > SZENE_MAX_UEBER_DB:
             fehler.append(f"{s['label']} {d:+.1f} dB lauter als die Sprache")
-        sprechszene = s["label"].startswith(("Szene Meldung", "Szene Themen", "Szene Begr", "Szene Verab", "Szene Cold"))
+        sprechszene = s["label"].startswith(("Szene Meldung", "Szene Themen", "Szene Begr", "Szene Verab",
+                                              "Szene Absch", "Szene Cold"))
         if sprechszene and d < -SZENE_MAX_UNTER_DB:
             fehler.append(f"{s['label']} {d:+.1f} dB leiser als die Sprache")
     info["szenen"] = [{k: s[k] for k in ("label", "start", "I", "abweichung_db")} for s in szenen]
@@ -207,12 +329,17 @@ def pruefen(ordner: Path, video: Path) -> dict:
     for d, label, start in spruenge:
         if abs(d) > SPRUNG_DB:
             fehler.append(f"Lautstaerkesprung {d:+.1f} dB beim Uebergang zu {label} ({start:.1f} s)")
-    # 4c. Feste, eingefrorene Szenen (Intro/Reinlaufen/Begruessung/Logo-Wisch/Outro-Grafik): ihre Laenge im Video
-    #     muss zur aktuell aktiven Fassung passen. Weicht sie ab, lief der Render vor einer spaeteren Aenderung an
-    #     der jeweiligen aktiv.json los und hat die alte Fassung eingebacken (Task 20261001-202910-0180: Szene
-    #     Reinlaufen lief ungekuerzt mit, obwohl szene3_auftritt/aktiv.json laengst die gekuerzte Fassung zeigte).
+    # Steh-/Sitz-Wechsel: beide Uebergaenge (Begruessung->Themen, Themen->Meldungen) muessen ueber den Logo-Wisch
+    # laufen, sonst harter Schnitt (Marlon 04.10.2026: Themen->Meldungen lief bisher ohne jeden Uebergang).
+    uprobleme = uebergang_fehlt_probleme(szenen)
+    info["uebergang_steh_sitz"] = {"probleme": uprobleme}
+    fehler += uprobleme
+    # 4c. Feste, eingefrorene Szenen (Intro/Reinlaufen/Begruessung/Logo-Wisch/Verabschiedung/Abschluss): ihre Laenge
+    #     im Video muss zur aktuell aktiven Fassung passen. Weicht sie ab, lief der Render vor einer spaeteren
+    #     Aenderung an der jeweiligen aktiv.json los und hat die alte Fassung eingebacken (Task 20261001-202910-0180:
+    #     Szene Reinlaufen lief ungekuerzt mit, obwohl szene3_auftritt/aktiv.json laengst die gekuerzte Fassung zeigte).
     fest = {"Szene Intro": INTRO, "Szene Reinlaufen": SZENE3, "Szene Begrüssung": BEGRUESSUNG,
-            "Logo-Wisch": UEBERGANG, "Szene Verabschiedung": VERABSCHIEDUNG, "Szene Outro-Grafik": OUTRO}
+            "Logo-Wisch": UEBERGANG, "Szene Verabschiedung": VERABSCHIEDUNG, "Szene Abschluss": ABSCHLUSS}
     laenge_im_video = {s["label"]: s["laenge"] for s in szenen}
     info["feste_szenen"] = {}
     for label, pfad in fest.items():
@@ -228,7 +355,8 @@ def pruefen(ordner: Path, video: Path) -> dict:
     info["feste_sprechszenen_staerke"] = {}
     info["feste_sprechszenen_pipeline"] = {}
     aktuelle_pipeline = fl.pipeline_signatur()
-    for label, ordner_name in (("Szene Begrüssung", "begruessung"), ("Szene Verabschiedung", "verabschiedung")):
+    for label, ordner_name in (("Szene Begrüssung", "begruessung"), ("Szene Verabschiedung", "verabschiedung"),
+                               ("Szene Abschluss", "abschluss")):
         cfg = ROOT / "config" / "brand" / ordner_name / "aktiv.json"
         if not cfg.exists() or label not in laenge_im_video:
             continue
@@ -262,11 +390,22 @@ def pruefen(ordner: Path, video: Path) -> dict:
                           f"{k:.2f} < {BUMPER_MIN_KORR}) - Render lief vor einem Bumper-Wechsel, Folge neu rendern")
     elif BUMPER and BUMPER.exists():
         fehler.append("Welt-Bumper aktiv, aber keine Szene 'Welt-Bumper' in den Zeitmarken")
+    # 4g. Abo-Hinweis: der animierte Button muss sichtbaren Text haben (Marlon 04.10.2026, siehe abo_hinweis_probleme)
+    if ABO_ICON and ABO_ICON.exists():
+        abo_meta_pfad = ABO_ICON.with_suffix(".json")
+        abo_meta = json.loads(abo_meta_pfad.read_text(encoding="utf-8")) if abo_meta_pfad.exists() else None
+        aprobleme = abo_hinweis_probleme(abo_meta)
+        info["abo_hinweis"] = {"text": (abo_meta or {}).get("text"), "probleme": aprobleme}
+        fehler += aprobleme
     # 4. Ton
     t = _ton(video)
     info["ton"] = t
     if not (t["codec"] == "aac" and t["sr"] == 48000 and t["ch"] == 2 and t["kbps"] >= TON_MIN_KBPS):
         fehler.append(f"Ton {t} statt AAC 48 kHz Stereo >= {TON_MIN_KBPS} kbps")
+    # 4i. Mindestlaenge: ab 8:00 Minuten erlaubt YouTube Mid-Roll-Werbung (Marlons Entscheid 04.10.2026 23:53)
+    dauer_s = dur(video)
+    info["dauer_s"] = round(dauer_s, 1)
+    fehler += laenge_probleme(dauer_s)
     # 4b. Lipsync-Aufloesung: Gesichtsfenster muss bei aktivem Schalter wirklich KI-hochskaliert worden sein
     fenster_dir = ordner / "_schnitt" / "_freisteller"
     fenster_dateien = sorted(fenster_dir.glob("*_fenster.json")) if fenster_dir.is_dir() else []
@@ -298,6 +437,31 @@ def pruefen(ordner: Path, video: Path) -> dict:
     unbekannt = sorted({s["ort"] for s in texte["szenen"] if s.get("ort") and s["ort"] not in bekannte_orte})
     if unbekannt:
         fehler.append(f"Unbekannter Ort-Slug in texte.json: {', '.join(unbekannt)} (bekannt: {', '.join(bekannte_orte)})")
+    # 6. B-Roll-Variante: "wand" seit 04.10.2026 nicht mehr erlaubt
+    lizf = ordner / "broll_lizenzen.json"
+    if lizf.exists():
+        clips = json.loads(lizf.read_text(encoding="utf-8")).get("clips", [])
+        wprobleme = broll_wand_probleme(clips)
+        info["broll_variante"] = {"clips": len(clips), "wand_treffer": len(wprobleme)}
+        fehler += wprobleme
+    # 6b. Quellen-Screenshots: gesperrte Domains + Schlagzeilen-/Lead-Text-Nachweis
+    bilderf = ordner / "bilder.json"
+    if bilderf.exists():
+        bilder = json.loads(bilderf.read_text(encoding="utf-8"))
+        qfehler, qwarnungen = quellen_screenshot_probleme(bilder)
+        info["quellen_screenshots"] = {"bilder": sum(len(v or []) for v in bilder.values()),
+                                       "fehler": len(qfehler), "warnungen": len(qwarnungen)}
+        fehler += qfehler
+        warnungen += qwarnungen
+    # 7. Einblendungs-Inhalt: jede Einblendung (Quellen-Bild-Karte, B-Roll-Clip) gegen den zeitgleich gesprochenen
+    # Satz pruefen lassen (Vision-Modell, video/einblendungen.py) - "passt nicht" ist ein Fehler, keine Warnung.
+    if NEWS_WELTLAGE_EINBLENDUNG_PRUEFUNG:
+        eb = einblendungen_mod.pruefen_mit_reparatur(ordner, video, ordner / "_schnitt")
+        info["einblendungen"] = {"geprueft": len(eb["geprueft"]),
+                                 "nicht_passend": sum(1 for g in eb["geprueft"] if not g["passt"]),
+                                 "reparaturen": eb["reparaturen"]}
+        # eb["fehler"] ist immer leer (pruefen_mit_reparatur blockiert nie) - nur zur Klarheit nicht verwendet
+        warnungen += eb["warnungen"]
     sprechtext = " ".join(s.get("text") or "" for s in texte["szenen"])
     zitate = sk["meta"].get("zitate") or []
     for z in zitate:

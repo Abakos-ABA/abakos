@@ -191,22 +191,38 @@ def placeholder_plate(bg_png: Path, title: str, sub: str, out: Path):
     im.save(out)
 
 
+def _in_box_einpassen(img: Image.Image, max_w: int, max_h: int) -> Image.Image:
+    """Echtes 'fit' (contain), nie 'fill'/Crop und nie Reinzoomen in einen Teilbereich: skaliert so, dass das
+    GANZE Bild in max_w x max_h passt - je nachdem, welche Seite der Engpass ist. Vorher wurde immer auf eine
+    feste Hoehe skaliert (die Breite blieb unbegruenzt); bei einem besonders hohen Screenshot lief dessen Breite
+    dadurch ueber den Rahmen hinaus und PIL.paste schnitt den Ueberstand kommentarlos ab - im Ergebnis wieder ein
+    Ausschnitt statt des ganzen Bilds. Marlon 08.10.2026: eine gemeinsame Regel fuer jeden Screenshot in der
+    Szene, nicht nur den ersten. Pure Funktion."""
+    scale = min(max_w / img.width, max_h / img.height, 1.0)
+    neu = (max(1, round(img.width * scale)), max(1, round(img.height * scale)))
+    return img.resize(neu, Image.LANCZOS)
+
+
 def source_plate(shot: dict, out: Path):
-    """Screenshot gross, darunter Quellenzeile; Hintergrund = unscharfe Version des Screenshots."""
+    """Screenshot vollstaendig und unverzerrt (fit, kein Crop/Zoom) eingepasst, darunter Quellenzeile;
+    Hintergrund = unscharfe Version des Screenshots."""
     src = Image.open(shot["png"]).convert("RGB")
     bg = src.resize((W, H)).filter(ImageFilter.GaussianBlur(28))
     bg = ImageEnhance.Brightness(bg).enhance(0.35)
-    box_h = 860
-    s = src.resize((round(src.width * box_h / src.height), box_h))
+    box_w, box_h = 1500, 860
+    s = _in_box_einpassen(src, box_w, box_h)
     x = (W - s.width) // 2
-    y = 60
+    y = 60 + (box_h - s.height) // 2
     d = ImageDraw.Draw(bg, "RGBA")
     d.rectangle([x - 6, y - 6, x + s.width + 6, y + s.height + 6], fill=(255, 255, 255, 60))
     bg.paste(s, (x, y))
-    d.rectangle([x, y + box_h + 24, x + s.width, y + box_h + 96], fill=(8, 20, 45, 235))
-    d.rectangle([x, y + box_h + 24, x + 12, y + box_h + 96], fill=(200, 30, 40, 255))
+    # Quellenzeile direkt unter dem tatsaechlichen Bildende (nicht der Box-Hoehe) - sonst wandert sie bei einem
+    # schmaleren/kuerzeren Bild (echtes fit statt feste Hoehe, s.o.) unnoetig weit nach unten (Marlon 08.10.2026)
+    leiste_y = min(y + s.height + 24, H - 170)
+    d.rectangle([x, leiste_y, x + s.width, leiste_y + 72], fill=(8, 20, 45, 235))
+    d.rectangle([x, leiste_y, x + 12, leiste_y + 72], fill=(200, 30, 40, 255))
     name = shot["source"].replace(" World", "").replace(" Business", "").replace(" Top News", "")
-    d.text((x + 34, y + box_h + 38), f"QUELLE  {name}  ·  {shot['domain']}", font=font(36), fill="white")
+    d.text((x + 34, leiste_y + 14), f"QUELLE  {name}  ·  {shot['domain']}", font=font(36), fill="white")
     bg.save(out)
 
 

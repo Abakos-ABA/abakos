@@ -21,6 +21,47 @@ import tools.weltlage_shorts_takt as takt_mod  # noqa: E402
 NOW = datetime(2026, 10, 14, 8, 17).astimezone()
 
 
+class ThumbnailLiveSichtbarTest(unittest.TestCase):
+    """_thumbnail_live_sichtbar prueft OHNE Playwright/Studio direkt am oeffentlichen hqdefault.jpg-CDN-Bild,
+    ob das komponierte Thumbnail (rote Banderole nahe dem oberen Fuenftel) wirklich sichtbar ist - der eigentliche
+    Beweis-Schritt, der am 16.10.2026 fehlte (ein fehlerfreier Studio-Speichern-Klick allein war keiner, siehe
+    Docstring der Funktion)."""
+
+    def _bild_bytes(self, farbe_oben):
+        import io
+        from PIL import Image
+        img = Image.new("RGB", (480, 360), (20, 40, 70))   # Studio-Hintergrundton ueberall
+        for y in range(55, 76):   # Bereich um den Abtastpunkt (cx=240, cy=round(360*0.18)=65)
+            for x in range(220, 261):
+                img.putpixel((x, y), farbe_oben)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=95)
+        return buf.getvalue()
+
+    def _mock_urlopen(self, daten, wirft=None):
+        cm = mock.MagicMock()
+        cm.__enter__.return_value.read.return_value = daten
+        cm.__exit__.return_value = False
+        if wirft:
+            return mock.patch("urllib.request.urlopen", side_effect=wirft)
+        return mock.patch("urllib.request.urlopen", return_value=cm)
+
+    def test_rote_banderole_wird_als_komponiert_erkannt(self):
+        daten = self._bild_bytes((225, 20, 45))   # Markenrot, wie weltlage_shorts_thumbnail._banderole
+        with self._mock_urlopen(daten):
+            self.assertTrue(takt_mod._thumbnail_live_sichtbar("v1", log=lambda *a: None))
+
+    def test_dunkelblauer_studio_frame_wird_nicht_erkannt(self):
+        daten = self._bild_bytes((20, 40, 70))   # kein Banderole-Akzent, nur Studio-Hintergrund ueberall
+        with self._mock_urlopen(daten):
+            self.assertFalse(takt_mod._thumbnail_live_sichtbar("v1", log=lambda *a: None))
+
+    def test_netzwerkfehler_gibt_none_statt_fehlzuschlagen(self):
+        import urllib.error
+        with self._mock_urlopen(None, wirft=urllib.error.URLError("offline")):
+            self.assertIsNone(takt_mod._thumbnail_live_sichtbar("v1", log=lambda *a: None))
+
+
 class ShortsTaktTest(unittest.TestCase):
     def _setup(self, upload, thumbnail=None):
         tmp = Path(tempfile.mkdtemp())
@@ -66,13 +107,20 @@ class ShortsTaktTest(unittest.TestCase):
     def test_bestaetigt_versucht_thumbnail_zu_setzen(self):
         """15.10.2026 (Task t-20261015-092430-e232, Beta): upload_datei() lud Shorts bisher IMMER mit
         thumb_path=None hoch, Studio waehlte selbst einen Zufalls-Frame. Nach bestaetigter Veroeffentlichung
-        soll ein Standbild aus der Titelkarte gesetzt werden, das Ergebnis landet im Verlauf."""
+        soll ein Standbild aus der Titelkarte gesetzt werden.
+
+        Befund 16.10.2026 (Task 20261016-103819-3966, verschaerft): ein fehlerfreier Playwright-Aufruf ist
+        KEIN Beweis, dass das Bild live sichtbar wird (siehe _thumbnail_live_sichtbar) - "thumbnail" im Verlauf
+        bleibt darum nach dem Erstversuch immer False, auch wenn Studio Erfolg meldet. Erst
+        thumbnail_nachtrag() darf es nach einer echten CDN-Pruefung auf True setzen."""
         self._setup(lambda *a, **k: {"video_id": "abcdefghijk", "oeffentlich_bestaetigt": True}, thumbnail=True)
         takt_mod.takt(NOW)
         self.assertEqual([vid for vid, _, _ in self.thumbnail_aufrufe], ["abcdefghijk"])
         self.assertEqual(self.thumbnail_aufrufe[0][2], {"title": "T"})   # meta wird durchgereicht
         v = json.loads(takt_mod.VERLAUF_PFAD.read_text(encoding="utf-8"))
-        self.assertIs(v["hochgeladen"][-1]["thumbnail"], True)
+        self.assertIs(v["hochgeladen"][-1]["thumbnail"], False)
+        self.assertEqual(v["hochgeladen"][-1]["thumbnail_versuche"], 1)
+        self.assertIsNotNone(v["hochgeladen"][-1]["thumbnail_letzter_versuch"])
 
     def test_nicht_bestaetigt_versucht_kein_thumbnail(self):
         """Bleibt die Veroeffentlichung unbestaetigt (Entwurf), waere ein Thumbnail-Versuch unnoetige Studio-Last -
@@ -138,13 +186,16 @@ class EinreihenDedupTest(unittest.TestCase):
 
 
 class ThumbnailNachtragTest(unittest.TestCase):
-    """16.10.2026: Nachtrag wiederholt das Thumbnail-Setzen fuer kuerzlich hochgeladene, noch nicht bestaetigte
-    Shorts - der Erstversuch direkt nach der Veroeffentlichung greift manchmal nicht (Studio verarbeitet die
-    Videoqualitaeten vermutlich noch)."""
+    """16.10.2026: Nachtrag prueft fuer kuerzlich hochgeladene, noch nicht LIVE bestaetigte Shorts zuerst
+    objektiv am CDN (_thumbnail_live_sichtbar) und laedt nur bei Bedarf gedrosselt erneut bei Studio hoch -
+    der Erstversuch direkt nach der Veroeffentlichung greift manchmal nicht (Studio verarbeitet die
+    Videoqualitaeten vermutlich noch), und selbst ein fehlerfreier Studio-Speichern-Klick ist kein Beweis
+    fuer Live-Sichtbarkeit (Befund 16.10.2026, zweite Haelfte desselben Tasks)."""
 
-    def _setup(self, eintraege, ergebnis_folge=None):
+    def _setup(self, eintraege, ergebnis_folge=None, live_folge=None):
         tmp = Path(tempfile.mkdtemp())
         self.versuche = []
+        self.live_pruefungen = []
 
         def _thumb(video_id, mp4, meta=None, log=print):
             self.versuche.append(video_id)
@@ -152,8 +203,15 @@ class ThumbnailNachtragTest(unittest.TestCase):
                 return True
             return ergebnis_folge.pop(0)
 
+        def _live(video_id, log=print):
+            self.live_pruefungen.append(video_id)
+            if live_folge is None:
+                return False
+            return live_folge.pop(0)
+
         for p in (mock.patch.object(takt_mod, "VERLAUF_PFAD", tmp / "v.json"),
-                  mock.patch.object(takt_mod, "_thumbnail_setzen_versucht", _thumb)):
+                  mock.patch.object(takt_mod, "_thumbnail_setzen_versucht", _thumb),
+                  mock.patch.object(takt_mod, "_thumbnail_live_sichtbar", _live)):
             p.start()
             self.addCleanup(p.stop)
         ordner = tmp / "folge"
@@ -175,19 +233,67 @@ class ThumbnailNachtragTest(unittest.TestCase):
         erg = takt_mod.thumbnail_nachtrag(now)
         self.assertEqual(erg["versucht"], 0)
         self.assertEqual(self.versuche, [])
+        self.assertEqual(self.live_pruefungen, [])
 
-    def test_alt_genug_und_nicht_bestaetigt_wird_wiederholt(self):
+    def test_live_sichtbar_bestaetigt_ohne_neuen_studio_aufruf(self):
+        """Haupt-Fix dieses Tasks: ist das Bild schon live sichtbar, braucht es keinen weiteren
+        Studio/Playwright-Aufruf - die billige CDN-Pruefung allein bestaetigt den Short."""
         from datetime import timedelta
         now = NOW
         alt = (now - timedelta(minutes=30)).isoformat(timespec="seconds")
         self._setup([{"video_id": "v1", "oeffentlich_bestaetigt": True, "thumbnail": False,
-                      "thumbnail_versuche": 1, "zeit": alt}])
+                      "thumbnail_versuche": 1, "zeit": alt}], live_folge=[True])
+        erg = takt_mod.thumbnail_nachtrag(now)
+        self.assertEqual(erg["versucht"], 1)
+        self.assertEqual(self.live_pruefungen, ["v1"])
+        self.assertEqual(self.versuche, [])   # kein erneuter Studio-Upload noetig
+        v = json.loads(takt_mod.VERLAUF_PFAD.read_text(encoding="utf-8"))
+        self.assertIs(v["hochgeladen"][0]["thumbnail"], True)
+
+    def test_noch_nicht_live_wird_bei_studio_erneut_versucht(self):
+        from datetime import timedelta
+        now = NOW
+        alt = (now - timedelta(minutes=30)).isoformat(timespec="seconds")
+        self._setup([{"video_id": "v1", "oeffentlich_bestaetigt": True, "thumbnail": False,
+                      "thumbnail_versuche": 1, "zeit": alt}], live_folge=[False])
         erg = takt_mod.thumbnail_nachtrag(now)
         self.assertEqual(erg["versucht"], 1)
         self.assertEqual(self.versuche, ["v1"])
         v = json.loads(takt_mod.VERLAUF_PFAD.read_text(encoding="utf-8"))
-        self.assertIs(v["hochgeladen"][0]["thumbnail"], True)
+        # Playwright-Erfolg (fehlerfrei) ist allein kein Beweis - "thumbnail" bleibt False, bis die
+        # naechste Live-Pruefung es bestaetigt.
+        self.assertIs(v["hochgeladen"][0]["thumbnail"], False)
         self.assertEqual(v["hochgeladen"][0]["thumbnail_versuche"], 2)
+        self.assertIsNotNone(v["hochgeladen"][0]["thumbnail_letzter_versuch"])
+
+    def test_kuerzlicher_studio_versuch_wird_nicht_sofort_wiederholt(self):
+        """Drosselung: ein frischer Studio-Upload-Versuch darf nicht jede Stunde erneut passieren, solange die
+        Live-Pruefung noch nichts bestaetigt - nur die billige CDN-Pruefung laeuft trotzdem jedes Mal."""
+        now = NOW
+        self._setup([{"video_id": "v1", "oeffentlich_bestaetigt": True, "thumbnail": False,
+                      "thumbnail_versuche": 1, "zeit": (now - takt_mod.timedelta(hours=3)).isoformat(timespec="seconds"),
+                      "thumbnail_letzter_versuch": (now - takt_mod.timedelta(minutes=10)).isoformat(timespec="seconds")}],
+                    live_folge=[False])
+        erg = takt_mod.thumbnail_nachtrag(now)
+        self.assertEqual(self.live_pruefungen, ["v1"])
+        self.assertEqual(self.versuche, [])   # zu frueh fuer einen weiteren Studio-Upload
+        self.assertEqual(erg["versucht"], 0)
+
+    def test_sehr_alter_eintrag_wird_weiterhin_live_geprueft(self):
+        """Regressionstest fuer den zweiten Befund vom 16.10.2026: eine feste Alters-Obergrenze (vorher 8h,
+        dann 48h) liess echte, erfolgreich hochgeladene Shorts fuer immer unbestaetigt, weil Live-Propagation
+        beobachtbar laenger dauern kann. Die billige CDN-Pruefung hat darum KEINE Alters-Obergrenze mehr -
+        nur die teuren Studio-Upload-Versuche bleiben ueber THUMBNAIL_VERSUCHE_MAX begrenzt."""
+        from datetime import timedelta
+        now = NOW
+        uralt = (now - timedelta(days=10)).isoformat(timespec="seconds")
+        self._setup([{"video_id": "v1", "oeffentlich_bestaetigt": True, "thumbnail": False,
+                      "thumbnail_versuche": 1, "zeit": uralt}], live_folge=[True])
+        erg = takt_mod.thumbnail_nachtrag(now)
+        self.assertEqual(self.live_pruefungen, ["v1"])
+        self.assertEqual(erg["versucht"], 1)
+        v = json.loads(takt_mod.VERLAUF_PFAD.read_text(encoding="utf-8"))
+        self.assertIs(v["hochgeladen"][0]["thumbnail"], True)
 
     def test_bereits_gesetzt_wird_uebersprungen(self):
         from datetime import timedelta
@@ -197,14 +303,17 @@ class ThumbnailNachtragTest(unittest.TestCase):
                       "thumbnail_versuche": 1, "zeit": alt}])
         erg = takt_mod.thumbnail_nachtrag(now)
         self.assertEqual(erg["versucht"], 0)
+        self.assertEqual(self.live_pruefungen, [])
 
-    def test_maximale_versuche_erreicht_wird_aufgegeben(self):
+    def test_maximale_versuche_erreicht_prueft_trotzdem_nur_noch_live(self):
         from datetime import timedelta
         now = NOW
         alt = (now - timedelta(minutes=30)).isoformat(timespec="seconds")
         self._setup([{"video_id": "v1", "oeffentlich_bestaetigt": True, "thumbnail": False,
-                      "thumbnail_versuche": takt_mod.THUMBNAIL_VERSUCHE_MAX, "zeit": alt}])
+                      "thumbnail_versuche": takt_mod.THUMBNAIL_VERSUCHE_MAX, "zeit": alt}], live_folge=[False])
         erg = takt_mod.thumbnail_nachtrag(now)
+        self.assertEqual(self.live_pruefungen, ["v1"])   # Live-Pruefung laeuft trotzdem weiter
+        self.assertEqual(self.versuche, [])              # aber kein weiterer Studio-Upload mehr
         self.assertEqual(erg["versucht"], 0)
 
 

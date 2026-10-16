@@ -21,9 +21,12 @@ aller Folgen der letzten NEWS_WELTLAGE_THEMEN_WIEDERHOLUNG_TAGE Tage (fertige wi
 produzierende), aehnlichkeit()/ist_wiederholung() vergleichen inhaltlich (Wort-Ueberlappung Titel+Inhalt, nicht nur
 Titel-String) gegen die Schwelle NEWS_WELTLAGE_THEMEN_AEHNLICHKEIT_SCHWELLE; pruefen() verwirft zu aehnliche
 Storylines, vorschlagen() nennt dem Modell die verbotenen Themen gleich im Prompt.
-aktualitaet_pruefen() laeuft kurz vor der Veroeffentlichung (von jarvis/tools/weltlage_wache.py aufgerufen): gibt es
+aktualitaet_pruefen() laeuft kurz vor der Veroeffentlichung: seit 13.10.2026 schon in tools/weltlage_tageslauf.py
+Schritt freigabe selbst (der Hinweis steht dann gleich in Marlons Freigabe-Nachricht), zusaetzlich weiterhin aus der
+spaeteren, separaten Nachpruefung von jarvis/tools/weltlage_wache.py fuer die Zeit zwischen Freigabe und Slot. Gibt es
 zum gewaehlten Thema seit der Recherche neue Meldungen (moegliche neue Entwicklung), warnt sie Marlon per
-Telegram/Beta-App, statt das fertige Video automatisch neu zu rendern.
+Telegram/Beta-App, statt das fertige Video automatisch neu zu rendern. Der Hinweis wird nur einmal geschrieben
+(aktualitaet_hinweis.json), beide Aufrufer teilen sich ihn - kein doppelter Alarm.
 
     python tools/weltlage_themen.py vorschlagen <ordner>          (schreibt storylines.json, druckt den Bericht)
     python tools/weltlage_themen.py pool                          (Themenpool anzeigen)

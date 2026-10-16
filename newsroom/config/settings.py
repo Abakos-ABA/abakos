@@ -285,14 +285,17 @@ NEWS_WELTLAGE_LIPSYNC_GUIDANCE = float(os.environ.get("NEWS_WELTLAGE_LIPSYNC_GUI
 # --- Weltlage Kompakt: taeglicher Lauf zu fixen Zeiten (tools/weltlage_tageslauf.py, Marlon 01.10.2026) ---
 # Die resident laufende Pipeline (Aufgabe AbakosNewsroomPipeline, orchestrator/pipeline.py) startet pro Slot einen
 # Tageslauf: Skript -> Bilder -> Stimme -> Rohschnitt/Lipsync -> B-Roll -> Abnahme -> Thumbnail -> Upload. Slots =
-# Veroeffentlichungszeiten (lokal, HH:MM, Komma-Liste; Vorschlag Vorbild-Analyse 01.10.: erst 07:00, spaeter
-# 07:00,18:00). Die Produktion beginnt VORLAUF Stunden vorher; ist sie frueher fertig, wartet der Upload bis zum Slot.
+# PRODUKTIONSSTART-Zeiten (lokal, HH:MM, Komma-Liste). Seit 16.10.2026 (Marlons Ansage per Telegram: "keine festen
+# Veroeffentlichungs-Slots mehr, Themenwahl erst beim Produktionsstart"): die Themenwahl (Schritt 0) beginnt GENAU
+# zum Slot, nicht mehr Stunden vorher fuer einen spaeteren Veroeffentlichungstermin; veroeffentlicht wird, sobald die
+# Folge fertig und freigegeben ist - egal wie spaet, nie wegen Verspaetung verworfen (vorher: Slots = Veroeffent-
+# lichungszeiten, Produktionsstart = Slot minus errechnetem Vorlauf). Standard zweimal taeglich 00:00 und 10:00.
 NEWS_WELTLAGE_TAEGLICH = os.environ.get("NEWS_WELTLAGE_TAEGLICH", "0") == "1"
-NEWS_WELTLAGE_SLOTS = [s.strip() for s in os.environ.get("NEWS_WELTLAGE_SLOTS", "06:00,18:00").split(",") if s.strip()]
-NEWS_WELTLAGE_VORLAUF_STUNDEN = float(os.environ.get("NEWS_WELTLAGE_VORLAUF_STUNDEN", "4"))
+NEWS_WELTLAGE_SLOTS = [s.strip() for s in os.environ.get("NEWS_WELTLAGE_SLOTS", "00:00,10:00").split(",") if s.strip()]
 # Sichtbarkeit nur fuer Weltlage-Folgen (die Shorts-Pipeline behaelt NEWS_UPLOAD_VISIBILITY): public|unlisted|private
 NEWS_WELTLAGE_UPLOAD_VISIBILITY = os.environ.get("NEWS_WELTLAGE_UPLOAD_VISIBILITY", "public").lower()
-# spaetestens so viele Stunden nach dem Slot noch veroeffentlichen, sonst Folge verwerfen (veraltet) + Meldung
+# Nur noch Meldeschwelle fuer die Weltlage-Wache (ab wann ein fertiger Lauf als "spaet" im Lagebild auftaucht) -
+# seit 16.10.2026 KEIN Abbruchgrund mehr im Tageslauf selbst (Dauerregel: nie wegen Verspaetung verwerfen).
 NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN = float(os.environ.get("NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN", "5"))
 # Zweimal taeglich mit Themenwahl und Freigabe (Marlon 02.10.2026 23:03, dauerhafte Freigabe): pro Slot zuerst drei
 # Storylines A/B/C an Telegram + Beta-App, THEMENWAHL Minuten auf Marlons Wahl warten (sonst Empfehlung), dann
@@ -304,12 +307,17 @@ NEWS_WELTLAGE_FREIGABE_MINUTEN = float(os.environ.get("NEWS_WELTLAGE_FREIGABE_MI
 NEWS_WELTLAGE_PRODUKTION_STUNDEN = os.environ.get("NEWS_WELTLAGE_PRODUKTION_STUNDEN", "auto").strip().lower()
 NEWS_WELTLAGE_TROCKENLAUF = os.environ.get("NEWS_WELTLAGE_TROCKENLAUF", "0") == "1"
 NEWS_WELTLAGE_MAX_FEEDBACK_RUNDEN = int(os.environ.get("NEWS_WELTLAGE_MAX_FEEDBACK_RUNDEN", "3"))
-# Puenktlich zum Slot (07.10.2026, Marlon: «jeden Tag 11:00 und 19:00 puenktlich»): bis dahin begann die Freigabe-
-# Stunde erst AM Slot, danach noch ~30 min Upload - jede Folge kam selbst bei rechtzeitiger Produktion ~1,5 h zu spaet.
-# Jetzt: Freigabe endet UPLOAD_VORLAUF Minuten vor dem Slot, die Folge wird privat vorab hochgeladen und genau zum
-# Slot oeffentlich gestellt (UPLOAD_VORAB=1). UPLOAD_VORAB=0 = alter Weg (oeffentlicher Upload nach der Freigabe).
-NEWS_WELTLAGE_UPLOAD_VORLAUF_MINUTEN = float(os.environ.get("NEWS_WELTLAGE_UPLOAD_VORLAUF_MINUTEN", "45"))
-NEWS_WELTLAGE_UPLOAD_VORAB = os.environ.get("NEWS_WELTLAGE_UPLOAD_VORAB", "1") == "1"
+# Automatische Aktualisierung bei der Freigabe (16.10.2026, Marlons Rueckfall-Beschwerde: Themen waren bei
+# Veroeffentlichung nicht mehr frisch, der Hinweis vom 13.10. war nur eine Warnung ohne Wirkung). Findet
+# weltlage_themen.aktualitaet_pruefen() beim Zusammenstellen der Freigabe neue Meldungen zum gewaehlten Thema,
+# versucht der Tageslauf jetzt automatisch (wie Marlons Feedback, aber ohne ihn zu fragen) einen kurzen, vorsichtig
+# attribuierten Satz zu ergaenzen, statt nur zu warnen (seit es keine festen Veroeffentlichungs-Slots mehr gibt,
+# immer sofort versucht, kein Zeitfenster-Vorbehalt mehr noetig).
+NEWS_WELTLAGE_AKTUALISIERUNG_AUTO = os.environ.get("NEWS_WELTLAGE_AKTUALISIERUNG_AUTO", "1") == "1"
+# Privat vorab hochladen und erst zu einem festen Zeitpunkt oeffentlich stellen: seit 16.10.2026 standardmaessig AUS
+# (keine festen Veroeffentlichungs-Slots mehr, Dauerregel "sofort oeffentlich sobald fertig+geprueft"). UPLOAD_VORAB=1
+# bleibt als manuelle Option erhalten (z.B. fuer einen Einzelfall mit gewolltem Punkt-Termin).
+NEWS_WELTLAGE_UPLOAD_VORAB = os.environ.get("NEWS_WELTLAGE_UPLOAD_VORAB", "0") == "1"
 # Upload im Browser: so lange auf 100 Prozent Dateitransfer + Verarbeitungsstart warten (Minuten)
 NEWS_UPLOAD_TIMEOUT_MINUTEN = float(os.environ.get("NEWS_UPLOAD_TIMEOUT_MINUTEN", "60"))
 
@@ -320,8 +328,8 @@ NEWS_UPLOAD_TIMEOUT_MINUTEN = float(os.environ.get("NEWS_UPLOAD_TIMEOUT_MINUTEN"
 # nicht gleichzeitig mit der Folge), legt sie dann in die Shorts-Warteschlange (weltlage_shorts_takt.py).
 # Seit 13.10.2026 (Feedback nach dem ersten echten Short: "momentan ist der ganze Clip nur ein
 # Aufhaenger") ist jeder Short immer Hook+Fakten+Verweis (nie nur der Cold Open allein, siehe
-# tools/weltlage_shorts.py); SHORTS_MAX=2 passt zusammen mit den zwei Folgen-Slots (06:00/18:00) ungefaehr
-# auf die vier taeglichen Upload-Slots (NEWS_WELTLAGE_SHORTS_SLOTS unten).
+# tools/weltlage_shorts.py); SHORTS_MAX=2 passt zusammen mit den zwei Folgen-Produktionsstarts (seit 16.10.2026
+# 00:00/10:00) ungefaehr auf die vier taeglichen Upload-Slots (NEWS_WELTLAGE_SHORTS_SLOTS unten).
 NEWS_WELTLAGE_SHORTS = os.environ.get("NEWS_WELTLAGE_SHORTS", "1") == "1"
 NEWS_WELTLAGE_SHORTS_MAX = int(os.environ.get("NEWS_WELTLAGE_SHORTS_MAX", "2"))
 NEWS_WELTLAGE_SHORTS_VERZUG_MINUTEN = float(os.environ.get("NEWS_WELTLAGE_SHORTS_VERZUG_MINUTEN", "30"))
@@ -329,8 +337,8 @@ NEWS_WELTLAGE_SHORTS_VERZUG_MINUTEN = float(os.environ.get("NEWS_WELTLAGE_SHORTS
 # 8 Likes/4 Abos in 48 h): taeglich 4 Shorts, alle 6 h, OHNE Einzelfreigabe oeffentlich. Das Schneiden bleibt an
 # die Folgen-Veroeffentlichung gekoppelt (s.o.), der tatsaechliche Upload folgt diesem festen Takt
 # (tools/weltlage_shorts_takt.py, von der Weltlage-Wache stuendlich aufgerufen) - Uhrzeiten bewusst NICHT auf
-# den Folgen-Slots (NEWS_WELTLAGE_SLOTS, Standard 06:00/18:00), damit Shorts nie um dieselbe Zeit wie eine Folge
-# hochladen und die Browser-Automatik (dasselbe Edge-Profil) nicht kollidiert.
+# den Folgen-Produktionsstarts (NEWS_WELTLAGE_SLOTS, Standard seit 16.10.2026 00:00/10:00), damit Shorts nie um
+# dieselbe Zeit wie eine Folge hochladen und die Browser-Automatik (dasselbe Edge-Profil) nicht kollidiert.
 NEWS_WELTLAGE_SHORTS_SLOTS = os.environ.get("NEWS_WELTLAGE_SHORTS_SLOTS", "02:00,08:00,14:00,20:00")
 
 # --- Weltlage Kompakt: Themenwahl nur wirklich neue Themen (Marlon 07.10.2026, Task 20261007-174635-f7ff) ---

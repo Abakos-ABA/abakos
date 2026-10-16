@@ -42,12 +42,13 @@ beginnt mit dem Themen-Teaser der Folge, dessen erster Satz denselben zugespitzt
 Marlon hat am 02.10.2026 um 23:03 dauerhaft freigegeben: Weltlage Kompakt läuft vollautomatisch inklusive
 Veröffentlichung auf YouTube, wenn er nicht innerhalb einer Stunde reagiert. Ersetzt den 07:00-Lauf unten (Task fa4b).
 
-- **Slots** `NEWS_WELTLAGE_SLOTS=06:00,18:00` (Veröffentlichungszeit, seit 15.10.2026, vorher 11:00/19:00), je ein anderes Video.
-- **Start** des Laufs = Slot − (Themenwahl 60 min + gemessene Produktionsdauer + 30 min Puffer).
+- **Slots** `NEWS_WELTLAGE_SLOTS=00:00,10:00` (seit 16.10.2026 PRODUKTIONSSTART-Zeiten, vorher Veröffentlichungszeit
+  06:00/18:00 mit Rückwärtsrechnung, davor 11:00/19:00), je ein anderes Video.
+- **Start** des Laufs = Slot direkt (Themenwahl beginnt frisch genau zum Slot, keine Vorlauf-Rückrechnung mehr).
   Produktionsdauer `NEWS_WELTLAGE_PRODUKTION_STUNDEN=auto`: Rohschnitt-Dauer der letzten zwei vollen Folgen
-  (`*_renderzeiten.json`, Maximum) + 1 h für Skript/Bilder/Stimme/B-Roll/Abnahme. Stand 03.10.: 6,7 h (Lipsync-HD
-  der Folge vom 02.10. allein 5,7 h) → Themenwahl ab ca. 02:50 bzw. 10:50, Produktion ab 03:50 bzw. 11:50.
-  `tools\weltlage_tageslauf.py zeitplan` zeigt die aktuellen Zeiten.
+  (`*_renderzeiten.json`, Maximum) + 1 h für Skript/Bilder/Stimme/B-Roll/Abnahme. Veröffentlicht wird sofort nach
+  Freigabe, sobald die Folge fertig ist - keine festen Veröffentlichungs-Slots mehr, nie wegen Verspätung verworfen.
+  `tools\weltlage_tageslauf.py zeitplan` zeigt die aktuellen (geschätzten) Zeiten.
 - **Themenwahl** (`tools/weltlage_themen.py`): Rohmeldungen der letzten `NEWS_WELTLAGE_THEMEN_STUNDEN` Stunden
   (Default 24, seit 07.10.2026 wegen der Vortagswahl verkürzt von vormals 48 h) → drei Storylines A/B/C (Titel als
   zugespitzte Frage, ein Satz Inhalt, grüne Bildquellen aus `config/quellen_netzwerk.json`) + Empfehlung, Stil

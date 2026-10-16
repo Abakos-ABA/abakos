@@ -71,8 +71,10 @@ STEP_MB = {
     "lipsync": 18000,      # LatentSync 1.6 (own torch process, no offloading)
     "ollama_8b": 6500,     # qwen3:8b
     "enhance": 4200,       # Resemble Enhance (.venv-enhance), gemessen 01.10.: ~3,9 GB Spitze (Task 98b7)
+    "vision": 18000,       # lokales Ollama-Vision-Modell (gemma3:27b/qwen3.6:27b Q4_K_M, ~17-18 GB), nur Fallback
+                           # fuer video/einblendungen.py, wenn die Claude-CLI nicht erreichbar ist
 }
-HEAVY = {"wan_clip", "lipsync"}                         # never next to a game
+HEAVY = {"wan_clip", "lipsync", "vision"}               # never next to a game
 
 # What a step books in the central queue (MB on top of the desktop + Jarvis' voice, which hold ~6-9 GB for good):
 # STEP_MB above is "free VRAM needed" and would never fit next to them (lipsync 18 GB + reserve, 29.09.)
@@ -219,16 +221,18 @@ def _note(progress):
 
 @contextlib.contextmanager
 def slot(step: str, name: str | None = None, prio: int | None = None, progress=None, vram_mb: int | None = None,
-         excl: str | None = None):
+         excl: str | None = None, wait_max_min: float | None = None):
     """Place in the central GPU queue for the with-block (waits for game rules + queue). Fallback: no waiting.
     excl: lock name (jarvis/tools/gpu_queue.py) -- no two jobs with the same excl ever run at once, regardless of
-    VRAM accounting (Weltlage lipsync: two renders sharing the card both ran at half speed, 29.09./04.10.)."""
+    VRAM accounting (Weltlage lipsync: two renders sharing the card both ran at half speed, 29.09./04.10.).
+    wait_max_min: give up waiting after so many minutes (raises gpu_queue.GpuQueueTimeout, a TimeoutError) -- for
+    optional jobs that must never block a pipeline step (Weltlage Einblendungs-Pruefung, 06.10.2026)."""
     q = queue()
     t = None
     if q is not None:
         try:
             t = q.acquire(_job_name(step, name), prio or QUEUE_PRIO, vram_mb or queue_mb(step), gate=gate(step),
-                          progress=_note(progress), excl=excl)
+                          progress=_note(progress), excl=excl, wait_max_min=wait_max_min)
         except q.GpuQueueTimeout:
             raise
         except (OSError, TimeoutError) as e:

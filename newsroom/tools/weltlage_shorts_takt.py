@@ -206,19 +206,24 @@ def takt(now: datetime | None = None, trocken: bool = False) -> dict:
     # Vorfall 14.10.2026: upload_datei meldete den 08:00-Short nicht bestaetigt (Studio: Entwurf), der Takt meldete
     # trotzdem "veroeffentlicht". Jetzt zaehlt nur Studios Bestaetigung (oeffentlich_bestaetigt).
     bestaetigt = bool(res.get("oeffentlich_bestaetigt"))
-    # Befund 16.10.2026 (Task 20261016-103819-3966): das Setzen DIREKT nach dem Upload scheitert bei einem
-    # frisch veroeffentlichten Short manchmal lautlos (Studio verarbeitet die Videoqualitaeten noch) - darum
-    # zaehlt dieser erste Versuch nicht als letzte Chance, siehe thumbnail_nachtrag() unten, das denselben
-    # Aufruf ueber mehrere Wache-Runden hinweg wiederholt, solange "thumbnail" noch nicht True ist.
-    thumbnail = (_thumbnail_setzen_versucht(res["video_id"], mp4, eintrag.get("meta"))
-                if bestaetigt and res.get("video_id") else False)
+    # Befund 16.10.2026 (Task 20261016-103819-3966, verschaerft im selben Task am 16.10. nachmittags): das
+    # Setzen DIREKT nach dem Upload scheitert bei einem frisch veroeffentlichten Short manchmal lautlos (Studio
+    # verarbeitet die Videoqualitaeten noch) UND Studios fehlerfreier Speichern-Klick ist generell kein Beweis,
+    # dass das Bild live sichtbar wird (siehe _thumbnail_live_sichtbar-Docstring) - "thumbnail" im Verlauf ist
+    # darum NIE mehr der rohe Playwright-Rueckgabewert, sondern bleibt False, bis thumbnail_nachtrag() es unten
+    # objektiv am CDN bestaetigt hat.
+    thumbnail_versucht = bool(bestaetigt and res.get("video_id"))
+    if thumbnail_versucht:
+        _thumbnail_setzen_versucht(res["video_id"], mp4, eintrag.get("meta"))
     verlauf.setdefault("hochgeladen", []).append({"szene_id": eintrag["szene_id"], "video_id": res.get("video_id"),
                                                   "zeit": now.isoformat(timespec="seconds"), "key": eintrag["key"],
                                                   "titel": eintrag["meta"]["title"],
                                                   "oeffentlich_bestaetigt": bestaetigt,
                                                   "studio_status": res.get("studio_status"),
                                                   "fehler": res.get("nachzug_fehler"),
-                                                  "thumbnail": thumbnail, "thumbnail_versuche": 1,
+                                                  "thumbnail": False, "thumbnail_versuche": 1 if thumbnail_versucht else 0,
+                                                  "thumbnail_letzter_versuch":
+                                                      now.isoformat(timespec="seconds") if thumbnail_versucht else None,
                                                   "ordner": eintrag.get("ordner"), "mp4": str(mp4)})
     verlauf["hochgeladen"] = verlauf["hochgeladen"][-200:]
     verlauf.setdefault("erledigte_slots", []).append(schluessel)
@@ -239,21 +244,70 @@ def takt(now: datetime | None = None, trocken: bool = False) -> dict:
            "studio_status": res.get("studio_status")}
 
 
-THUMBNAIL_VERSUCHE_MAX = 4          # danach aufgeben, nicht endlos jede Stunde gegen Studio laufen
+THUMBNAIL_VERSUCHE_MAX = 6          # Studio-Upload-Versuche, danach nicht mehr neu hochladen (nur noch live pruefen)
 THUMBNAIL_NACHTRAG_WARTE_MIN = 15   # erster Nachtrag-Versuch fruehestens so lange nach dem Erstversuch
-THUMBNAIL_NACHTRAG_FENSTER_MIN = 8 * 60   # nach 8 h nicht mehr automatisch nachfassen (sehr alte Shorts)
+THUMBNAIL_STUDIO_WIEDERHOLEN_MIN = 60   # Mindestabstand zwischen zwei Studio-Upload-Versuchen desselben Shorts
+# Keine Obergrenze fuers Alter mehr (Befund 16.10.2026, zweite Haelfte desselben Tasks): die alte 8h-Grenze liess
+# echte Shorts fuer immer unbestaetigt, weil Live-Propagation beobachtbar laenger als 8h dauern kann (ein zuvor
+# korrekt gesetztes Thumbnail zeigte sich bei zwei baugleichen Shorts erst nach >24h bzw. gar nicht - siehe
+# _thumbnail_live_sichtbar-Docstring). Die billige CDN-Pruefung kostet pro Short nur einen HTTP-Get und darf
+# darum unbegrenzt oft laufen; nur die TEUREN Studio-Upload-Versuche bleiben ueber THUMBNAIL_VERSUCHE_MAX
+# begrenzt, unabhaengig vom Alter.
+
+
+def _thumbnail_live_sichtbar(video_id: str, log=print) -> bool | None:
+    """Objektive Pruefung OHNE Playwright/Studio, ob das komponierte Thumbnail (Banderole + Headline + Latara-
+    Foto, siehe tools/weltlage_shorts_thumbnail.render) auf YouTube wirklich sichtbar ist. Befund 16.10.2026
+    (dieser Task, Marlon-Meldung 'nur die zwei neusten Shorts mit neuem Bild haben viele Aufrufe'): Studios
+    Speichern-Button meldet bei set_thumbnail() praktisch IMMER Erfolg (kein Playwright-Fehler) - Stichprobe per
+    oEmbed/hqdefault.jpg zeigte aber bei 4 von 6 schon veroeffentlichten Shorts Stunden spaeter immer noch den
+    alten, zufaelligen Studio-Frame, bei zwei baugleichen Shorts AUS DEMSELBEN Upload-Lauf (g-JkGWZ5dJ4 vs.
+    zBFgmh-fSF0) sogar mit genau demselben Ergebniscode (True) aber unterschiedlichem Live-Ausgang - der
+    Playwright-Erfolg allein ist also kein verlaesslicher Beweis, nur eine echte Nachpruefung am CDN ist es.
+    Erkennungsmerkmal: die rote Banderole (ACCENT-naher Farbton) sitzt bei jedem komponierten Thumbnail nahe dem
+    oberen Fuenftel des Bilds; der rohe Studio-Frame zeigt an derselben Stelle immer den dunkelblauen Studio-
+    Hintergrund. hqdefault.jpg ist das oeffentliche, unauthentifizierte Vorschaubild-CDN-Bild zu jeder Video-ID
+    (kein API-Key noetig). Gibt None zurueck, wenn das Bild gerade nicht abrufbar ist (kein Fehlschlag, einfach
+    beim naechsten Taktschlag erneut pruefen)."""
+    import io
+    import urllib.error
+    import urllib.request
+
+    from PIL import Image
+
+    url = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+    try:
+        with urllib.request.urlopen(url, timeout=20) as r:
+            daten = r.read()
+    except (urllib.error.URLError, OSError) as e:
+        log(f"Thumbnail-Live-Pruefung {video_id}: hqdefault.jpg nicht abrufbar ({e})")
+        return None
+    try:
+        bild = Image.open(io.BytesIO(daten)).convert("RGB")
+    except Exception as e:   # noqa: BLE001 - defektes/leeres Bild zaehlt als "jetzt nicht pruefbar"
+        log(f"Thumbnail-Live-Pruefung {video_id}: Bild nicht lesbar ({e})")
+        return None
+    w, h = bild.size
+    cx, cy = w // 2, round(h * 0.18)
+    proben = [bild.getpixel((min(max(cx + dx, 0), w - 1), cy)) for dx in (-10, 0, 10)]
+    sichtbar = any(r > 150 and r - b > 60 for r, g, b in proben)
+    log(f"Thumbnail-Live-Pruefung {video_id}: "
+        f"{'komponiertes Bild erkannt' if sichtbar else 'noch alter Frame/unbekannt'} (Proben {proben})")
+    return sichtbar
 
 
 def thumbnail_nachtrag(now: datetime | None = None) -> dict:
-    """Wiederholt das Thumbnail-Setzen fuer kuerzlich hochgeladene Shorts, bei denen es beim ersten Versuch
-    (direkt im Anschluss an takt(), siehe oben) nicht gegriffen hat. Befund 16.10.2026 (Task
-    20261016-103819-3966, Marlon-Meldung 'die zwei neusten Shorts sehen wieder alt aus'): set_thumbnail() lief
-    beim allerersten Versuch (Sekunden nach der Veroeffentlichung) ohne Fehler durch, das komponierte Bild blieb
-    aber live nicht sichtbar - derselbe Aufruf Stunden spaeter (manueller Nachtrag) hat zuverlaessig funktioniert.
-    Vermutliche Ursache: YouTube verarbeitet die Videoqualitaeten eines frisch veroeffentlichten Shorts noch, ein
-    in diesem Fenster gesetztes Vorschaubild wird dabei verworfen. Wird stuendlich von der Weltlage-Wache
-    aufgerufen (jarvis/tools/weltlage_wache.py), genau wie takt() selbst - idempotent, darf beliebig oft auf
-    denselben Short angewendet werden."""
+    """Pflegt das Thumbnail-Setzen fuer alle Shorts nach, bei denen es (noch) nicht live bestaetigt ist. Zwei
+    getrennte Schritte pro Short: (1) billige, objektive Live-Pruefung direkt am CDN (_thumbnail_live_sichtbar) -
+    bestaetigt sie das komponierte Bild, ist der Short erledigt, ohne dass ueberhaupt ein Studio/Playwright-
+    Aufruf noetig war; (2) ist es noch nicht sichtbar, wird hoechstens alle THUMBNAIL_STUDIO_WIEDERHOLEN_MIN
+    erneut bei Studio hochgeladen (nie oefter als THUMBNAIL_VERSUCHE_MAX). Wird stuendlich von der Weltlage-
+    Wache aufgerufen (jarvis/tools/weltlage_wache.py), genau wie takt() selbst - idempotent, darf beliebig oft
+    auf denselben Short angewendet werden.
+
+    Befund 16.10.2026 (Task 20261016-103819-3966 hatte das Feld 'thumbnail' fälschlich schon nach dem ersten
+    fehlerfreien Playwright-Aufruf auf True gesetzt, siehe _thumbnail_live_sichtbar-Docstring): 'thumbnail' ist
+    jetzt ausschliesslich die LIVE-bestaetigte Wahrheit, nie mehr nur "Studio hat ohne Fehler gespeichert"."""
     now = now or datetime.now().astimezone()
     verlauf = _lesen(VERLAUF_PFAD, {"hochgeladen": [], "erledigte_slots": []})
     ergebnisse = []
@@ -261,23 +315,38 @@ def thumbnail_nachtrag(now: datetime | None = None) -> dict:
     for eintrag in verlauf.get("hochgeladen", []):
         if eintrag.get("thumbnail") is True or not eintrag.get("oeffentlich_bestaetigt") or not eintrag.get("video_id"):
             continue
-        versuche = eintrag.get("thumbnail_versuche") or 0
-        if versuche >= THUMBNAIL_VERSUCHE_MAX:
-            continue
         try:
             alter_min = (now - datetime.fromisoformat(eintrag["zeit"])).total_seconds() / 60
         except (KeyError, ValueError):
             continue
-        if alter_min < THUMBNAIL_NACHTRAG_WARTE_MIN or alter_min > THUMBNAIL_NACHTRAG_FENSTER_MIN:
+        if alter_min < THUMBNAIL_NACHTRAG_WARTE_MIN:
+            continue
+        live = _thumbnail_live_sichtbar(eintrag["video_id"])
+        if live:
+            eintrag["thumbnail"] = True
+            ergebnisse.append({"video_id": eintrag["video_id"], "live_bestaetigt": True})
+            geaendert = True
+            continue
+        versuche = eintrag.get("thumbnail_versuche") or 0
+        letzter = eintrag.get("thumbnail_letzter_versuch")
+        zu_frueh = False
+        if letzter:
+            try:
+                zu_frueh = ((now - datetime.fromisoformat(letzter)).total_seconds() / 60
+                            < THUMBNAIL_STUDIO_WIEDERHOLEN_MIN)
+            except ValueError:
+                zu_frueh = False
+        if versuche >= THUMBNAIL_VERSUCHE_MAX or zu_frueh:
             continue
         ordner, mp4 = eintrag.get("ordner"), eintrag.get("mp4")
         if not ordner or not mp4 or not Path(mp4).exists():
             continue
         meta = _lesen(Path(ordner) / "shorts" / f"{eintrag['szene_id']}.json", None)
         ok = _thumbnail_setzen_versucht(eintrag["video_id"], Path(mp4), meta)
-        eintrag["thumbnail"] = ok
         eintrag["thumbnail_versuche"] = versuche + 1
-        ergebnisse.append({"video_id": eintrag["video_id"], "versuch": versuche + 1, "gesetzt": ok})
+        eintrag["thumbnail_letzter_versuch"] = now.isoformat(timespec="seconds")
+        ergebnisse.append({"video_id": eintrag["video_id"], "versuch": versuche + 1, "studio_gesetzt": ok,
+                           "live_bestaetigt": False})
         geaendert = True
     if geaendert:
         _schreiben(VERLAUF_PFAD, verlauf)
