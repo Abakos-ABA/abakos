@@ -5,7 +5,7 @@ YouTube, wenn Marlon nicht innerhalb einer Stunde reagiert. Ersetzt den fruehere
 
 Gestartet von der resident laufenden Pipeline (Aufgabe AbakosNewsroomPipeline, orchestrator/pipeline.py ruft pro
 Tick pruefen_und_starten() auf) - kein eigener Windows-Task; seit 05.10.2026 als Langlauf (Jarvis tools/langlauf.py),
-falls erreichbar. Pro Slot (NEWS_WELTLAGE_SLOTS, Standard 11:00,19:00 =
+falls erreichbar. Pro Slot (NEWS_WELTLAGE_SLOTS, Standard 06:00,18:00 =
 Veroeffentlichungszeit) beginnt der Lauf vorlauf_stunden() vorher (Themenwahl + gemessene Produktionsdauer + Puffer,
 siehe produktion_stunden) als eigener, losgeloester Prozess (pythonw, kein Fenster) und arbeitet diese Schritte ab
 (jeder Schritt wird bei einem Neustart uebersprungen, wenn sein Ergebnis schon da ist):
@@ -41,7 +41,12 @@ siehe produktion_stunden) als eigener, losgeloester Prozess (pythonw, kein Fenst
                 tools/weltlage_ueberarbeiten.py setzt die Aenderungen um, nur betroffene Szenen werden neu gerendert
                 (Schritte stimme..metadaten erneut), das Video kommt neu und das Fenster startet von vorn (hoechstens
                 NEWS_WELTLAGE_MAX_FEEDBACK_RUNDEN, danach nur noch Freigeben/Stopp). Keine Reaktion innert
-                NEWS_WELTLAGE_FREIGABE_MINUTEN = automatisch veroeffentlichen.
+                NEWS_WELTLAGE_FREIGABE_MINUTEN = automatisch veroeffentlichen. Seit 13.10.2026 (Marlons Kritik: Themen
+                zu frueh gewaehlt, bei Veroeffentlichung nicht mehr aktuell): th.aktualitaet_pruefen() laeuft schon
+                hier, direkt in dieser Nachricht - nicht erst spaeter ueber die separate Nachpruefung der
+                Weltlage-Wache (jarvis/tools/weltlage_wache.py, laeuft weiterhin zusaetzlich fuer die Zeit danach bis
+                zum Slot). So sieht Marlon neue Meldungen zum Thema schon bei der Freigabe-Entscheidung und kann mit
+                Feedback/Stopp reagieren, statt nur eine Warnung nach der Veroeffentlichung zu bekommen.
  12 upload      upload/youtube_playwright.upload_datei - NEWS_WELTLAGE_UPLOAD_VORAB=1 (Standard seit 07.10.2026): PRIVAT
                 vorab hochladen, sonst direkt oeffentlich; NEWS_WELTLAGE_TROCKENLAUF=1 bzw. --trocken: nie hochladen
  13 veroeffentlichen  (nur bei Vorab-Upload) bis zum Slot warten, dann youtube_playwright.veroeffentlichen() auf
@@ -112,7 +117,9 @@ KI_HINWEIS = ("Moderatorin Latara und ihre Stimme sind KI-generiert. Fakten und 
 FESTE_TAGS = ["Weltlage Kompakt", "Nachrichten", "Weltpolitik", "Analyse", "Weltlage", "News Deutsch"]
 MAX_NEUSTARTS = 3
 MAX_LAENGE_RUNDEN = 1   # hoechstens ein automatischer Verlaengerungsversuch bei "Folge zu kurz" (Abnahme 4i)
-PUFFER_STUNDEN = 0.5
+PUFFER_STUNDEN = 0.25  # knapper Zeitplan (Marlon 15.10.2026): lieber leicht zu spaet als zu frueh, der Sicherheits-
+                        # abstand liegt schon im Maximum der letzten Folgen (schritt_raten/taktung), dieser Puffer
+                        # ist nur noch der letzte kleine Rest
 # Produktion ohne Rohschnitt (Skript, Bilder, Stimme, B-Roll, Abnahme, Thumbnail), gemessen 02.10.: rund 1 h
 NEBENSCHRITTE_STUNDEN = 1.0
 PRODUKTION_FALLBACK_STUNDEN = 6.5
@@ -375,7 +382,9 @@ def taktung(data_dir: Path | None = None) -> dict:
 
 
 VORLAUF_MAX_STUNDEN = 30.0    # nie mehr als so viele Stunden vor dem Slot beginnen (faellig() schaut nur 2 Tage weit)
-NACH_SCHNITT_STUNDEN = 0.75   # B-Roll + Abnahme + Thumbnail + Metadaten nach dem Rohschnitt (gemessen 0,4-1,0 h)
+NACH_SCHNITT_STUNDEN = 0.5    # B-Roll + Abnahme + Thumbnail + Metadaten nach dem Rohschnitt (gemessen 0,4-1,0 h;
+                               # seit 15.10.2026 unteres Ende des gemessenen Bereichs - diese Schritte sind nicht
+                               # GPU/Lipsync-abhaengig und schwanken kaum)
 SCHNITT_FALLBACK_STUNDEN = 9.0
 VOR_SCHNITT_STUNDEN = 3.0     # Themenwahl + Skript + Vertonung, bis ein Lauf die Karte fuer den Rohschnitt braucht
 
@@ -969,12 +978,13 @@ def telegram_fassung(datei: Path, ordner: Path, log) -> Path | None:
         return None
 
 
-def shorts_erzeugen_und_freigeben(key: str, slot: str, ordner: Path, log):
-    """Schritt shorts (Marlon 11.10.2026, Analyse reports/youtube-kanal/weltlage-analyse-20261011): aus der
-    gerade veroeffentlichten Folge 1-3 vertikale Shorts schneiden (tools/weltlage_shorts.py), SHORTS_VERZUG
-    Minuten warten (zeitversetzt, nicht gleichzeitig mit der Folge), dann je Short dieselbe Freigabe-Regel
-    wie bei Folgen: Telegram/Beta-Frage, ohne Reaktion in FREIGABE_MINUTEN automatisch oeffentlich."""
-    import weltlage_entscheid as ent
+def shorts_erzeugen_und_einreihen(key: str, slot: str, ordner: Path, log):
+    """Schritt shorts (Marlon 11.10.2026, erweitert 13.10.2026 auf dauerhafte Freigabe + festen 6-h-Takt nach dem
+    ersten echten Short: ~400 Views/8 Likes/4 Abos in 48 h): aus der gerade veroeffentlichten Folge 1-3 vertikale
+    Shorts schneiden (tools/weltlage_shorts.py), SHORTS_VERZUG Minuten warten (zeitversetzt, nicht gleichzeitig
+    mit der Folge), dann NICHT mehr einzeln per Telegram freigeben lassen, sondern in die Warteschlange legen
+    (tools/weltlage_shorts_takt.py) - der Taktgeber (von der Weltlage-Wache stuendlich aufgerufen) laedt daraus
+    automatisch oeffentlich hoch, 4x taeglich zu festen, nicht mit den Folgen-Slots kollidierenden Uhrzeiten."""
     if NEWS_WELTLAGE_SHORTS_VERZUG_MINUTEN > 0:
         log(f"Shorts: warte {NEWS_WELTLAGE_SHORTS_VERZUG_MINUTEN:.0f} min nach der Veröffentlichung (zeitversetzt)")
         time.sleep(NEWS_WELTLAGE_SHORTS_VERZUG_MINUTEN * 60)
@@ -996,28 +1006,12 @@ def shorts_erzeugen_und_freigeben(key: str, slot: str, ordner: Path, log):
     if not shorts:
         log("Shorts: keine passende Szene gefunden (keine unter 60 s mit eigenem Sprechtext)")
         return
-    from upload.youtube_playwright import upload_datei
-    video_ids = []
-    for i, s in enumerate(shorts, start=1):
-        skey = f"{key}_short{i}"
-        frist = datetime.now().astimezone() + timedelta(minutes=NEWS_WELTLAGE_FREIGABE_MINUTEN)
-        text = (f"Short {i}/{len(shorts)} aus Weltlage {slot}: {s['meta']['title']} ({s['meta'].get('dauer_s', 0):.0f} s).\n"
-                f"Ohne Antwort bis {frist:%H:%M} veröffentliche ich sie automatisch auf YouTube. "
-                "Freigeben = sofort, Stopp = nicht veröffentlichen.")
-        e = ent.fragen(skey, "freigabe_short", text, {"freigeben": "Freigeben", "stopp": "Stopp"}, frist,
-                       titel=f"Weltlage {slot}: Short {i}/{len(shorts)}", dokument=s["mp4"], log=log)
-        ant = ent.warten(e["id"], log)
-        if ant and ant["wahl"] == "stopp":
-            log(f"Short {i}: Stopp - nicht hochgeladen")
-            continue
-        res = upload_datei(s["mp4"], s["meta"], None, visibility=NEWS_WELTLAGE_UPLOAD_VISIBILITY,
-                           log_path=ordner / "shorts" / f"short_{i}_upload.log")
-        video_ids.append(res.get("video_id"))
-        log(f"Short {i} hochgeladen: https://youtu.be/{res.get('video_id')}")
-    _eintrag(key, shorts_video_ids=video_ids)
-    if video_ids:
-        _melden(f"Weltlage {slot}", f"{len(video_ids)} Short(s) veröffentlicht: "
-                + ", ".join(f"https://youtu.be/{v}" for v in video_ids), log)
+    import weltlage_shorts_takt as takt
+    neu = takt.einreihen(key, slot, ordner, shorts)
+    log(f"Shorts: {neu} neue Szene(n) in die Warteschlange gelegt (gesamt {len(takt.warteschlange())})")
+    if neu:
+        _melden(f"Weltlage {slot}", f"{neu} Short(s) in die Warteschlange gelegt, werden automatisch alle 6 h "
+                "öffentlich veröffentlicht (keine Einzelfreigabe mehr nötig).", log)
 
 
 def freigabe_einholen(key: str, slot: str, ordner: Path, master: Path, log, minuten: float, trocken: bool,
@@ -1025,6 +1019,7 @@ def freigabe_einholen(key: str, slot: str, ordner: Path, master: Path, log, minu
     """Schritt freigabe. Rueckgabe "freigegeben" | "automatisch"; Stopp -> Gestoppt; Feedback -> Ueberarbeitung +
     produktion() (Schritte stimme..metadaten) + neue Runde."""
     import weltlage_entscheid as ent
+    import weltlage_themen as th
     while True:
         z = _laden().get(key) or {}
         runden = int(z.get("feedback_runden") or 0)
@@ -1034,6 +1029,10 @@ def freigabe_einholen(key: str, slot: str, ordner: Path, master: Path, log, minu
             datei = clips if clips.exists() else master
             meta = json.loads((ordner / "metadaten.json").read_text(encoding="utf-8"))
             frist = datetime.now().astimezone() + timedelta(minutes=minuten)
+            try:
+                aktualitaet = th.aktualitaet_pruefen(ordner)
+            except Exception:   # noqa: BLE001 - Aktualitaets-Check darf die Freigabe nie verhindern
+                aktualitaet = None
             optionen = {"freigeben": "Freigeben", "feedback": "Feedback", "stopp": "Stopp"}
             if runden >= NEWS_WELTLAGE_MAX_FEEDBACK_RUNDEN:
                 optionen.pop("feedback")
@@ -1047,6 +1046,10 @@ def freigabe_einholen(key: str, slot: str, ordner: Path, master: Path, log, minu
                     + "Stopp = nicht veröffentlichen"
                     + (", Feedback = Änderungen (nur betroffene Szenen werden neu gerendert)." if "feedback" in optionen
                        else ". Die Feedback-Runden sind aufgebraucht."))
+            if aktualitaet:
+                neue = "\n".join(f"- {a['title']} ({a.get('source')})" for a in aktualitaet["neue_artikel"][:3])
+                text += (f"\n\nAchtung, Thema evtl. überholt: seit der Recherche gibt es neue Meldungen dazu:\n{neue}\n"
+                         "Bei Bedarf Feedback (Titel/Beschreibung anpassen) oder Stopp statt automatisch veröffentlichen.")
             beta_text = text + "\nVideo und Thumbnail liegen in Telegram."
             e = ent.fragen(key, "freigabe", text, optionen, frist, titel=f"Weltlage {slot}: Freigabe",
                            dokument=telegram_fassung(datei, ordner, log),
@@ -1314,7 +1317,7 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
                 log("Shorts: Folge hat keine Video-ID - uebersprungen")
                 return
             try:
-                shorts_erzeugen_und_freigeben(key, slot, ordner, log)
+                shorts_erzeugen_und_einreihen(key, slot, ordner, log)
             except Exception as ex:  # noqa: BLE001 - Shorts sind ein Zusatznutzen, duerfen die Folge nie gefaehrden
                 log(f"Shorts fehlgeschlagen: {ex}")
             _eintrag(key, shorts_erledigt=True)

@@ -288,7 +288,7 @@ NEWS_WELTLAGE_LIPSYNC_GUIDANCE = float(os.environ.get("NEWS_WELTLAGE_LIPSYNC_GUI
 # Veroeffentlichungszeiten (lokal, HH:MM, Komma-Liste; Vorschlag Vorbild-Analyse 01.10.: erst 07:00, spaeter
 # 07:00,18:00). Die Produktion beginnt VORLAUF Stunden vorher; ist sie frueher fertig, wartet der Upload bis zum Slot.
 NEWS_WELTLAGE_TAEGLICH = os.environ.get("NEWS_WELTLAGE_TAEGLICH", "0") == "1"
-NEWS_WELTLAGE_SLOTS = [s.strip() for s in os.environ.get("NEWS_WELTLAGE_SLOTS", "11:00,19:00").split(",") if s.strip()]
+NEWS_WELTLAGE_SLOTS = [s.strip() for s in os.environ.get("NEWS_WELTLAGE_SLOTS", "06:00,18:00").split(",") if s.strip()]
 NEWS_WELTLAGE_VORLAUF_STUNDEN = float(os.environ.get("NEWS_WELTLAGE_VORLAUF_STUNDEN", "4"))
 # Sichtbarkeit nur fuer Weltlage-Folgen (die Shorts-Pipeline behaelt NEWS_UPLOAD_VISIBILITY): public|unlisted|private
 NEWS_WELTLAGE_UPLOAD_VISIBILITY = os.environ.get("NEWS_WELTLAGE_UPLOAD_VISIBILITY", "public").lower()
@@ -316,12 +316,22 @@ NEWS_UPLOAD_TIMEOUT_MINUTEN = float(os.environ.get("NEWS_UPLOAD_TIMEOUT_MINUTEN"
 # --- Weltlage Kompakt: Shorts aus der fertigen Folge (tools/weltlage_shorts.py, Marlon 11.10.2026) ---
 # Analyse 11.10.2026 (reports/youtube-kanal/weltlage-analyse-20261011): der Kanal hatte trotz fertiger
 # Shorts-Technik noch keine einzige echte Short veroeffentlicht. Nach der Veroeffentlichung einer Folge
-# schneidet der Tageslauf bis zu SHORTS_MAX vertikale Kurzclips heraus, wartet SHORTS_VERZUG_MINUTEN
-# (zeitversetzt, nicht gleichzeitig mit der Folge), dann dieselbe Freigabe-Regel wie bei Folgen
-# (FREIGABE_MINUTEN ohne Reaktion -> automatisch oeffentlich).
+# schneidet der Tageslauf bis zu SHORTS_MAX Shorts heraus, wartet SHORTS_VERZUG_MINUTEN (zeitversetzt,
+# nicht gleichzeitig mit der Folge), legt sie dann in die Shorts-Warteschlange (weltlage_shorts_takt.py).
+# Seit 13.10.2026 (Feedback nach dem ersten echten Short: "momentan ist der ganze Clip nur ein
+# Aufhaenger") ist jeder Short immer Hook+Fakten+Verweis (nie nur der Cold Open allein, siehe
+# tools/weltlage_shorts.py); SHORTS_MAX=2 passt zusammen mit den zwei Folgen-Slots (06:00/18:00) ungefaehr
+# auf die vier taeglichen Upload-Slots (NEWS_WELTLAGE_SHORTS_SLOTS unten).
 NEWS_WELTLAGE_SHORTS = os.environ.get("NEWS_WELTLAGE_SHORTS", "1") == "1"
-NEWS_WELTLAGE_SHORTS_MAX = int(os.environ.get("NEWS_WELTLAGE_SHORTS_MAX", "3"))
+NEWS_WELTLAGE_SHORTS_MAX = int(os.environ.get("NEWS_WELTLAGE_SHORTS_MAX", "2"))
 NEWS_WELTLAGE_SHORTS_VERZUG_MINUTEN = float(os.environ.get("NEWS_WELTLAGE_SHORTS_VERZUG_MINUTEN", "30"))
+# Dauerhafte Freigabe + fester Takt (Marlon 13.10.2026 per Telegram, nach dem ersten echten Short ~400 Views/
+# 8 Likes/4 Abos in 48 h): taeglich 4 Shorts, alle 6 h, OHNE Einzelfreigabe oeffentlich. Das Schneiden bleibt an
+# die Folgen-Veroeffentlichung gekoppelt (s.o.), der tatsaechliche Upload folgt diesem festen Takt
+# (tools/weltlage_shorts_takt.py, von der Weltlage-Wache stuendlich aufgerufen) - Uhrzeiten bewusst NICHT auf
+# den Folgen-Slots (NEWS_WELTLAGE_SLOTS, Standard 06:00/18:00), damit Shorts nie um dieselbe Zeit wie eine Folge
+# hochladen und die Browser-Automatik (dasselbe Edge-Profil) nicht kollidiert.
+NEWS_WELTLAGE_SHORTS_SLOTS = os.environ.get("NEWS_WELTLAGE_SHORTS_SLOTS", "02:00,08:00,14:00,20:00")
 
 # --- Weltlage Kompakt: Themenwahl nur wirklich neue Themen (Marlon 07.10.2026, Task 20261007-174635-f7ff) ---
 # Seit der Vortagswahl (THEMENWAHL-Fenster beginnt ~16 h vor dem Slot) reicht das alte 48-h-Fenster nicht mehr aus,

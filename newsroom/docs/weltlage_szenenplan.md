@@ -42,7 +42,7 @@ beginnt mit dem Themen-Teaser der Folge, dessen erster Satz denselben zugespitzt
 Marlon hat am 02.10.2026 um 23:03 dauerhaft freigegeben: Weltlage Kompakt läuft vollautomatisch inklusive
 Veröffentlichung auf YouTube, wenn er nicht innerhalb einer Stunde reagiert. Ersetzt den 07:00-Lauf unten (Task fa4b).
 
-- **Slots** `NEWS_WELTLAGE_SLOTS=11:00,19:00` (Veröffentlichungszeit), je ein anderes Video.
+- **Slots** `NEWS_WELTLAGE_SLOTS=06:00,18:00` (Veröffentlichungszeit, seit 15.10.2026, vorher 11:00/19:00), je ein anderes Video.
 - **Start** des Laufs = Slot − (Themenwahl 60 min + gemessene Produktionsdauer + 30 min Puffer).
   Produktionsdauer `NEWS_WELTLAGE_PRODUKTION_STUNDEN=auto`: Rohschnitt-Dauer der letzten zwei vollen Folgen
   (`*_renderzeiten.json`, Maximum) + 1 h für Skript/Bilder/Stimme/B-Roll/Abnahme. Stand 03.10.: 6,7 h (Lipsync-HD
