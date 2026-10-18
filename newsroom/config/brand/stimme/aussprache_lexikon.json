@@ -106,15 +106,9 @@
    "folge": "weltlage_20261002_folge"
   },
   "KKM Financial": {
-   "sprich": "Ka Ka Em Fainänschel",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-02",
-   "folge": "weltlage_20261002_folge"
-  },
-  "CNBC": {
-   "sprich": "Ssi En Bi Ssi",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-02",
+   "sprich": "Kah Kah Emm Fainänschel",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
    "folge": "weltlage_20261002_folge"
   },
   "Guardian": {
@@ -137,12 +131,6 @@
   },
   "John Healey": {
    "sprich": "Dschon Hieli",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-02",
-   "folge": "weltlage_20261002_folge"
-  },
-  "BBC": {
-   "sprich": "Bi Bi Ssi",
    "quelle": "llm",
    "hinzugefuegt": "2026-10-02",
    "folge": "weltlage_20261002_folge"
@@ -216,18 +204,6 @@
    "hinzugefuegt": "2026-10-02",
    "folge": "weltlage_20261002_0700"
   },
-  "RAF": {
-   "sprich": "Ar Ei Eff",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-02",
-   "folge": "weltlage_20261002_0700"
-  },
-  "IG": {
-   "sprich": "Ai Dschi",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-02",
-   "folge": "weltlage_20261002_0700"
-  },
   "Tim Scott": {
    "sprich": "Tim Skott",
    "quelle": "llm",
@@ -282,12 +258,6 @@
    "hinzugefuegt": "2026-10-02",
    "folge": "weltlage_midterms_2026"
   },
-  "NPR": {
-   "sprich": "En Pi Ar",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-02",
-   "folge": "weltlage_midterms_2026"
-  },
   "Votebeat": {
    "sprich": "Woutbiet",
    "quelle": "llm",
@@ -307,9 +277,9 @@
    "folge": "weltlage_midterms_2026"
   },
   "CBS News": {
-   "sprich": "Si Bi Äss Njuhs",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-02",
+   "sprich": "Zeh Beh Ess Njuhs",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
    "folge": "weltlage_midterms_2026"
   },
   "All In": {
@@ -332,12 +302,6 @@
   },
   "Jackson": {
    "sprich": "Dschäkkson",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-02",
-   "folge": "weltlage_midterms_2026"
-  },
-  "AARP": {
-   "sprich": "Ej Ej Ar Pi",
    "quelle": "llm",
    "hinzugefuegt": "2026-10-02",
    "folge": "weltlage_midterms_2026"
@@ -463,9 +427,9 @@
    "folge": "weltlage_midterms_2026_lang"
   },
   "USS Theodore Roosevelt": {
-   "sprich": "U-Es-Es Thiodor Rosewelt",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-02",
+   "sprich": "Uh Ess Ess Thiodor Rosewelt",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
    "folge": "weltlage_20261003_1100"
   },
   "Makin Island": {
@@ -476,12 +440,6 @@
   },
   "Al Jazeera": {
    "sprich": "Al Dschasira",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-02",
-   "folge": "weltlage_20261003_1100"
-  },
-  "RAC": {
-   "sprich": "Ar-Äi-Ssi",
    "quelle": "llm",
    "hinzugefuegt": "2026-10-02",
    "folge": "weltlage_20261003_1100"
@@ -542,12 +500,6 @@
   },
   "Financial Times": {
    "sprich": "Fainänschel Taims",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-03",
-   "folge": "weltlage_20261003_1900"
-  },
-  "FP-7": {
-   "sprich": "Eff Peh Sieben",
    "quelle": "llm",
    "hinzugefuegt": "2026-10-03",
    "folge": "weltlage_20261003_1900"
@@ -630,12 +582,6 @@
    "hinzugefuegt": "2026-10-03",
    "folge": "weltlage_20261003_2215"
   },
-  "DW": {
-   "sprich": "De We",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-03",
-   "folge": "weltlage_20261003_2215"
-  },
   "Kpler": {
    "sprich": "Kepler",
    "quelle": "llm",
@@ -644,12 +590,6 @@
   },
   "Matt Smith": {
    "sprich": "Mätt Smiss",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-04",
-   "folge": "weltlage_20261004_1100"
-  },
-  "G7": {
-   "sprich": "Ge-Sieben",
    "quelle": "llm",
    "hinzugefuegt": "2026-10-04",
    "folge": "weltlage_20261004_1100"
@@ -780,12 +720,6 @@
    "hinzugefuegt": "2026-10-05",
    "folge": "weltlage_20261005_1900"
   },
-  "UKMTO": {
-   "sprich": "U-Ka-Em-Te-O",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-05",
-   "folge": "weltlage_20261005_1900"
-  },
   "Hormuz": {
    "sprich": "Hormus",
    "quelle": "llm",
@@ -799,15 +733,15 @@
    "folge": "weltlage_20261005_1900"
   },
   "B-52": {
-   "sprich": "Be-Zweiundfünfzig",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-05",
+   "sprich": "Beh-Zweiundfünfzig",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
    "folge": "weltlage_20261005_1900"
   },
   "B-1": {
-   "sprich": "Be-Eins",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-05",
+   "sprich": "Beh-Eins",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
    "folge": "weltlage_20261005_1900"
   },
   "Marco Rubio": {
@@ -818,18 +752,6 @@
   },
   "Rubio": {
    "sprich": "Ruhbjo",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-05",
-   "folge": "weltlage_20261005_1900"
-  },
-  "US-Bomber": {
-   "sprich": "U-Es-Bomber",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-05",
-   "folge": "weltlage_20261005_1900"
-  },
-  "US-Beamter": {
-   "sprich": "U-Es-Beamter",
    "quelle": "llm",
    "hinzugefuegt": "2026-10-05",
    "folge": "weltlage_20261005_1900"
@@ -966,12 +888,6 @@
    "hinzugefuegt": "2026-10-06",
    "folge": "weltlage_20261007_1100"
   },
-  "AFP": {
-   "sprich": "A-Eff-Pe",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-06",
-   "folge": "weltlage_20261007_1100"
-  },
   "Dhubab": {
    "sprich": "Dubab",
    "quelle": "llm",
@@ -1080,12 +996,6 @@
    "hinzugefuegt": "2026-10-08",
    "folge": "weltlage_20261008_1900"
   },
-  "CIA": {
-   "sprich": "Zee-Ii-Aa",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-08",
-   "folge": "weltlage_20261008_1900"
-  },
   "Suezkanal": {
    "sprich": "Su-es-kanal",
    "quelle": "llm",
@@ -1146,20 +1056,8 @@
    "hinzugefuegt": "2026-10-08",
    "folge": "weltlage_20261009_1100"
   },
-  "BFMTV": {
-   "sprich": "Be Eff Emm Te Weh",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-08",
-   "folge": "weltlage_20261009_1100"
-  },
   "Gendarmen": {
    "sprich": "Schandarmen",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-08",
-   "folge": "weltlage_20261009_1100"
-  },
-  "RTL": {
-   "sprich": "Er Te El",
    "quelle": "llm",
    "hinzugefuegt": "2026-10-08",
    "folge": "weltlage_20261009_1100"
@@ -1279,16 +1177,16 @@
    "folge": "weltlage_20261009_1900"
   },
   "Pete Hegseth": {
-   "sprich": "Piet Häggsäss",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-09",
-   "folge": "weltlage_20261010_1100"
+   "sprich": "Piet Hägsess",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
   },
   "Hegseth": {
-   "sprich": "Häggsäss",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-09",
-   "folge": "weltlage_20261010_1100"
+   "sprich": "Hägsess",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
   },
   "Hegseths": {
    "sprich": "Häggsässs",
@@ -1352,12 +1250,6 @@
   },
   "Chris Murphy": {
    "sprich": "Kriss Mörfi",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-09",
-   "folge": "weltlage_20261010_1100"
-  },
-  "CNN": {
-   "sprich": "Si En En",
    "quelle": "llm",
    "hinzugefuegt": "2026-10-09",
    "folge": "weltlage_20261010_1100"
@@ -1447,10 +1339,10 @@
    "folge": "weltlage_20261010_1900"
   },
   "Steve Witkoff": {
-   "sprich": "Stiew Uittkoff",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-10",
-   "folge": "weltlage_20261010_1900"
+   "sprich": "Stiew Wittkoff",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
   },
   "Justin Buchler": {
    "sprich": "Dschastin Bjuckler",
@@ -1543,10 +1435,10 @@
    "folge": "weltlage_20261011_1900"
   },
   "Saporischschja": {
-   "sprich": "Saporischja",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-11",
-   "folge": "weltlage_20261011_1900"
+   "sprich": "Saporischschja",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
   },
   "Diesel-Deal": {
    "sprich": "Diesel-Diel",
@@ -1598,12 +1490,6 @@
   },
   "Youngstown": {
    "sprich": "Jangs-taun",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-12",
-   "folge": "weltlage_20261012_1900"
-  },
-  "ABC": {
-   "sprich": "Äj-Bi-Ssi",
    "quelle": "llm",
    "hinzugefuegt": "2026-10-12",
    "folge": "weltlage_20261012_1900"
@@ -1815,40 +1701,16 @@
    "folge": "weltlage_20261014_1900"
   },
   "Starlink": {
-   "sprich": "Sstaar-link",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-14",
-   "folge": "weltlage_20261014_1100"
+   "sprich": "Starlink",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
   },
   "Elon Musk": {
-   "sprich": "Iilen Mask",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-14",
-   "folge": "weltlage_20261014_1100"
-  },
-  "US-Senatoren": {
-   "sprich": "U-Es-Senatoren",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-14",
-   "folge": "weltlage_20261014_1900"
-  },
-  "US-Wirtschaftssender": {
-   "sprich": "U-Es-Wirtschaftssender",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-14",
-   "folge": "weltlage_20261014_1900"
-  },
-  "US-Radiosender": {
-   "sprich": "U-Es-Radiosender",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-14",
-   "folge": "weltlage_20261014_1900"
-  },
-  "US-Wahlen": {
-   "sprich": "U-Es-Wahlen",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-14",
-   "folge": "weltlage_20261014_1900"
+   "sprich": "Ilon Mask",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
   },
   "Facebook": {
    "sprich": "Fejsbuck",
@@ -2233,6 +2095,612 @@
    "quelle": "llm",
    "hinzugefuegt": "2026-10-16",
    "folge": "weltlage_20261017_0600"
+  },
+  "Washington Post": {
+   "sprich": "Woschingten Poust",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-17",
+   "folge": "weltlage_20261017_1000"
+  },
+  "Heidi Levine": {
+   "sprich": "Haidi Lewiin",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-17",
+   "folge": "weltlage_20261017_1000"
+  },
+  "Levine": {
+   "sprich": "Lewiin",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-17",
+   "folge": "weltlage_20261017_1000"
+  },
+  "Matt Murray": {
+   "sprich": "Mätt Marri",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-17",
+   "folge": "weltlage_20261017_1000"
+  },
+  "Abhijeet Dipke": {
+   "sprich": "Abhidschiet Dipke",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-17",
+   "folge": "weltlage_20261017_1000"
+  },
+  "Peace Now": {
+   "sprich": "Pies Nau",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-17",
+   "folge": "weltlage_20261017_1000"
+  },
+  "Yesh Din": {
+   "sprich": "Jesch Din",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-17",
+   "folge": "weltlage_20261017_1000"
+  },
+  "Rajnath Singh": {
+   "sprich": "Radschnat Sing",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-17",
+   "folge": "weltlage_20261017_1000"
+  },
+  "Lindsey Graham": {
+   "sprich": "Lindsi Gräm",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-18",
+   "folge": "weltlage_20261018_0000"
+  },
+  "Graham": {
+   "sprich": "Gräm",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-18",
+   "folge": "weltlage_20261018_0000"
+  },
+  "Graham-Gesetz": {
+   "sprich": "Gräm-Gesetz",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-18",
+   "folge": "weltlage_20261018_0000"
+  },
+  "Richard Blumenthal": {
+   "sprich": "Ritschard Bluhmenthal",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-18",
+   "folge": "weltlage_20261018_0000"
+  },
+  "Neil Atkinson": {
+   "sprich": "Niel Ätkinsen",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-18",
+   "folge": "weltlage_20261018_0000"
+  },
+  "NEST Centre": {
+   "sprich": "Nest Senter",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-18",
+   "folge": "weltlage_20261018_0000"
+  },
+  "Kentucky": {
+   "sprich": "Kentacki",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-18",
+   "folge": "weltlage_20261018_0000"
+  },
+  "Georgia": {
+   "sprich": "Dschordscha",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-18",
+   "folge": "weltlage_20261018_0000"
+  },
+  "Crosetto": {
+   "sprich": "Kro-setto",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-18",
+   "folge": "weltlage_20261018_0000"
+  },
+  "Taybeh": {
+   "sprich": "Taibe",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-18",
+   "folge": "weltlage_20261018_1000"
+  },
+  "Maxime Prévot": {
+   "sprich": "Maksim Prewo",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-18",
+   "folge": "weltlage_20261018_1000"
+  },
+  "Prévot": {
+   "sprich": "Prewo",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-18",
+   "folge": "weltlage_20261018_1000"
+  },
+  "Cambrai": {
+   "sprich": "Kangbrä",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-18",
+   "folge": "weltlage_20261018_1000"
+  },
+  "Vincent Dollmann": {
+   "sprich": "Wängsang Dollmann",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-18",
+   "folge": "weltlage_20261018_1000"
+  },
+  "Bernard Baudoux": {
+   "sprich": "Bernar Bodu",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-18",
+   "folge": "weltlage_20261018_1000"
+  },
+  "Baudoux": {
+   "sprich": "Bodu",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-18",
+   "folge": "weltlage_20261018_1000"
+  },
+  "Aulnoye-Aymeries": {
+   "sprich": "Olnoa-Ämeri",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-18",
+   "folge": "weltlage_20261018_1000"
+  },
+  "Vive la France": {
+   "sprich": "Wiew la Frangs",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-18",
+   "folge": "weltlage_20261018_1000"
+  },
+  "Bashar Fawadleh": {
+   "sprich": "Baschar Fawadle",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-18",
+   "folge": "weltlage_20261018_1000"
+  },
+  "Mike Huckabee": {
+   "sprich": "Maik Hackabi",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-18",
+   "folge": "weltlage_20261018_1000"
+  },
+  "Joe Biden": {
+   "sprich": "Dschou Baiden",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Biden": {
+   "sprich": "Baiden",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Kamala Harris": {
+   "sprich": "Kamala Härris",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Musk": {
+   "sprich": "Mask",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Witkoff": {
+   "sprich": "Wittkoff",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Jared Kushner": {
+   "sprich": "Dschärred Kuschner",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Kushner": {
+   "sprich": "Kuschner",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Chamenei": {
+   "sprich": "Chamenei",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Khamenei": {
+   "sprich": "Chamenei",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Ali Khamenei": {
+   "sprich": "Ali Chamenei",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Pezeshkian": {
+   "sprich": "Peseschkian",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Masoud Pezeshkian": {
+   "sprich": "Massud Peseschkian",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Masoud": {
+   "sprich": "Massud",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Jaishankar": {
+   "sprich": "Dschaischankar",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Sharon": {
+   "sprich": "Scharon",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Yashar": {
+   "sprich": "Jaschar",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Cooper": {
+   "sprich": "Kuper",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Whatley": {
+   "sprich": "Wottli",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Cook": {
+   "sprich": "Kuck",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Hezbollah": {
+   "sprich": "Hisbollah",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Houthi": {
+   "sprich": "Huthi",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Houthis": {
+   "sprich": "Huthis",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Lula": {
+   "sprich": "Lula",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Narendra Modi": {
+   "sprich": "Narendra Modi",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Mark Rutte": {
+   "sprich": "Mark Rütte",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Rutte": {
+   "sprich": "Rütte",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Ursula von der Leyen": {
+   "sprich": "Ursula fon der Lajen",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "von der Leyen": {
+   "sprich": "fon der Lajen",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Kaja Kallas": {
+   "sprich": "Kaja Kallas",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Friedrich Merz": {
+   "sprich": "Friedrich Merz",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Wadephul": {
+   "sprich": "Wadefuhl",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Washington": {
+   "sprich": "Woschingten",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "New York": {
+   "sprich": "Nju Jork",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "White House": {
+   "sprich": "Wait Haus",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Gaza": {
+   "sprich": "Gasa",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Zaporizhzhia": {
+   "sprich": "Saporischschja",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Odesa": {
+   "sprich": "Odessa",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Bakhmut": {
+   "sprich": "Bachmut",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Juneau": {
+   "sprich": "Dschuno",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Silicon Valley": {
+   "sprich": "Silikon Wälli",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Google": {
+   "sprich": "Guhgel",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Microsoft": {
+   "sprich": "Maikrosoft",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Nvidia": {
+   "sprich": "Enwidia",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "iPhone": {
+   "sprich": "Ai-Foun",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Starship": {
+   "sprich": "Starschipp",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Timing": {
+   "sprich": "Taiming",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Consulting": {
+   "sprich": "Konsalting",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Hightech": {
+   "sprich": "Haitäck",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Show": {
+   "sprich": "Schou",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Countdown": {
+   "sprich": "Kauntdaun",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Airways": {
+   "sprich": "Ärweis",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Pool": {
+   "sprich": "Puhl",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Pressepool": {
+   "sprich": "Pressepuhl",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Fernseh-Pressepool": {
+   "sprich": "Fernseh-Pressepuhl",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Foundation": {
+   "sprich": "Faundeischen",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Team": {
+   "sprich": "Tiim",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Kamerateam": {
+   "sprich": "Kameratiim",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Boom": {
+   "sprich": "Buhm",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Bauboom": {
+   "sprich": "Baubuhm",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Crash": {
+   "sprich": "Kräsch",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Research": {
+   "sprich": "Risörtsch",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "County": {
+   "sprich": "Kaunti",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Today": {
+   "sprich": "Tudei",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Heart": {
+   "sprich": "Hart",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Lycées": {
+   "sprich": "Lisees",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Lycée": {
+   "sprich": "Lisee",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Pública": {
+   "sprich": "Publika",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Édouard": {
+   "sprich": "Eduar",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Núñez": {
+   "sprich": "Nunjes",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Feijóo": {
+   "sprich": "Feichoo",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Observatório": {
+   "sprich": "Obsserwatorju",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "Noël": {
+   "sprich": "Noell",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "GLAMOS": {
+   "sprich": "Glamos",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-18",
+   "grund": "Task ad90 Aussprache-Ausbau"
   }
  }
 }

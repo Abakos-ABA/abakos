@@ -1,0 +1,94 @@
+{
+ "aktiv": "G",
+ "profile": {
+  "A": {
+   "name": "Standard 30.09.2026 (Hoerprobe 2 aus Task d8b3)",
+   "ref": "config/brand/voice_ref.wav",
+   "ref_sha256": "c5dc5bbfea5265b46c9172b0979dce90dc68e3d6216d928a046cb539c183ca9a",
+   "exaggeration": 0.4,
+   "cfg": 0.4,
+   "temperature": 0.8,
+   "max_chars": 280,
+   "seed": null,
+   "tempo": 1.0
+  },
+  "B": {
+   "name": "Optimiert 30.09.2026 (Task 20260930-182721-1dc4): gleiche Referenz, satzweise, ruhigere Temperatur",
+   "ref": "config/brand/voice_ref.wav",
+   "ref_sha256": "c5dc5bbfea5265b46c9172b0979dce90dc68e3d6216d928a046cb539c183ca9a",
+   "exaggeration": 0.5,
+   "cfg": 0.5,
+   "temperature": 0.5,
+   "max_chars": 120,
+   "seed": null,
+   "tempo": 1.0
+  },
+  "C": {
+   "name": "Kerstin CC0 (Hoerprobe 2 aus Task 20260930-220828-0bf6), Marlons Wahl 30.09.2026 22:53; Tempo 1.15 (Marlon 30.09.2026 ~23:08: 1.2 zu schnell, 1.1 besser, endgueltig 1.15, Task 20260930-230829-9c3e)",
+   "ref": "config/brand/stimme/ref_kerstin.wav",
+   "ref_sha256": "fcb182d15d85a4bed92dd29e1cba4653afc7d799efb07a5ec7fa76009a76624c",
+   "ref_quelle": "github.com/rhasspy/dataset-voice-kerstin (CC0 1.0 Universal)",
+   "exaggeration": 0.4,
+   "cfg": 0.4,
+   "temperature": 0.8,
+   "max_chars": 280,
+   "seed": null,
+   "tempo": 1.15,
+   "tempo_methode": "ffmpeg atempo=1.15 nach Chatterbox (tonhoehenneutral, WSOLA, keine Resampling-Beschleunigung); Chatterbox hat keinen Speed-Parameter"
+  },
+  "D": {
+   "name": "Kandidatin Eva K. (LibriVox Anna Karenina) 30.09.2026 (Task 20260930-220828-0bf6, Hoerprobe 3): neue Referenz statt Ramona, sonst Profil-A-Parameter",
+   "ref": "config/brand/stimme/ref_evak_annakarenina.wav",
+   "ref_sha256": "4fd1d635373cdf0f9a89639f746377706c4cf04035b1abfeb6bd4b5fe7d474dc",
+   "ref_quelle": "archive.org/details/anna_karenina_deutsch_1610_librivox, Sprecherin Eva K. (gemeinfrei)",
+   "exaggeration": 0.4,
+   "cfg": 0.4,
+   "temperature": 0.8,
+   "max_chars": 280,
+   "seed": null,
+   "tempo": 1.0
+  },
+  "E": {
+   "name": "Kandidatin Natalie Grams (Wikimedia Commons) 30.09.2026 (Task 20260930-220828-0bf6, Hoerprobe 4): neue Referenz statt Ramona, sonst Profil-A-Parameter",
+   "ref": "config/brand/stimme/ref_natalie_grams.wav",
+   "ref_sha256": "a3951fe84e5ab8dd27adf23d43df3a2c66464224e869312c6d1a4877931590a8",
+   "ref_quelle": "commons.wikimedia.org/wiki/File:Natalie_Grams,_deutsch.ogg (CC-BY-SA 4.0)",
+   "exaggeration": 0.4,
+   "cfg": 0.4,
+   "temperature": 0.8,
+   "max_chars": 280,
+   "seed": null,
+   "tempo": 1.0
+  },
+  "F": {
+   "name": "PROBE, nicht aktiv: Kerstin wie C + Satzmelodie (Task 20261018-152703-ad90): Satz fuer Satz, exaggeration je Satzart (Basis 0.5), cfg 0.3, Tempo je Satz +-4 % um 1.15, Pausen nach Satzzeichen; Messung 18.10.: Satzmelodie -13 %, UTMOS 2,92 statt 3,07 -> verworfen",
+   "ref": "config/brand/stimme/ref_kerstin.wav",
+   "ref_sha256": "fcb182d15d85a4bed92dd29e1cba4653afc7d799efb07a5ec7fa76009a76624c",
+   "ref_quelle": "github.com/rhasspy/dataset-voice-kerstin (CC0 1.0 Universal)",
+   "exaggeration": 0.5,
+   "cfg": 0.3,
+   "temperature": 0.8,
+   "max_chars": 280,
+   "seed": null,
+   "tempo": 1.15,
+   "tempo_methode": "ffmpeg atempo=1.15 nach Chatterbox (tonhoehenneutral, WSOLA, keine Resampling-Beschleunigung); Chatterbox hat keinen Speed-Parameter",
+   "prosodie": true
+  },
+  "G": {
+   "name": "Kerstin lebendig (Task 20261018-152703-ad90): gleiche Sprecherin wie C, Referenz aus zwei lebhafteren Saetzen des Kerstin-Datensatzes (Nachrichtensatz + Frage); Messung: Satzmelodie +30 %, UTMOS 3,37 statt 3,07, Aehnlichkeit zur bisherigen Stimme 0,978; Parameter + Tempo 1.15 wie C",
+   "ref": "config/brand/stimme/ref_kerstin_lebendig.wav",
+   "ref_sha256": "b72b3a0556b146cbe3d74eb7c86cd0c72b759357847565a2b0d76a9e48111ca2",
+   "ref_quelle": "github.com/rhasspy/dataset-voice-kerstin (CC0 1.0), Saetze de_rhasspy-2235 + de_rhasspy-1530, getrimmt, 0,35 s Pause, Pegel wie ref_kerstin.wav",
+   "exaggeration": 0.4,
+   "cfg": 0.4,
+   "temperature": 0.8,
+   "max_chars": 280,
+   "seed": null,
+   "tempo": 1.15,
+   "tempo_methode": "ffmpeg atempo=1.15 nach Chatterbox (tonhoehenneutral, WSOLA, keine Resampling-Beschleunigung); Chatterbox hat keinen Speed-Parameter",
+   "kompatibel_mit": [
+    "C"
+   ]
+  }
+ }
+}

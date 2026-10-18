@@ -144,6 +144,8 @@ def _synthesize_chatterbox(text: str, out_path, seed: int | None = None):
     from config.settings import NEWS_WELTLAGE_STIMME_VEREDELN       # Variante A (Marlon 01.10.2026), Default an
     if NEWS_WELTLAGE_STIMME_VEREDELN:
         cmd += ["--veredeln"]
+    if st.get("prosodie"):                       # Satzmelodie-Plan je Satz (Profil-Schalter, 18.10.2026)
+        cmd += ["--prosodie"]
     import gpu_budget                                      # zentrale GPU-Warteschlange (29.09.), Fallback ohne
 
     def _lauf():

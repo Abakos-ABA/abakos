@@ -47,9 +47,10 @@ ENGINE = "chatterbox"
 STIMME_SR = 24000
 # Referenz + Parameter kommen aus dem aktiven Stimm-Profil (config/brand/stimme/profile.json, tts/stimme_profil.py):
 # A = Stand 30.09.2026 (voice_ref.wav c5dc5bbf..., ex 0.4, cfg 0.4), B = optimiert (Task 20260930-182721-1dc4).
-from tts.stimme_profil import bekannte_ref_hashes, profil as _profil  # noqa: E402
+from tts.stimme_profil import bekannte_ref_hashes, figur_ref_hashes, profil as _profil  # noqa: E402
 _P = _profil()
 REF_SHA256 = _P["ref_sha256"]
+FIGUR_REF_SHA256 = figur_ref_hashes()
 EXAGGERATION = _P["exaggeration"]
 CFG = _P["cfg"]
 TEMPO = float(_P.get("tempo", 1.0))   # Sprechtempo (atempo nach Chatterbox, tts_client._tempo), Marlon 30.09.2026: 1.15 endgueltig (1.2 zu schnell, 1.1 zu langsam)
@@ -81,7 +82,8 @@ def pruefe_stimme(wav: Path) -> str | None:
         return f"{wav.name}: Nachweis sagt engine={meta.get('engine')}, ref={str(meta.get('ref_sha256'))[:12]}"
     # streng seit 30.09.2026 23:00 (Stimmwechsel auf Profil C/Kerstin + Tempo, seit 23:00 1.10): nur das AKTIVE Profil zaehlt,
     # eine Datei einer frueheren Stimme (z.B. Ramona, Profil A/B) oder mit anderem Tempo wird abgelehnt
-    if meta.get("ref_sha256") != REF_SHA256 or abs(float(meta.get("tempo", 1.0)) - TEMPO) > 1e-6:
+    # seit 18.10.2026: auch "kompatibel_mit"-Profile derselben Figur (G aktiv, C-Szenen einer laufenden Folge bleiben gueltig)
+    if meta.get("ref_sha256") not in FIGUR_REF_SHA256 or abs(float(meta.get("tempo", 1.0)) - TEMPO) > 1e-6:
         return (f"{wav.name}: alte Stimme/Tempo (Profil {meta.get('profil')}, ref {str(meta.get('ref_sha256'))[:12]}, "
                 f"tempo {meta.get('tempo', 1.0)}) statt aktivem Profil {_P['profil']} (ref {REF_SHA256[:12]}, tempo {TEMPO})")
     if meta.get("wav_sha256") != sha256(wav):
@@ -170,10 +172,26 @@ def _versuch_seed(text: str, versuch: int) -> int:
     return int(h[:8], 16)
 
 
+def _aussprache_pruefung(text: str, out: Path) -> list:
+    """Pruefschritt vor jeder Vertonung (tts/aussprache_pruefung.py, 18.10.2026): Abkuerzungen/Sonderzeichen werden
+    aufgeloest, offene Faelle (englische Namen ohne Lexikon-Eintrag, uebrig gebliebene Ziffern/Zeichen) gemeldet.
+    Nie fatal - die Meldungen landen im Nachweis audio/<id>.tts.json."""
+    try:
+        from tts.aussprache_pruefung import kurz, pruefe
+        e = pruefe(text)
+    except Exception as ex:  # noqa: BLE001
+        print(f"  {out.name}: Aussprache-Prüfung uebersprungen ({ex})", flush=True)
+        return []
+    if e["meldungen"]:
+        print(f"  {out.name}: {kurz(e)}", flush=True)
+    return e["meldungen"]
+
+
 def sprich(text: str, out: Path, versuche: int = 3, log: Path | None = None) -> dict:
     from tts.normalize_de import normalize_for_tts
     from tts.tts_client import _synthesize_chatterbox
     norm = normalize_for_tts(text)
+    pruefung = _aussprache_pruefung(text, out)
     for v in range(1, versuche + 1):
         t0 = time.time()
         seed = _versuch_seed(norm, v)
@@ -188,11 +206,12 @@ def sprich(text: str, out: Path, versuche: int = 3, log: Path | None = None) -> 
     from config.settings import NEWS_WELTLAGE_STIMME_VEREDELN
     meta = {"engine": ENGINE, "modell": "ChatterboxMultilingualTTS (chatterbox-tts 0.1.7, .venv-tts)",
             "profil": _P["profil"], "ref": _P["ref"], "ref_sha256": REF_SHA256, "exaggeration": EXAGGERATION,
-            "cfg": CFG, "tempo": TEMPO, "veredelt": NEWS_WELTLAGE_STIMME_VEREDELN,
+            "cfg": CFG, "tempo": TEMPO, "veredelt": NEWS_WELTLAGE_STIMME_VEREDELN, "prosodie": bool(_P.get("prosodie")),
             "temperature": _P["temperature"], "max_chars": _P["max_chars"], "seed": seed, "sr": sr, "laenge_s": round(laenge, 2), "versuche": v, "kontrolle": k,
             "text_sha256": hashlib.sha256(norm.encode("utf-8")).hexdigest(),
             "text_roh_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(), "wav_sha256": sha256(out),
-            "zeit": time.strftime("%Y-%m-%d %H:%M:%S"), "dauer_s": round(time.time() - t0, 1)}
+            "zeit": time.strftime("%Y-%m-%d %H:%M:%S"), "dauer_s": round(time.time() - t0, 1),
+            "aussprache": pruefung}
     _nachweis(out).write_text(json.dumps(meta, indent=1, ensure_ascii=False), encoding="utf-8")
     log = log or out.parent / "tts_engine.log"
     with open(log, "a", encoding="utf-8") as f:

@@ -11,10 +11,20 @@ is happiest with < ~300 characters at a time).
 erzwingt echte Satz-fuer-Satz-Erzeugung (ignoriert --max-chars) und ersetzt die feste 0,25-s-Stille zwischen den
 Saetzen durch eine leicht zufaellige Pause (0,30-0,42 s) mit einem leisen synthetischen Einatmer. Das holt die
 Hoehen noch nicht zurueck - das macht tts/veredelung.py danach mit Resemble Enhance in .venv-enhance.
+
+--prosodie (18.10.2026, Marlon: Stimme "zu monoton und unecht", Task ad90): Satzmelodie-Plan je Satz statt fester
+Parameter. prosodie_plan() gibt jedem Satz nach Satzart eigene exaggeration/Tempo/Pause (Frage: mehr Ausdruck,
+etwas langsamer, laengere Pause; kurzer Schlusssatz/Ausruf: mehr Ausdruck; lange Saetze: etwas zuegiger), mit
+kleiner Streuung, damit nie zwei Saetze gleich klingen. Das relative Tempo je Satz kommt per ffmpeg atempo
+(tonhoehenneutral) dazu; das Grundtempo des Profils (1.15) wendet tts_client._tempo danach wie bisher an.
 """
 import argparse
+import os
 import re
+import subprocess
+import tempfile
 import time
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -34,9 +44,9 @@ def _atem(sr: int, dauer: float, pegel_db: float, rng: np.random.Generator) -> n
     return (w / (np.abs(w).max() + 1e-9) * 10 ** (pegel_db / 20)).astype(np.float32)
 
 
-def pause_mit_atmer(sr: int, peak: float, rng: np.random.Generator) -> torch.Tensor:
-    """Natuerliche Pause (0,30-0,42 s) zwischen zwei Saetzen, mit leisem Atmer kurz vor dem naechsten Satz."""
-    dauer = float(rng.uniform(0.30, 0.42))
+def pause_mit_atmer(sr: int, peak: float, rng: np.random.Generator, dauer: float | None = None) -> torch.Tensor:
+    """Natuerliche Pause (0,30-0,42 s oder `dauer`) zwischen zwei Saetzen, mit leisem Atmer kurz vor dem naechsten Satz."""
+    dauer = float(rng.uniform(0.30, 0.42)) if dauer is None else max(0.12, float(dauer))
     n = int(dauer * sr)
     gap = np.zeros(n, dtype=np.float32)
     b = _atem(sr, min(dauer, 0.32), -34.0, rng) * peak
@@ -44,6 +54,49 @@ def pause_mit_atmer(sr: int, peak: float, rng: np.random.Generator) -> torch.Ten
     ende = min(n, start + len(b))
     gap[start:ende] += b[: ende - start]
     return torch.from_numpy(gap)[None]
+
+
+def prosodie_plan(saetze: list[str], ex_basis: float, rng: np.random.Generator) -> list[dict]:
+    """Je Satz {ex, tempo, pause_s}. ex_basis = exaggeration des Profils; Tempo relativ (1.0 = Profiltempo)."""
+    plan = []
+    for i, s in enumerate(saetze):
+        woerter = len(s.split())
+        ex, tempo, pause = ex_basis, 1.0, float(rng.uniform(0.30, 0.42))
+        if s.rstrip().endswith("?"):
+            ex, tempo, pause = ex_basis + 0.15, 0.96, float(rng.uniform(0.45, 0.58))
+        elif s.rstrip().endswith("!"):
+            ex, pause = ex_basis + 0.2, float(rng.uniform(0.40, 0.50))
+        elif woerter <= 6:
+            ex, tempo, pause = ex_basis + 0.12, 0.97, float(rng.uniform(0.38, 0.50))
+        elif woerter >= 18:
+            tempo = 1.03
+        if ":" in s:
+            ex += 0.05
+        if i == len(saetze) - 1:
+            pause = 0.0
+        plan.append({"ex": round(min(0.9, ex + float(rng.uniform(-0.04, 0.04))), 3),
+                     "tempo": round(tempo * float(rng.uniform(0.985, 1.015)), 3), "pause_s": round(pause, 3)})
+    return plan
+
+
+def _atempo(wav: torch.Tensor, sr: int, tempo: float) -> torch.Tensor:
+    """Relatives Satztempo per ffmpeg atempo (WSOLA, tonhoehenneutral); ohne ffmpeg unveraendert."""
+    if abs(tempo - 1.0) < 0.004:
+        return wav
+    d = Path(tempfile.mkdtemp())
+    src, dst = d / "a.wav", d / "b.wav"
+    torchaudio.save(str(src), wav, sr, encoding="PCM_S", bits_per_sample=16)
+    ff = next(iter(Path(os.environ.get("LOCALAPPDATA", "")).glob("Microsoft/WinGet/Packages/Gyan.FFmpeg*/*/bin")), None)
+    r = subprocess.run([str(ff / "ffmpeg.exe") if ff else "ffmpeg", "-y", "-v", "error", "-i", str(src), "-af",
+                        f"atempo={tempo}", "-c:a", "pcm_s16le", str(dst)], capture_output=True,
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    if r.returncode or not dst.exists():
+        return wav
+    out, _ = torchaudio.load(str(dst))
+    for f in (src, dst):
+        f.unlink(missing_ok=True)
+    d.rmdir()
+    return out
 
 
 def split_sentences(text: str, max_chars: int = 280) -> list[str]:
@@ -72,6 +125,7 @@ def main():
     ap.add_argument("--max-chars", type=int, default=280)          # Textlaenge pro Aufruf (120 = satzweise)
     ap.add_argument("--seed", type=int, default=None)              # fester Seed = reproduzierbar
     ap.add_argument("--veredeln", action="store_true")             # Variante A: Satz fuer Satz, Pause+Atmer statt fixer Stille
+    ap.add_argument("--prosodie", action="store_true")             # Satzmelodie-Plan je Satz (18.10.2026)
     args = ap.parse_args()
 
     from chatterbox.mtl_tts import ChatterboxMultilingualTTS
@@ -82,21 +136,26 @@ def main():
     print(f"model loaded on {device} in {time.time() - t0:.0f}s", flush=True)
 
     text = open(args.text_file, encoding="utf-8").read()
-    chunks = split_sentences(text, 1 if args.veredeln else args.max_chars)
+    chunks = split_sentences(text, 1 if (args.veredeln or args.prosodie) else args.max_chars)
     if args.seed is not None:
         torch.manual_seed(args.seed)
     rng = np.random.default_rng(args.seed if args.seed is not None else 7)
+    plan = prosodie_plan(chunks, args.exaggeration, np.random.default_rng(rng.integers(1 << 30))) if args.prosodie else None
     pieces = []
     for i, chunk in enumerate(chunks):
         t = time.time()
-        kwargs = {"language_id": args.lang, "exaggeration": args.exaggeration, "cfg_weight": args.cfg,
-                  "temperature": args.temperature}
+        kwargs = {"language_id": args.lang, "exaggeration": plan[i]["ex"] if plan else args.exaggeration,
+                  "cfg_weight": args.cfg, "temperature": args.temperature}
         if args.ref:
             kwargs["audio_prompt_path"] = args.ref
         wav = model.generate(chunk, **kwargs).cpu()
+        if plan:
+            wav = _atempo(wav, model.sr, plan[i]["tempo"])
         pieces.append(wav)
         if i < len(chunks) - 1:
-            if args.veredeln:
+            if plan:
+                pieces.append(pause_mit_atmer(model.sr, float(wav.abs().max()), rng, plan[i]["pause_s"]))
+            elif args.veredeln:
                 pieces.append(pause_mit_atmer(model.sr, float(wav.abs().max()), rng))
             else:
                 pieces.append(torch.zeros(1, int(model.sr * 0.25)))

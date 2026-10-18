@@ -277,6 +277,7 @@ def _zeitmarken(video: Path) -> list[dict]:
 
 
 def pruefen(ordner: Path, video: Path) -> dict:
+    from tts.stimme_profil import figur_ref_hashes   # aktives Profil + "kompatibel_mit" (18.10.2026)
     fehler, warnungen, info = [], [], {}
     # 1. Stimme
     profile = json.loads((ROOT / "config/brand/stimme/profile.json").read_text(encoding="utf-8"))
@@ -288,7 +289,7 @@ def pruefen(ordner: Path, video: Path) -> dict:
     for s in stimmen["szenen"]:
         nachweis = Path(s["wav"]).with_suffix(".tts.json")
         n = json.loads(nachweis.read_text(encoding="utf-8")) if nachweis.exists() else {}
-        ok = (s.get("ok") and s.get("engine") == "chatterbox" and s.get("ref_sha256") == aktiv["ref_sha256"]
+        ok = (s.get("ok") and s.get("engine") == "chatterbox" and s.get("ref_sha256") in figur_ref_hashes(profile["aktiv"])
               and abs(float(n.get("tempo", -1)) - float(aktiv.get("tempo", 1.0))) < 1e-6)
         sprech.append({"szene": s["label"], "profil": n.get("profil"), "tempo": n.get("tempo"),
                        "korrelation": s.get("korrelation"), "ok": bool(ok)})

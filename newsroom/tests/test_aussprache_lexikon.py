@@ -84,20 +84,21 @@ class NormalizeIntegrationTest(unittest.TestCase):
         self.assertIn("NATO", out)   # Akronym-Liste bleibt unberuehrt vom Lexikon
 
     def test_haeufige_abkuerzungen_wie_ein_nachrichtensprecher(self):
+        # seit 18.10.2026 gedehnte Lautschrift (Task ad90, Whisper-Messung)
         out = normalize_for_tts("UN, UNO, WHO, NATO, EU, IWF, WTO, OPEC, EZB, USA und UK sowie G7 und G20 trafen sich.")
-        self.assertIn("U En", out)          # UN buchstabiert
-        self.assertIn("UNO", out)           # als Wort gesprochen ("Uno")
-        self.assertIn("We Ha O", out)       # WHO buchstabiert, nicht als Wort
-        self.assertIn("NATO", out)          # als Wort gesprochen
-        self.assertIn("E U", out)           # EU buchstabiert
-        self.assertIn("I We Ef", out)       # IWF buchstabiert
-        self.assertIn("We Te O", out)       # WTO buchstabiert
-        self.assertIn("OPEC", out)          # als Wort gesprochen
-        self.assertIn("E Zett Be", out)     # EZB buchstabiert
-        self.assertIn("U Es A", out)        # USA buchstabiert
-        self.assertIn("U Ka", out)          # UK buchstabiert
-        self.assertIn("G Sieben", out)      # G7
-        self.assertIn("G Zwanzig", out)     # G20
+        self.assertIn("Uh Enn", out)  # UN
+        self.assertIn("UNO", out)  # UNO
+        self.assertIn("Weh Hah Oh", out)  # WHO
+        self.assertIn("NATO", out)  # NATO
+        self.assertIn("Eh Uh", out)  # EU
+        self.assertIn("Ih Weh Eff", out)  # IWF
+        self.assertIn("Weh Teh Oh", out)  # WTO
+        self.assertIn("OPEC", out)  # OPEC
+        self.assertIn("Eh Zett Beh", out)  # EZB
+        self.assertIn("Uh Ess Ah", out)  # USA
+        self.assertIn("Uh Kah", out)  # UK
+        self.assertIn("Geh Sieben", out)  # G7
+        self.assertIn("Geh Zwanzig", out)  # G20
 
     def test_who_als_englisches_fragewort_bleibt_unberuehrt(self):
         out = normalize_for_tts('Im Zitat hiess es "who cares".')

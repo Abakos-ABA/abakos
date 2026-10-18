@@ -73,7 +73,8 @@ def anwenden(text: str, eintraege: dict | None = None) -> str:
 # ------------------------------------------------------------------ automatische Pflege (LLM-Vorschlag)
 _PROMPT = """Du prüfst das Skript einer deutschen Nachrichtensendung auf Eigennamen, die ein TTS-Modell beim
 Vorlesen falsch ausspricht (fremdsprachige Politiker- und Ortsnamen, ungewöhnliche Transliterationen,
-Abkürzungen, die wie ein Wort und nicht buchstabiert gesprochen werden).
+Abkürzungen, die wie ein Wort und nicht buchstabiert gesprochen werden). Buchstabierte Abkürzungen (FBI, CNN,
+BBC, US-...) NICHT vorschlagen: die buchstabiert das System selbst einheitlich mit deutschen Buchstabennamen.
 
 Bereits bekannt (NICHT erneut vorschlagen): {bekannt}
 
@@ -95,6 +96,18 @@ def _szenen_text(ordner: Path) -> str:
     teile = [texte.get("titel") or "", texte.get("zentrale_these") or ""]
     teile += [s.get("text") or "" for s in texte.get("szenen") or []]
     return "\n".join(t for t in teile if t.strip())
+
+
+def ist_buchstabier_kuerzel(name: str, sprich: str) -> bool:
+    """LLM-Vorschlag fuer ein Kuerzel, das buchstabiert wird ("CNN" -> "Si En En", "US-Wahlen" -> "U-Es-Wahlen")?
+    Solche Eintraege machten die Buchstabierung uneinheitlich und teils englisch (18.10.2026: "CIA" -> "Zee-Ii-Aa",
+    "BBC" -> "Bi Bi Ssi"); das regelt tts/normalize_de einheitlich. Als Wort gesprochene Kuerzel (AAA -> Tripel A)
+    bleiben erlaubt."""
+    kern = re.split(r"[-\s]", name.strip())[0]
+    if not (len(kern) >= 2 and kern.replace("ö", "Ö").isupper() and kern.isalpha()):
+        return False
+    stuecke = [t for t in re.split(r"[-\s]+", sprich.strip()) if t]
+    return len(stuecke) >= len(kern) and all(len(t) <= 4 for t in stuecke[:len(kern)])
 
 
 def vorschlaege_erzeugen(text: str, bekannt: set[str], frage_modell=None) -> list[dict]:
@@ -124,7 +137,7 @@ def lerne_aus_folge(ordner: Path, frage_modell=None, log=print) -> dict:
     neu = []
     for v in rohvorschlaege:
         name = v["name"].strip()
-        if not name or name in eintraege or name not in text:
+        if not name or name in eintraege or name not in text or ist_buchstabier_kuerzel(name, v["sprich"]):
             continue
         eintraege[name] = {"sprich": v["sprich"].strip(), "quelle": "llm", "hinzugefuegt": date.today().isoformat(),
                            "folge": ordner.name}

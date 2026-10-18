@@ -22,7 +22,8 @@ diese Schritte ab (jeder Schritt wird bei einem Neustart uebersprungen, wenn sei
                 Wahl geht als Hinweis ins Skript (vorgabe.txt). Ergebnis: wahl.json, news.json, vorgabe.txt.
                 Vorab gewaehlte Storyline (Zustand "vorgabe": {titel, inhalt}) = keine Rueckfrage.
   1 skript      tools/weltlage_skript.py --texte [--news news.json --vorgabe vorgabe.txt] (Analyse-Prompt)
-  2 aussprache  tts/aussprache_lexikon.py lerne_aus_folge (Fehler = ohne neuen Eintrag weiter)
+  2 aussprache  tts/aussprache_lexikon.py lerne_aus_folge + tts/aussprache_pruefung.py pruefe_folge
+                (Fehler = ohne neuen Eintrag weiter; Meldungen in <ordner>/aussprache_pruefung.json)
   3 bilder      Screenshots der Quellartikel pro Meldung (video/sources.capture) -> bilder.json
   4 stimme      tools/weltlage_tts.py (Chatterbox-Klon laut Profil, GPU-Warteschlange; nur geaenderte Szenen neu)
   5 schnitt     tools/weltlage_rohschnitt.py (feste Szenen eingefroren, Lipsync Guidance 2.0, GPU-Warteschlange)
@@ -1098,6 +1099,11 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
                 lerne_aus_folge(ordner, log=log)
             except Exception as ex:  # noqa: BLE001 - Zusatznutzen, nie ein Abbruchgrund fuer die Folge
                 log(f"Aussprache-Pflege uebersprungen: {ex}")
+            try:                     # Pruefschritt (18.10.2026): meldet, was danach noch heikel klingt
+                from tts.aussprache_pruefung import pruefe_folge
+                pruefe_folge(ordner, log=log)
+            except Exception as ex:  # noqa: BLE001
+                log(f"Aussprache-Prüfung uebersprungen: {ex}")
         elif schritt == "bilder" and not (ordner / "bilder.json").exists():
             bilder_holen(ordner, log)
         elif schritt == "stimme":
