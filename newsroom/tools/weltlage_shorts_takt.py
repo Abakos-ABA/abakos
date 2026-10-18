@@ -39,6 +39,7 @@ from config.settings import NEWS_WELTLAGE_SHORTS_SLOTS, STATE_DIR  # noqa: E402
 
 QUEUE_PFAD = STATE_DIR / "weltlage_shorts_queue.json"
 VERLAUF_PFAD = STATE_DIR / "weltlage_shorts_verlauf.json"
+NACHTRAG_PFAD = STATE_DIR / "weltlage_shorts_nachtrag.json"
 VIDEO_ID_IN_TEXT = re.compile(r"Upload ([A-Za-z0-9_-]{11}) nach")   # Text von UploadHaltedForReview (upload_datei)
 FENSTER_MINUTEN = 110  # Toleranz je Slot (etwas unter 2 h, damit eine ausgefallene Stunden-Runde noch nachholt,
                         # aber niemals zwei Slots verschmelzen - die Wache laeuft stuendlich)
@@ -120,11 +121,19 @@ def einreihen(key: str, slot: str, ordner: Path, shorts: list[dict]) -> int:
     tatsaechlich neuen 'gegenargument'-Short der Iran-Folge; die fertig geschnittene, 55 s lange Datei wurde
     stillschweigend NIE eingereiht und ging verloren (nur per Zufallsfund in den Dateien bemerkt). Der
     Eindeutigkeits-Schluessel ist jetzt (key, szene_id) statt nur szene_id - key ist die Folge, nie zwei Folgen
-    teilen sich einen key."""
+    teilen sich einen key.
+
+    Fehlerfund 18.10.2026 (Task 20261018-161538-e742, Marlons Meldung: fuenf zu Unrecht als "Duplikat" geloeschte
+    Shorts sollten mit eigenem Titel neu hochgeladen werden): "bekannt" zaehlte bisher JEDEN Verlaufseintrag, auch
+    bereits geloeschte - ein absichtlich (ob zu Recht oder faelschlich) geloeschter Short liess sich dadurch nie
+    wieder hochladen, die Sperre liess sich nur durch Umbenennen der szene_id aushebeln. Ein geloeschter Short ist
+    auf dem Kanal nicht mehr vorhanden, kann also auch kein echtes Duplikat mehr sein; die Sperre bleibt fuer alles
+    wirklich noch LIVE Vorhandene unveraendert scharf."""
     q = warteschlange()
     bekannt = {(e.get("key"), e["szene_id"]) for e in q}
     verlauf = _lesen(VERLAUF_PFAD, {"hochgeladen": []})
-    bekannt |= {(e.get("key"), e["szene_id"]) for e in verlauf.get("hochgeladen") or [] if e.get("szene_id")}
+    bekannt |= {(e.get("key"), e["szene_id"]) for e in verlauf.get("hochgeladen") or []
+                if e.get("szene_id") and not e.get("geloescht")}
     neu = 0
     for s in shorts:
         mp4 = Path(s["mp4"])
@@ -184,7 +193,7 @@ def takt(now: datetime | None = None, trocken: bool = False) -> dict:
     if trocken:
         return {"faellig": True, "slot": schluessel, "hochgeladen": False,
                 "grund": f"WUERDE hochladen: {eintrag['meta']['title']}"}
-    from upload.youtube_playwright import upload_datei
+    from upload.youtube_playwright import UploadHaltedForReview, upload_datei
     mp4 = Path(eintrag["mp4"])
     if not mp4.exists():
         q.pop(0)
@@ -198,9 +207,31 @@ def takt(now: datetime | None = None, trocken: bool = False) -> dict:
         # Datei ist schon bei YouTube (Video-ID bekannt): NIE neu hochladen (Duplikat), sondern als nicht bestaetigt
         # vermerken - die stuendliche Haenger-Nachpruefung (jarvis tools/youtube_haenger.py) zieht ihn nach.
         m = VIDEO_ID_IN_TEXT.search(str(e))
-        if not m:
+        if m:
+            res = {"video_id": m.group(1), "oeffentlich_bestaetigt": False, "nachzug_fehler": str(e)[:300]}
+        elif isinstance(e, UploadHaltedForReview):
+            # Fehlerfund 18.10.2026 (Task 20261018-152136-0684): die Datei wurde an Studio uebergeben, aber wir
+            # haben keine Video-ID - ohne die harte Sperre haette die naechste Stunde dieselbe Datei blind erneut
+            # hochgeladen (echter Doppel-Upload, siehe youtube_playwright._wizard). Statt zu wiederholen: aus der
+            # Warteschlange nehmen, in "zur_pruefung" vermerken, Marlon/Jarvis per weltlage_entscheid informieren.
+            q.pop(0)
+            _schreiben(QUEUE_PFAD, q)
+            verlauf.setdefault("zur_pruefung", []).append({
+                "szene_id": eintrag["szene_id"], "key": eintrag["key"], "titel": eintrag["meta"]["title"],
+                "mp4": str(mp4), "zeit": now.isoformat(timespec="seconds"), "fehler": str(e)[:500]})
+            verlauf["zur_pruefung"] = verlauf["zur_pruefung"][-50:]
+            _schreiben(VERLAUF_PFAD, verlauf)
+            try:
+                import weltlage_entscheid as ent
+                ent.mitteilen(f"Short {eintrag['slot']}",
+                              f"Status nach Upload-Versuch unklar, NICHT automatisch wiederholt (Duplikat-Gefahr): "
+                              f"{eintrag['meta']['title']}\n{str(e)[:300]}\nBitte in YouTube Studio pruefen.", print)
+            except Exception:   # noqa: BLE001 - Meldung darf den Takt nie gefaehrden
+                pass
+            return {"faellig": True, "slot": schluessel, "hochgeladen": False,
+                    "grund": "Status nach Upload-Versuch unklar, zur Pruefung vorgemerkt (nicht wiederholt)"}
+        else:
             raise
-        res = {"video_id": m.group(1), "oeffentlich_bestaetigt": False, "nachzug_fehler": str(e)[:300]}
     q.pop(0)
     _schreiben(QUEUE_PFAD, q)
     # Vorfall 14.10.2026: upload_datei meldete den 08:00-Short nicht bestaetigt (Studio: Entwurf), der Takt meldete
@@ -244,6 +275,115 @@ def takt(now: datetime | None = None, trocken: bool = False) -> dict:
            "studio_status": res.get("studio_status")}
 
 
+def nachtrag_liste() -> list[dict]:
+    """Frei geplante Einzel-Nachtraege (Marlon 18.10.2026, Task 20261018-161538-e742: fuenf zu Unrecht als
+    'Duplikat' geloeschte, in Wahrheit eigenstaendige Shorts sollten mit eigenem Titel neu hochgeladen werden,
+    im Abstand von vier Stunden statt an den vier festen SLOTS). Anders als die normale Warteschlange (q, nur
+    FIFO an feste Tageszeiten) hat jeder Eintrag hier eine eigene faellig_ab-Zeit - fuer kuenftige Einzelfaelle
+    wiederverwendbar (verpasste/nachzuholende Shorts mit eigenem Zeitplan), nicht an diese fuenf Videos gebunden.
+    Eintrag: {"szene_id", "key", "mp4", "meta", "ordner", "faellig_ab" (ISO), "eingereiht_am"}."""
+    return _lesen(NACHTRAG_PFAD, [])
+
+
+def nachtrag_einreihen(eintraege: list[dict]) -> int:
+    """Haengt Eintraege an die Nachtrag-Liste an, ueberspringt bereits bekannte (key, szene_id) - wie
+    einreihen() oben, nur ohne Bindung an die festen SLOTS. 'bekannt' zaehlt dabei nur noch wirklich LIVE
+    vorhandene Uploads (nicht geloeschte), sonst liesse sich eine faelschliche Loeschung nie reparieren."""
+    liste = nachtrag_liste()
+    verlauf = _lesen(VERLAUF_PFAD, {"hochgeladen": []})
+    bekannt = {(e.get("key"), e["szene_id"]) for e in liste}
+    bekannt |= {(e.get("key"), e["szene_id"]) for e in verlauf.get("hochgeladen") or []
+                if e.get("szene_id") and not e.get("geloescht")}
+    neu = 0
+    for e in eintraege:
+        schluessel = (e.get("key"), e["szene_id"])
+        if schluessel in bekannt:
+            continue
+        liste.append(e)
+        bekannt.add(schluessel)
+        neu += 1
+    if neu:
+        _schreiben(NACHTRAG_PFAD, liste)
+    return neu
+
+
+def nachtrag_takt(now: datetime | None = None, trocken: bool = False) -> dict:
+    """Stuendlicher Nachtrag-Taktgeber, analog takt() oben, aber faellig_ab je Eintrag statt feste SLOTS - laedt
+    hoechstens EINEN faelligen Eintrag pro Aufruf oeffentlich hoch (nie mehrere pro Stunde, dasselbe
+    Playwright-Browserprofil wie der normale Takt, siehe Memory playwright-profil-sperre). Von der Weltlage-
+    Wache stuendlich aufgerufen, genau wie takt()/thumbnail_nachtrag()."""
+    now = now or datetime.now().astimezone()
+    liste = nachtrag_liste()
+    faellige = sorted((e for e in liste if e.get("faellig_ab", "") <= now.isoformat()),
+                      key=lambda e: e["faellig_ab"])
+    if not faellige:
+        return {"faellig": False, "rest": len(liste)}
+    eintrag = faellige[0]
+    if trocken:
+        return {"faellig": True, "hochgeladen": False, "grund": f"WUERDE hochladen: {eintrag['meta']['title']}"}
+    from upload.youtube_playwright import UploadHaltedForReview, upload_datei
+    mp4 = Path(eintrag["mp4"])
+    verlauf = _lesen(VERLAUF_PFAD, {"hochgeladen": []})
+    if not mp4.exists():
+        liste = [e for e in liste if e is not eintrag]
+        _schreiben(NACHTRAG_PFAD, liste)
+        return {"faellig": True, "hochgeladen": False, "grund": f"Datei fehlt, verworfen: {mp4}"}
+    try:
+        res = upload_datei(mp4, eintrag["meta"], None, visibility="public",
+                           log_path=Path(eintrag["ordner"]) / "shorts" / f"{eintrag['szene_id']}_nachtrag_upload.log")
+    except Exception as e:   # noqa: BLE001
+        m = VIDEO_ID_IN_TEXT.search(str(e))
+        if m:
+            res = {"video_id": m.group(1), "oeffentlich_bestaetigt": False, "nachzug_fehler": str(e)[:300]}
+        elif isinstance(e, UploadHaltedForReview):
+            liste = [x for x in liste if x is not eintrag]
+            _schreiben(NACHTRAG_PFAD, liste)
+            verlauf.setdefault("zur_pruefung", []).append({
+                "szene_id": eintrag["szene_id"], "key": eintrag.get("key"), "titel": eintrag["meta"]["title"],
+                "mp4": str(mp4), "zeit": now.isoformat(timespec="seconds"), "fehler": str(e)[:500]})
+            verlauf["zur_pruefung"] = verlauf["zur_pruefung"][-50:]
+            _schreiben(VERLAUF_PFAD, verlauf)
+            try:
+                import weltlage_entscheid as ent
+                ent.mitteilen("Short-Nachtrag",
+                              f"Status nach Upload-Versuch unklar, NICHT automatisch wiederholt (Duplikat-Gefahr): "
+                              f"{eintrag['meta']['title']}\n{str(e)[:300]}\nBitte in YouTube Studio pruefen.", print)
+            except Exception:   # noqa: BLE001 - Meldung darf den Nachtrag nie gefaehrden
+                pass
+            return {"faellig": True, "hochgeladen": False,
+                    "grund": "Status nach Upload-Versuch unklar, zur Pruefung vorgemerkt (nicht wiederholt)"}
+        else:
+            raise
+    liste = [x for x in liste if x is not eintrag]
+    _schreiben(NACHTRAG_PFAD, liste)
+    bestaetigt = bool(res.get("oeffentlich_bestaetigt"))
+    thumbnail_versucht = bool(bestaetigt and res.get("video_id"))
+    if thumbnail_versucht:
+        _thumbnail_setzen_versucht(res["video_id"], mp4, eintrag.get("meta"))
+    verlauf.setdefault("hochgeladen", []).append({
+        "szene_id": eintrag["szene_id"], "video_id": res.get("video_id"),
+        "zeit": now.isoformat(timespec="seconds"), "key": eintrag.get("key"),
+        "titel": eintrag["meta"]["title"], "oeffentlich_bestaetigt": bestaetigt,
+        "studio_status": res.get("studio_status"), "fehler": res.get("nachzug_fehler"),
+        "thumbnail": False, "thumbnail_versuche": 1 if thumbnail_versucht else 0,
+        "thumbnail_letzter_versuch": now.isoformat(timespec="seconds") if thumbnail_versucht else None,
+        "ordner": eintrag.get("ordner"), "mp4": str(mp4)})
+    verlauf["hochgeladen"] = verlauf["hochgeladen"][-200:]
+    _schreiben(VERLAUF_PFAD, verlauf)
+    try:
+        import weltlage_entscheid as ent
+        wie = ("Short-Nachtrag veröffentlicht" if bestaetigt else
+               f"Short-Nachtrag hochgeladen, aber NICHT bestätigt öffentlich "
+               f"(Studio: {res.get('studio_status') or 'unbekannt'})")
+        ent.mitteilen("Short-Nachtrag",
+                      f"{wie}: {eintrag['meta']['title']}\nhttps://youtu.be/{res.get('video_id')}", print)
+    except Exception:   # noqa: BLE001
+        pass
+    return {"faellig": True, "hochgeladen": True, "video_id": res.get("video_id"),
+           "titel": eintrag["meta"]["title"], "rest": len(liste), "oeffentlich_bestaetigt": bestaetigt,
+           "studio_status": res.get("studio_status")}
+
+
 THUMBNAIL_VERSUCHE_MAX = 6          # Studio-Upload-Versuche, danach nicht mehr neu hochladen (nur noch live pruefen)
 THUMBNAIL_NACHTRAG_WARTE_MIN = 15   # erster Nachtrag-Versuch fruehestens so lange nach dem Erstversuch
 THUMBNAIL_STUDIO_WIEDERHOLEN_MIN = 60   # Mindestabstand zwischen zwei Studio-Upload-Versuchen desselben Shorts
@@ -255,6 +395,9 @@ THUMBNAIL_STUDIO_WIEDERHOLEN_MIN = 60   # Mindestabstand zwischen zwei Studio-Up
 # begrenzt, unabhaengig vom Alter.
 
 
+BANDEROLE_MIN_LAUF = 20   # Mindestbreite (Pixel im hqdefault-Bild) eines zusammenhaengenden Banderole-Treffers
+
+
 def _thumbnail_live_sichtbar(video_id: str, log=print) -> bool | None:
     """Objektive Pruefung OHNE Playwright/Studio, ob das komponierte Thumbnail (Banderole + Headline + Latara-
     Foto, siehe tools/weltlage_shorts_thumbnail.render) auf YouTube wirklich sichtbar ist. Befund 16.10.2026
@@ -264,9 +407,20 @@ def _thumbnail_live_sichtbar(video_id: str, log=print) -> bool | None:
     alten, zufaelligen Studio-Frame, bei zwei baugleichen Shorts AUS DEMSELBEN Upload-Lauf (g-JkGWZ5dJ4 vs.
     zBFgmh-fSF0) sogar mit genau demselben Ergebniscode (True) aber unterschiedlichem Live-Ausgang - der
     Playwright-Erfolg allein ist also kein verlaesslicher Beweis, nur eine echte Nachpruefung am CDN ist es.
-    Erkennungsmerkmal: die rote Banderole (ACCENT-naher Farbton) sitzt bei jedem komponierten Thumbnail nahe dem
-    oberen Fuenftel des Bilds; der rohe Studio-Frame zeigt an derselben Stelle immer den dunkelblauen Studio-
-    Hintergrund. hqdefault.jpg ist das oeffentliche, unauthentifizierte Vorschaubild-CDN-Bild zu jeder Video-ID
+
+    Befund 18.10.2026 (Marlons Meldung: beim neusten Short fehlt wieder das eigene Thumbnail, wiederkehrender
+    Fehler): die erste Fassung tastete nur EINEN festen Punkt ab (cy = 18 % der Bildhoehe) - das nahm an, die
+    Banderole sitze bei jedem Short an derselben Stelle. Stimmt nicht: render() in weltlage_shorts_thumbnail.py
+    zentriert den ganzen Block (Banderole+Headline+Foto+Markenbalken) vertikal in der Safe-Zone, die Banderole-
+    Position haengt also von der Headline-Laenge (1-4 Zeilen) ab und verschiebt sich pro Short um bis zu einigen
+    Dutzend Pixeln. Stichprobe an sieben zuletzt hochgeladenen Shorts (3 davon seit Tagen faelschlich als "nicht
+    sichtbar" markiert, bis zu 6 nutzlose Studio-Neuversuche je Short): bei allen dreien sass die Banderole ausserhalb
+    des alten Abtastpunkts, war aber klar im Bild vorhanden. Jetzt wird die GANZE Bildhoehe zeilenweise abgetastet
+    und der laengste zusammenhaengende Lauf an Banderole-Pixeln in der horizontalen Mitte gesucht (die Banderole ist
+    ein durchgezogener farbiger Balken, darum ein breiter Lauf). Echte Treffer lagen in derselben Stichprobe
+    durchgehend bei 34-55 Pixeln Laufweite; falsche Treffer durch farbige Untertitel-Woerter im rohen Videoframe
+    (z.B. gelb hervorgehobene Begriffe) kamen nie ueber 7 Pixel - BANDEROLE_MIN_LAUF = 20 liegt mit viel Abstand
+    dazwischen. hqdefault.jpg ist das oeffentliche, unauthentifizierte Vorschaubild-CDN-Bild zu jeder Video-ID
     (kein API-Key noetig). Gibt None zurueck, wenn das Bild gerade nicht abrufbar ist (kein Fehlschlag, einfach
     beim naechsten Taktschlag erneut pruefen)."""
     import io
@@ -287,13 +441,33 @@ def _thumbnail_live_sichtbar(video_id: str, log=print) -> bool | None:
     except Exception as e:   # noqa: BLE001 - defektes/leeres Bild zaehlt als "jetzt nicht pruefbar"
         log(f"Thumbnail-Live-Pruefung {video_id}: Bild nicht lesbar ({e})")
         return None
-    w, h = bild.size
-    cx, cy = w // 2, round(h * 0.18)
-    proben = [bild.getpixel((min(max(cx + dx, 0), w - 1), cy)) for dx in (-10, 0, 10)]
-    sichtbar = any(r > 150 and r - b > 60 for r, g, b in proben)
+    bester_lauf, beste_y = _laengster_banderole_lauf(bild)
+    sichtbar = bester_lauf >= BANDEROLE_MIN_LAUF
     log(f"Thumbnail-Live-Pruefung {video_id}: "
-        f"{'komponiertes Bild erkannt' if sichtbar else 'noch alter Frame/unbekannt'} (Proben {proben})")
+        f"{'komponiertes Bild erkannt' if sichtbar else 'noch alter Frame/unbekannt'} "
+        f"(laengster Banderole-Lauf {bester_lauf}px bei y={beste_y})")
     return sichtbar
+
+
+def _laengster_banderole_lauf(bild) -> tuple[int, int | None]:
+    """Sucht ueber das GANZE Bild (nicht nur einen Punkt) zeilenweise den laengsten zusammenhaengenden Lauf an
+    Pixeln in Banderole-Farbe (hell, deutlich mehr Rot als Blau) - weil die Banderole-Zeile je nach Headline-
+    Laenge unterschiedlich hoch sitzt (siehe _thumbnail_live_sichtbar). Eine Mindestlaufweite statt eines
+    Einzelpixels unterscheidet die durchgezogene Banderole zuverlaessig von einzelnen farbigen Untertitel-
+    Buchstaben im rohen Videoframe, die nie einen so breiten zusammenhaengenden Lauf ergeben."""
+    w, h = bild.size
+    bester, beste_y = 0, None
+    for y in range(h):
+        lauf = 0
+        for x in range(w):
+            r, g, b = bild.getpixel((x, y))
+            if r > 150 and r - b > 60:
+                lauf += 1
+                if lauf > bester:
+                    bester, beste_y = lauf, y
+            else:
+                lauf = 0
+    return bester, beste_y
 
 
 def thumbnail_nachtrag(now: datetime | None = None) -> dict:
@@ -307,13 +481,22 @@ def thumbnail_nachtrag(now: datetime | None = None) -> dict:
 
     Befund 16.10.2026 (Task 20261016-103819-3966 hatte das Feld 'thumbnail' fälschlich schon nach dem ersten
     fehlerfreien Playwright-Aufruf auf True gesetzt, siehe _thumbnail_live_sichtbar-Docstring): 'thumbnail' ist
-    jetzt ausschliesslich die LIVE-bestaetigte Wahrheit, nie mehr nur "Studio hat ohne Fehler gespeichert"."""
+    jetzt ausschliesslich die LIVE-bestaetigte Wahrheit, nie mehr nur "Studio hat ohne Fehler gespeichert".
+
+    Befund 18.10.2026 (Marlons Meldung ueber den wiederkehrenden Fehler): bis hierhin blieb ein Short, der
+    THUMBNAIL_VERSUCHE_MAX erreicht hatte und trotzdem nie live bestaetigt wurde, STILL stecken - die Funktion
+    pruefte ihn zwar stuendlich weiter (billige Live-Pruefung), meldete das aber nirgends, darum fiel der
+    eigentliche Fehlerfall (Studio meldet Erfolg, das Bild aendert sich aber nie) erst auf, als Marlon es von
+    Hand bemerkte. 'haengt' listet jetzt genau diese erschoepften, weiterhin nicht sichtbaren Videos - die
+    Weltlage-Wache (jarvis/tools/weltlage_wache.py) meldet sie als Warnung, bis ein Mensch nachschaut."""
     now = now or datetime.now().astimezone()
     verlauf = _lesen(VERLAUF_PFAD, {"hochgeladen": [], "erledigte_slots": []})
     ergebnisse = []
+    haengt = []
     geaendert = False
     for eintrag in verlauf.get("hochgeladen", []):
-        if eintrag.get("thumbnail") is True or not eintrag.get("oeffentlich_bestaetigt") or not eintrag.get("video_id"):
+        if (eintrag.get("thumbnail") is True or eintrag.get("geloescht") or not eintrag.get("oeffentlich_bestaetigt")
+                or not eintrag.get("video_id")):
             continue
         try:
             alter_min = (now - datetime.fromisoformat(eintrag["zeit"])).total_seconds() / 60
@@ -328,6 +511,9 @@ def thumbnail_nachtrag(now: datetime | None = None) -> dict:
             geaendert = True
             continue
         versuche = eintrag.get("thumbnail_versuche") or 0
+        if versuche >= THUMBNAIL_VERSUCHE_MAX:
+            haengt.append({"video_id": eintrag["video_id"], "titel": eintrag.get("titel"), "versuche": versuche})
+            continue
         letzter = eintrag.get("thumbnail_letzter_versuch")
         zu_frueh = False
         if letzter:
@@ -336,7 +522,7 @@ def thumbnail_nachtrag(now: datetime | None = None) -> dict:
                             < THUMBNAIL_STUDIO_WIEDERHOLEN_MIN)
             except ValueError:
                 zu_frueh = False
-        if versuche >= THUMBNAIL_VERSUCHE_MAX or zu_frueh:
+        if zu_frueh:
             continue
         ordner, mp4 = eintrag.get("ordner"), eintrag.get("mp4")
         if not ordner or not mp4 or not Path(mp4).exists():
@@ -350,7 +536,7 @@ def thumbnail_nachtrag(now: datetime | None = None) -> dict:
         geaendert = True
     if geaendert:
         _schreiben(VERLAUF_PFAD, verlauf)
-    return {"versucht": len(ergebnisse), "ergebnisse": ergebnisse}
+    return {"versucht": len(ergebnisse), "ergebnisse": ergebnisse, "haengt": haengt}
 
 
 def status_text() -> str:
@@ -375,12 +561,17 @@ def main():
     t.add_argument("--trocken", action="store_true")
     sub.add_parser("status")
     sub.add_parser("thumbnail_nachtrag")
+    n = sub.add_parser("nachtrag_takt")
+    n.add_argument("--trocken", action="store_true")
     a = p.parse_args()
     if a.cmd == "status":
         print(status_text())
         return
     if a.cmd == "thumbnail_nachtrag":
         print(json.dumps(thumbnail_nachtrag(), ensure_ascii=False))
+        return
+    if a.cmd == "nachtrag_takt":
+        print(json.dumps(nachtrag_takt(trocken=a.trocken), ensure_ascii=False))
         return
     erg = takt(trocken=a.trocken)
     print(json.dumps(erg, ensure_ascii=False))

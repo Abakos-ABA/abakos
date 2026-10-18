@@ -125,16 +125,31 @@ def fakten_kandidaten(ordner: Path, max_anzahl: int = 1) -> list[dict]:
     return liste[:max_anzahl]
 
 
-def titel_frage(ordner: Path, kandidat: dict, meta: dict | None = None) -> str:
+def titel_frage(ordner: Path, kandidat: dict, meta: dict | None = None, index: int | None = None) -> str:
+    """Fehlerfund 18.10.2026 (Task 20261018-152136-0684, Marlons Meldung ueber "doppelte" Shorts): kandidat war
+    bisher praktisch immer der Hook (_baue_einen rief titel_frage(ordner, hook or fakten, meta) - der Hook ist
+    IMMER der Cold Open, also IMMER in FIXE_SZENEN_ERSTE), darum gab diese Funktion fuer JEDEN Short des Tages
+    dieselbe meta["title"] (die volle Folgen-Schlagzeile) zurueck - obwohl jeder Short eine andere Fakten-Szene
+    zeigt. Zwei Shorts mit identischem Titel sehen auf dem Kanal wie ein Doppel-Upload aus (zwei echte Faelle
+    von Marlon gemeldet, sechs weitere beim Durchsehen der letzten 30 Tage gefunden - bei allen war es exakt
+    dieses Muster). _baue_einen uebergibt jetzt bevorzugt die Fakten-Szene (die sich zwischen den Shorts einer
+    Folge unterscheidet); index sorgt zusaetzlich dafuer, dass ein zweiter/weiterer Short NIE denselben Titel
+    wie der erste bekommt, selbst wenn auch die Fakten-Szene keine eigene Frage liefert."""
     meta = meta or json.loads((ordner / "metadaten.json").read_text(encoding="utf-8"))
+    basis = meta["title"]
     if kandidat["id"] in FIXE_SZENEN_ERSTE:
-        return meta["title"]
-    frage = (meta.get("kommentarfrage") or "").strip()
-    if frage and frage in kandidat["text"]:
-        return frage if frage.endswith("?") else frage + "?"
-    saetze = re.split(r"(?<=[.!?])\s+", kandidat["text"].strip())
-    letzter = saetze[-1].strip() if saetze else ""
-    return letzter if letzter.endswith("?") else meta["title"]
+        titel = basis
+    else:
+        frage = (meta.get("kommentarfrage") or "").strip()
+        if frage and frage in kandidat["text"]:
+            titel = frage if frage.endswith("?") else frage + "?"
+        else:
+            saetze = re.split(r"(?<=[.!?])\s+", kandidat["text"].strip())
+            letzter = saetze[-1].strip() if saetze else ""
+            titel = letzter if letzter.endswith("?") else basis
+    if titel == basis and index and index > 1:
+        titel = f"{basis} – Teil {index}"
+    return titel
 
 
 def _ffmpeg(args: list[str], log=print):
@@ -289,7 +304,7 @@ def _concat(teile: list[Path], ziel: Path, log=print):
 
 def _baue_einen(ziel_dir: Path, hook: dict | None, fakten: dict | None, meta: dict, video_id: str | None,
                 index: int, quelle: Path, ordner: Path, log=print) -> dict:
-    titel = titel_frage(ordner, hook or fakten, meta)
+    titel = titel_frage(ordner, fakten or hook, meta, index)
     stamm = f"short_{index}_{(hook['id'] + '_') if hook else ''}{fakten['id'] if fakten else 'hook'}"
     teile: list[Path] = []
     hook_dauer = 0.0

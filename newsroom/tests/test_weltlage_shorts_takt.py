@@ -17,22 +17,29 @@ sys.path.insert(0, str(ROOT / "tools"))
 sys.path.insert(0, str(ROOT))
 
 import tools.weltlage_shorts_takt as takt_mod  # noqa: E402
+from upload.youtube_playwright import UploadHaltedForReview  # noqa: E402
 
 NOW = datetime(2026, 10, 14, 8, 17).astimezone()
 
 
 class ThumbnailLiveSichtbarTest(unittest.TestCase):
     """_thumbnail_live_sichtbar prueft OHNE Playwright/Studio direkt am oeffentlichen hqdefault.jpg-CDN-Bild,
-    ob das komponierte Thumbnail (rote Banderole nahe dem oberen Fuenftel) wirklich sichtbar ist - der eigentliche
-    Beweis-Schritt, der am 16.10.2026 fehlte (ein fehlerfreier Studio-Speichern-Klick allein war keiner, siehe
-    Docstring der Funktion)."""
+    ob das komponierte Thumbnail (durchgezogene Banderole, Erkennung ueber die ganze Bildhoehe) wirklich sichtbar
+    ist - der eigentliche Beweis-Schritt, der am 16.10.2026 fehlte (ein fehlerfreier Studio-Speichern-Klick allein
+    war keiner, siehe Docstring der Funktion).
 
-    def _bild_bytes(self, farbe_oben):
+    Regressionstest fuer den Befund vom 18.10.2026 (Marlons Meldung ueber den wiederkehrenden Fehler): die erste
+    Fassung tastete nur EINEN festen Punkt (18 % der Bildhoehe) ab und nahm an, die Banderole sitze bei jedem
+    Short an derselben Stelle - stimmt nicht, render() zentriert den Block je nach Headline-Laenge unterschiedlich
+    hoch. test_banderole_ausserhalb_des_alten_fixpunkts_wird_erkannt baut genau diesen Fall nach (Banderole bei
+    y=180 statt dem alten Fixpunkt 65) und waere mit der alten Fassung als 'nicht sichtbar' durchgefallen."""
+
+    def _bild_bytes(self, farbe_oben, y_bereich=range(55, 76), x_bereich=range(220, 261), hintergrund=(20, 40, 70)):
         import io
         from PIL import Image
-        img = Image.new("RGB", (480, 360), (20, 40, 70))   # Studio-Hintergrundton ueberall
-        for y in range(55, 76):   # Bereich um den Abtastpunkt (cx=240, cy=round(360*0.18)=65)
-            for x in range(220, 261):
+        img = Image.new("RGB", (480, 360), hintergrund)
+        for y in y_bereich:
+            for x in x_bereich:
                 img.putpixel((x, y), farbe_oben)
         buf = io.BytesIO()
         img.save(buf, format="JPEG", quality=95)
@@ -51,8 +58,21 @@ class ThumbnailLiveSichtbarTest(unittest.TestCase):
         with self._mock_urlopen(daten):
             self.assertTrue(takt_mod._thumbnail_live_sichtbar("v1", log=lambda *a: None))
 
+    def test_banderole_ausserhalb_des_alten_fixpunkts_wird_erkannt(self):
+        """Kurzer Titel -> Block sitzt tiefer in der Safe-Zone, Banderole bei y~180 statt dem alten Fixpunkt 65."""
+        daten = self._bild_bytes((225, 20, 45), y_bereich=range(175, 196))
+        with self._mock_urlopen(daten):
+            self.assertTrue(takt_mod._thumbnail_live_sichtbar("v1", log=lambda *a: None))
+
     def test_dunkelblauer_studio_frame_wird_nicht_erkannt(self):
         daten = self._bild_bytes((20, 40, 70))   # kein Banderole-Akzent, nur Studio-Hintergrund ueberall
+        with self._mock_urlopen(daten):
+            self.assertFalse(takt_mod._thumbnail_live_sichtbar("v1", log=lambda *a: None))
+
+    def test_schmale_untertitel_faerbung_wird_nicht_als_banderole_verwechselt(self):
+        """Realer Fehlerfund (18.10.2026): ein gelb/orange hervorgehobenes Untertitel-Wort im rohen Videoframe
+        traf denselben Rot-Schwellenwert, war aber nur wenige Pixel breit - deutlich unter BANDEROLE_MIN_LAUF."""
+        daten = self._bild_bytes((225, 20, 45), y_bereich=range(295, 300), x_bereich=range(230, 236))
         with self._mock_urlopen(daten):
             self.assertFalse(takt_mod._thumbnail_live_sichtbar("v1", log=lambda *a: None))
 
@@ -69,6 +89,7 @@ class ShortsTaktTest(unittest.TestCase):
         self.thumbnail_aufrufe = []
         fake_up = types.ModuleType("upload.youtube_playwright")
         fake_up.upload_datei = upload
+        fake_up.UploadHaltedForReview = UploadHaltedForReview
         fake_ent = types.ModuleType("weltlage_entscheid")
         fake_ent.mitteilen = lambda titel, text, log=None: self.gemeldet.append(text)
 
@@ -147,6 +168,21 @@ class ShortsTaktTest(unittest.TestCase):
             takt_mod.takt(NOW)
         self.assertEqual(len(json.loads(takt_mod.QUEUE_PFAD.read_text(encoding="utf-8"))), 1)
 
+    def test_status_unklar_wird_nicht_wiederholt(self):
+        """Fehlerfund 18.10.2026 (Task 20261018-152136-0684): Datei wurde an Studio uebergeben, aber keine
+        Video-ID lesbar (UploadHaltedForReview ohne eingebettete ID). Ohne die harte Sperre haette die
+        naechste Stunde dieselbe Datei blind erneut hochgeladen - echter Doppel-Upload."""
+        def upload(*a, **k):
+            raise UploadHaltedForReview("Datei x wurde an Studio übergeben, keine Video-ID lesbar (Timeout)")
+        self._setup(upload)
+        res = takt_mod.takt(NOW)
+        self.assertFalse(res["hochgeladen"])
+        self.assertEqual(json.loads(takt_mod.QUEUE_PFAD.read_text(encoding="utf-8")), [])
+        v = json.loads(takt_mod.VERLAUF_PFAD.read_text(encoding="utf-8"))
+        self.assertEqual(len(v["zur_pruefung"]), 1)
+        self.assertEqual(v["zur_pruefung"][0]["szene_id"], "short_1_a")
+        self.assertIn("unklar", self.gemeldet[0])
+
 
 class EinreihenDedupTest(unittest.TestCase):
     """Fehlerfund 16.10.2026 (Task 20261016-103819-3966): szene_id allein (z.B. 'short_2_..._gegenargument')
@@ -182,6 +218,124 @@ class EinreihenDedupTest(unittest.TestCase):
         mp4.write_bytes(b"x")
         neu = takt_mod.einreihen("2026-10-15_19:00", "20:00", tmp,
                                  [{"mp4": mp4, "meta": {"title": "Schon hochgeladen"}}])
+        self.assertEqual(neu, 0)
+
+    def test_geloeschter_eintrag_darf_neu_eingereiht_werden(self):
+        """Fehlerfund 18.10.2026 (Task 20261018-161538-e742): die Sperre zaehlte bisher auch bereits geloeschte
+        Verlaufseintraege als 'bekannt' - ein (zu Recht oder faelschlich) geloeschter Short liess sich dadurch
+        nie wieder hochladen. Ein geloeschter Short ist auf dem Kanal nicht mehr vorhanden, also kein Duplikat."""
+        tmp = self._tmp()
+        takt_mod._schreiben(takt_mod.VERLAUF_PFAD, {"hochgeladen": [
+            {"szene_id": "short_1_s5_a4_verbindung", "key": "2026-10-14_11:00", "video_id": "g-JkGWZ5dJ4",
+             "geloescht": True, "geloescht_grund": "Titel-Duplikat"}]})
+        mp4 = tmp / "short_1_s5_a4_verbindung.mp4"
+        mp4.write_bytes(b"x")
+        neu = takt_mod.einreihen("2026-10-14_11:00", "14:00", tmp,
+                                 [{"mp4": mp4, "meta": {"title": "Eigener neuer Titel"}}])
+        self.assertEqual(neu, 1)
+
+
+class NachtragTaktTest(unittest.TestCase):
+    """nachtrag_takt(): freier Zeitplan (faellig_ab je Eintrag) statt der vier festen SLOTS - fuer Einzelfaelle
+    wie das Nachreichen zu Unrecht geloeschter Shorts mit eigenem Zeitplan (Task 20261018-161538-e742)."""
+
+    def _setup(self, upload, thumbnail=None):
+        tmp = Path(tempfile.mkdtemp())
+        self.gemeldet = []
+        self.thumbnail_aufrufe = []
+        fake_up = types.ModuleType("upload.youtube_playwright")
+        fake_up.upload_datei = upload
+        fake_up.UploadHaltedForReview = UploadHaltedForReview
+        fake_ent = types.ModuleType("weltlage_entscheid")
+        fake_ent.mitteilen = lambda titel, text, log=None: self.gemeldet.append(text)
+
+        def _thumb(video_id, mp4, meta=None, log=print):
+            self.thumbnail_aufrufe.append((video_id, mp4, meta))
+            return thumbnail if thumbnail is not None else False
+
+        for p in (mock.patch.object(takt_mod, "NACHTRAG_PFAD", tmp / "n.json"),
+                  mock.patch.object(takt_mod, "VERLAUF_PFAD", tmp / "v.json"),
+                  mock.patch.object(takt_mod, "_thumbnail_setzen_versucht", _thumb),
+                  mock.patch.dict(sys.modules, {"upload.youtube_playwright": fake_up, "weltlage_entscheid": fake_ent})):
+            p.start()
+            self.addCleanup(p.stop)
+        mp4 = tmp / "short_1_a.mp4"
+        mp4.write_bytes(b"x")
+        return tmp, mp4
+
+    def test_noch_nicht_faelliger_eintrag_wird_nicht_hochgeladen(self):
+        tmp, mp4 = self._setup(lambda *a, **k: self.fail("haette nicht hochladen sollen"))
+        spaeter = (NOW + __import__("datetime").timedelta(hours=1)).isoformat()
+        takt_mod._schreiben(takt_mod.NACHTRAG_PFAD, [{"szene_id": "short_1_a", "mp4": str(mp4),
+                                                       "meta": {"title": "T"}, "key": "k", "ordner": str(tmp),
+                                                       "faellig_ab": spaeter}])
+        res = takt_mod.nachtrag_takt(NOW)
+        self.assertFalse(res["faellig"])
+        self.assertEqual(len(takt_mod.nachtrag_liste()), 1)
+
+    def test_faelliger_eintrag_wird_hochgeladen_und_entfernt(self):
+        tmp, mp4 = self._setup(lambda *a, **k: {"video_id": "abcdefghijk", "oeffentlich_bestaetigt": True})
+        takt_mod._schreiben(takt_mod.NACHTRAG_PFAD, [{"szene_id": "short_1_a", "mp4": str(mp4),
+                                                       "meta": {"title": "T"}, "key": "k", "ordner": str(tmp),
+                                                       "faellig_ab": NOW.isoformat()}])
+        res = takt_mod.nachtrag_takt(NOW)
+        self.assertTrue(res["hochgeladen"])
+        self.assertEqual(res["video_id"], "abcdefghijk")
+        self.assertEqual(takt_mod.nachtrag_liste(), [])
+        v = json.loads(takt_mod.VERLAUF_PFAD.read_text(encoding="utf-8"))
+        self.assertEqual(v["hochgeladen"][-1]["video_id"], "abcdefghijk")
+
+    def test_aeltester_faelliger_eintrag_zuerst(self):
+        tmp, mp4 = self._setup(lambda *a, **k: {"video_id": "abcdefghijk", "oeffentlich_bestaetigt": True})
+        frueher = (NOW - __import__("datetime").timedelta(hours=4)).isoformat()
+        takt_mod._schreiben(takt_mod.NACHTRAG_PFAD, [
+            {"szene_id": "short_2_b", "mp4": str(mp4), "meta": {"title": "Zweiter"}, "key": "k2",
+             "ordner": str(tmp), "faellig_ab": NOW.isoformat()},
+            {"szene_id": "short_1_a", "mp4": str(mp4), "meta": {"title": "Erster"}, "key": "k1",
+             "ordner": str(tmp), "faellig_ab": frueher}])
+        res = takt_mod.nachtrag_takt(NOW)
+        self.assertEqual(res["titel"], "Erster")
+        rest = takt_mod.nachtrag_liste()
+        self.assertEqual(len(rest), 1)
+        self.assertEqual(rest[0]["szene_id"], "short_2_b")
+
+    def test_status_unklar_wird_nicht_wiederholt(self):
+        def upload(*a, **k):
+            raise UploadHaltedForReview("Datei x wurde an Studio übergeben, keine Video-ID lesbar (Timeout)")
+        tmp, mp4 = self._setup(upload)
+        takt_mod._schreiben(takt_mod.NACHTRAG_PFAD, [{"szene_id": "short_1_a", "mp4": str(mp4),
+                                                       "meta": {"title": "T"}, "key": "k", "ordner": str(tmp),
+                                                       "faellig_ab": NOW.isoformat()}])
+        res = takt_mod.nachtrag_takt(NOW)
+        self.assertFalse(res["hochgeladen"])
+        self.assertEqual(takt_mod.nachtrag_liste(), [])
+        v = json.loads(takt_mod.VERLAUF_PFAD.read_text(encoding="utf-8"))
+        self.assertEqual(len(v["zur_pruefung"]), 1)
+
+
+class NachtragEinreihenTest(unittest.TestCase):
+    def _tmp(self):
+        tmp = Path(tempfile.mkdtemp())
+        for p in (mock.patch.object(takt_mod, "NACHTRAG_PFAD", tmp / "n.json"),
+                  mock.patch.object(takt_mod, "VERLAUF_PFAD", tmp / "v.json")):
+            p.start()
+            self.addCleanup(p.stop)
+        return tmp
+
+    def test_geloeschter_eintrag_darf_als_nachtrag_neu_eingereiht_werden(self):
+        self._tmp()
+        takt_mod._schreiben(takt_mod.VERLAUF_PFAD, {"hochgeladen": [
+            {"szene_id": "short_1_a", "key": "k", "video_id": "alt1234567", "geloescht": True}]})
+        neu = takt_mod.nachtrag_einreihen([{"szene_id": "short_1_a", "key": "k", "mp4": "x.mp4",
+                                            "meta": {"title": "Neu"}, "ordner": "o", "faellig_ab": NOW.isoformat()}])
+        self.assertEqual(neu, 1)
+
+    def test_live_vorhandener_eintrag_wird_nicht_doppelt_eingereiht(self):
+        self._tmp()
+        takt_mod._schreiben(takt_mod.VERLAUF_PFAD, {"hochgeladen": [
+            {"szene_id": "short_1_a", "key": "k", "video_id": "alt1234567"}]})
+        neu = takt_mod.nachtrag_einreihen([{"szene_id": "short_1_a", "key": "k", "mp4": "x.mp4",
+                                            "meta": {"title": "Neu"}, "ordner": "o", "faellig_ab": NOW.isoformat()}])
         self.assertEqual(neu, 0)
 
 
@@ -315,6 +469,29 @@ class ThumbnailNachtragTest(unittest.TestCase):
         self.assertEqual(self.live_pruefungen, ["v1"])   # Live-Pruefung laeuft trotzdem weiter
         self.assertEqual(self.versuche, [])              # aber kein weiterer Studio-Upload mehr
         self.assertEqual(erg["versucht"], 0)
+
+    def test_erschoepfter_short_wird_als_haengend_gemeldet(self):
+        """Befund 18.10.2026 (Marlons Meldung): bisher blieb ein erschoepfter, weiterhin nicht live sichtbarer
+        Short nur im stillen Log stecken. 'haengt' gibt der Weltlage-Wache jetzt, was sie als Warnung an Marlon
+        melden kann, statt dass der Fehler tagelang unbemerkt bleibt."""
+        from datetime import timedelta
+        now = NOW
+        alt = (now - timedelta(minutes=30)).isoformat(timespec="seconds")
+        self._setup([{"video_id": "v1", "titel": "Haengender Short", "oeffentlich_bestaetigt": True,
+                      "thumbnail": False, "thumbnail_versuche": takt_mod.THUMBNAIL_VERSUCHE_MAX, "zeit": alt}],
+                    live_folge=[False])
+        erg = takt_mod.thumbnail_nachtrag(now)
+        self.assertEqual(erg["haengt"], [{"video_id": "v1", "titel": "Haengender Short",
+                                          "versuche": takt_mod.THUMBNAIL_VERSUCHE_MAX}])
+
+    def test_noch_nicht_erschoepfter_short_gilt_nicht_als_haengend(self):
+        from datetime import timedelta
+        now = NOW
+        alt = (now - timedelta(minutes=30)).isoformat(timespec="seconds")
+        self._setup([{"video_id": "v1", "oeffentlich_bestaetigt": True, "thumbnail": False,
+                      "thumbnail_versuche": 1, "zeit": alt}], live_folge=[False])
+        erg = takt_mod.thumbnail_nachtrag(now)
+        self.assertEqual(erg["haengt"], [])
 
 
 class ThumbnailSetzenVersucht(unittest.TestCase):

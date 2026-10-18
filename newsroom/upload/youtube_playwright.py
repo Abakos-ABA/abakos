@@ -598,7 +598,19 @@ def _wizard(page, video_path: str, meta: dict, thumb_path, visibility: str, log,
     on_video_id(None)                                   # ab hier kein blinder Neuversuch mehr
     log(f"Datei übergeben: {video_path}")
     page.wait_for_selector("#title-textarea #textbox")
-    video_id = _video_id_from_dialog(page)
+    try:
+        video_id = _video_id_from_dialog(page)
+    except Exception as e:
+        # Fehlerfund 18.10.2026 (Task 20261018-152136-0684): die Datei ist schon bei Studio (set_input_files
+        # ist durch), nur das Ablesen der neuen Video-ID aus dem Dialog scheiterte (z.B. Timeout). Ohne diesen
+        # Fang landete das als gewoehnlicher RuntimeError ohne erkennbare Video-ID bei upload_datei() - der
+        # Aufrufer (weltlage_shorts_takt.takt) sah darin "nie bei Studio angekommen" und wiederholte denselben
+        # Upload in der naechsten Stunde blind: echter Doppel-Upload derselben Datei (Vorbild desselben Fehlers
+        # auf dem Schwesterkanal "Jarvis KI", 17.10.2026). UploadHaltedForReview markiert fuer jeden Aufrufer
+        # eindeutig: Status unklar, NIE automatisch erneut hochladen, zuerst in Studio pruefen.
+        raise UploadHaltedForReview(
+            f"Datei {video_path} wurde an Studio übergeben, die neue Video-ID konnte danach aber nicht gelesen "
+            f"werden ({e}) - in Studio prüfen (neuester Entwurf), nicht blind erneut hochladen.") from e
     on_video_id(video_id)
     log(f"Video-ID: {video_id}")
     _fill_textbox(page, "#title-textarea #textbox", meta["title"])
