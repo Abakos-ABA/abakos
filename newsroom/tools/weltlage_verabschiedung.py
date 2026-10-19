@@ -117,6 +117,8 @@ def freeze():
     FROZEN.mkdir(parents=True, exist_ok=True)
     import shutil
     dst = FROZEN / VERSION
+    if dst.exists():   # bisherige Fassung sichern (z.B. andere Lipsync-Stufe), nie stumm ueberschreiben
+        shutil.copy2(dst, dst.with_name(f"{dst.stem}_ALT_{time.strftime('%Y%m%d_%H%M')}{dst.suffix}"))
     shutil.copy2(src, dst)
     # Stimm-Datei samt Engine-Nachweis neben den Clip: der Rohschnitt prueft damit Engine/Hash und gleicht den Ton
     # des Clips im fertigen Video gegen genau diese Datei ab (tools/weltlage_stimmpruefung.py).

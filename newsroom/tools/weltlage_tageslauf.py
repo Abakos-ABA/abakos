@@ -26,12 +26,16 @@ diese Schritte ab (jeder Schritt wird bei einem Neustart uebersprungen, wenn sei
                 (Fehler = ohne neuen Eintrag weiter; Meldungen in <ordner>/aussprache_pruefung.json)
   3 bilder      Screenshots der Quellartikel pro Meldung (video/sources.capture) -> bilder.json
   4 stimme      tools/weltlage_tts.py (Chatterbox-Klon laut Profil, GPU-Warteschlange; nur geaenderte Szenen neu)
-  5 schnitt     tools/weltlage_rohschnitt.py (feste Szenen eingefroren, Lipsync Guidance 2.0, GPU-Warteschlange)
-                Seit 05.10.2026: keine feste Frist mehr, beendet wird nur bei Stillstand (STILLSTAND_MIN ohne neues
-                Log/neue Datei), dann ein zweiter Versuch aus dem LatentSync-Cache; ein noch laufender Rohschnitt
-                derselben Folge (abgeloester Vorgaenger-Lauf) wird uebernommen statt doppelt gestartet; Rohschnitte
-                verschiedener Folgen laufen nacheinander (die fruehere Folge wird zuerst fertig).
-  6 broll       tools/weltlage_broll.py --video (NEWS_WELTLAGE_BROLL=1; gruene Quellen; Fehler -> ohne Clips weiter)
+  5 schnitt     Zuerst tools/weltlage_broll.py --vorbereiten (Stufe 1, seit 19.10.2026 vorgezogen: Einsatzstellen +
+                Darstellungsart + Clips, braucht nur texte.json/audio/*.wav), dann tools/weltlage_rohschnitt.py
+                (feste Szenen eingefroren, Lipsync Guidance 2.0, GPU-Warteschlange) - der liest den B-Roll-Plan und
+                laesst den Mundabgleich fuer Zeitspannen aus, die nachher vollflaechig ueberdeckt werden (Variante
+                "voll"). Seit 05.10.2026: keine feste Frist mehr, beendet wird nur bei Stillstand (STILLSTAND_MIN
+                ohne neues Log/neue Datei), dann ein zweiter Versuch aus dem LatentSync-Cache; ein noch laufender
+                Rohschnitt derselben Folge (abgeloester Vorgaenger-Lauf) wird uebernommen statt doppelt gestartet;
+                Rohschnitte verschiedener Folgen laufen nacheinander (die fruehere Folge wird zuerst fertig).
+  6 broll       tools/weltlage_broll.py --video (NEWS_WELTLAGE_BROLL=1; gruene Quellen; Fehler -> ohne Clips weiter;
+                Stufe 1 liegt meist schon aus Schritt 5 vor, baut hier nur noch die Ebenen auf dem fertigen Master)
   7 abnahme     tools/weltlage_abnahme.py (Fehler = nie automatisch veroeffentlichen, nur melden). Fehler "Folge zu
                 kurz" (Mindestlaenge 8:00 Min., Marlons Entscheid 04.10.2026 23:53): einmal automatisch ueber
                 tools/weltlage_ueberarbeiten.py verlaengern (mehr Tiefe statt Fuellstoff) und die Schritte
@@ -67,6 +71,11 @@ diese Schritte ab (jeder Schritt wird bei einem Neustart uebersprungen, wenn sei
                 Status, Entwurf/Sichtbarkeit nachziehen); klappt das nicht, Status «unbestaetigt» -> die
                 Weltlage-Wache (Jarvis) zieht in ihrer Nachpruefung nach
  14 meldung     Link an Telegram + Beta-App bzw. Fehlermeldung mit Schritt
+ 15 frage_kommentar  seit 19.10.2026 (Marlon-Auftrag, Task 20261019-115203-a41d): die Kommentarfrage aus
+                metadaten.json (schon vom Analyse-Prompt erzeugt, bisher nur in der Beschreibung) wird jetzt
+                ZUSAETZLICH als eigener Kommentar gepostet und angeheftet (upload/youtube_kommentar.py) -
+                Diskussion soll direkt unter der eigenen Frage beginnen. Nur wenn oeffentlich bestaetigt;
+                ein Fehlschlag wird nur geloggt, gefaehrdet die Veroeffentlichung nie.
 
 Vorrang (07.10.2026, Auswertung 01.-07.10.: Zusatz-/Nachhol-Folgen belegten den Rohschnitt bis zu 9 h und liessen die
 regulaeren Folgen ausfallen oder Stunden zu spaet erscheinen; seit 16.10.2026 gibt es keine Verwerfen-Frist mehr,
@@ -114,7 +123,8 @@ from config.settings import (DATA_DIR, NEWS_WELTLAGE_AKTUALISIERUNG_AUTO,
                              NEWS_WELTLAGE_MAX_FEEDBACK_RUNDEN,
                              NEWS_WELTLAGE_PRODUKTION_STUNDEN, NEWS_WELTLAGE_SHORTS, NEWS_WELTLAGE_SHORTS_MAX,
                              NEWS_WELTLAGE_SHORTS_VERZUG_MINUTEN, NEWS_WELTLAGE_SLOTS, NEWS_WELTLAGE_TAEGLICH,
-                             NEWS_WELTLAGE_THEMENWAHL_MINUTEN, NEWS_WELTLAGE_TROCKENLAUF,
+                             NEWS_WELTLAGE_THEMENWAHL_MINUTEN, NEWS_WELTLAGE_TITEL_BREAKING,
+                             NEWS_WELTLAGE_TITEL_BREAKING_PRAEFIX, NEWS_WELTLAGE_TROCKENLAUF,
                              NEWS_WELTLAGE_UPLOAD_VISIBILITY, NEWS_WELTLAGE_UPLOAD_VORAB, STATE_DIR)
 
 ZUSTAND = STATE_DIR / "weltlage_tageslauf.json"
@@ -123,7 +133,8 @@ PY = ROOT / ".venv" / "Scripts" / "python.exe"
 PYW = ROOT / ".venv" / "Scripts" / "pythonw.exe"
 LS_PY = ROOT / ".venv-lipsync" / "Scripts" / "python.exe"
 SCHRITTE = ["thema", "skript", "aussprache", "bilder", "stimme", "schnitt", "broll", "abnahme", "thumbnail",
-            "metadaten", "warten", "freigabe", "upload", "veroeffentlichen", "meldung", "shorts"]
+            "metadaten", "warten", "freigabe", "upload", "veroeffentlichen", "meldung", "frage_kommentar",
+            "shorts"]
 PRODUKTION = ["stimme", "schnitt", "broll", "abnahme", "thumbnail", "metadaten"]   # nach Feedback erneut
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 KI_HINWEIS = ("Moderatorin Latara und ihre Stimme sind KI-generiert. Fakten und Zitate stammen aus den unten "
@@ -592,6 +603,62 @@ def _nur_montage(ordner: Path) -> bool:
     return alle <= skip
 
 
+# Feste, eingefrorene Sprechszenen (config/brand/<name>/aktiv.json) und ihr Builder (build + freeze, laeuft im
+# Lipsync-venv LS_PY, reiht sich selbst in die GPU-Warteschlange ein). Reihenfolge = Reihenfolge im Video.
+FESTE_SZENEN = {"begruessung": "tools/weltlage_begruessung.py", "verabschiedung": "tools/weltlage_verabschiedung.py",
+                "abschluss": "tools/weltlage_abschluss.py"}
+
+
+def feste_szenen_veraltet(metas: dict, guidance: float, hd: bool, pipeline: dict) -> dict:
+    """Welche eingefrorenen Sprechszenen passen nicht mehr EXAKT zum heutigen Lipsync-Standard? metas: {name:
+    aktiv.json-Inhalt oder None (nicht eingefroren)}. Rueckgabe {name: [Abweichungen]} nur fuer veraltete Szenen.
+    Streng (auch eine staerkere Drosselstufe zaehlt): vor einem NEUEN Render sollen Begruessung/Abschluss mit
+    derselben Staerke gebaut sein wie die Meldungen, sonst bewegt sich der Mund in der Begruessung anders als im
+    Rest der Folge. Fassungen ohne die Felder (vor 02./03.10.2026) gelten wie bisher nur als Warnung der Abnahme,
+    nicht als veraltet. Reine Funktion (Dateien kommen vom Aufrufer), offline testbar.
+    Grund (Vorfall 19.10.2026, Task 20261020-002406-1486): Marlons Umstellung auf Drosselstufe 2 (Guidance 2,0 ->
+    1,5) kam in den Code, ohne dass jemand Begruessung/Abschluss neu einfror - jede folgende Folge waere an der
+    Abnahme («eingefroren mit Guidance 2.0 statt Standard 1.5 - neu bauen») gescheitert, und die Wache kannte dafuer
+    keinen Fix. Jetzt baut der Tageslauf sie vor dem Rohschnitt selbst neu (feste_szenen_aktualisieren)."""
+    import weltlage_abnahme as abn
+    veraltet = {}
+    for name, meta in metas.items():
+        if not meta:
+            continue
+        probleme = [p for p in abn.guidance_probleme(meta, guidance, hd, streng=True) if "guidance" in meta]
+        probleme += [p for p in abn.pipeline_probleme(meta, pipeline, streng=True) if "pipeline" in meta]
+        if probleme:
+            veraltet[name] = probleme
+    return veraltet
+
+
+def feste_szenen_aktualisieren(log) -> list[str]:
+    """Vor einem neuen Rohschnitt: veraltete eingefrorene Sprechszenen (feste_szenen_veraltet) mit den heutigen
+    Einstellungen neu bauen und einfrieren (build + freeze im Lipsync-venv; Ton bleibt gleich, die Builder
+    ueberspringen die Vertonung, solange der Stimm-Nachweis zum aktiven Profil passt). Scheitert ein Bau, laeuft
+    die Folge trotzdem weiter - die Abnahme meldet die veraltete Szene dann wie bisher. Rueckgabe: neu gebaute
+    Szenen."""
+    from video import freisteller_lipsync as fl
+    metas = {}
+    for name in FESTE_SZENEN:
+        cfg = ROOT / "config" / "brand" / name / "aktiv.json"
+        metas[name] = json.loads(cfg.read_text(encoding="utf-8")) if cfg.exists() else None
+    veraltet = feste_szenen_veraltet(metas, fl.GUIDANCE, fl.HD, fl.pipeline_signatur())
+    gebaut = []
+    for name, probleme in veraltet.items():
+        log(f"feste Szene {name} passt nicht mehr zum Lipsync-Standard ({'; '.join(probleme)}) - baue sie neu "
+            f"(build + freeze, {FESTE_SZENEN[name]})")
+        tool = FESTE_SZENEN[name]
+        if _run([tool, "build"], log, timeout_h=3, python=LS_PY) != 0:
+            log(f"feste Szene {name}: build fehlgeschlagen - Folge laeuft mit der alten Fassung weiter")
+            continue
+        if _run([tool, "freeze"], log, timeout_h=0.5, python=LS_PY) != 0:
+            log(f"feste Szene {name}: freeze fehlgeschlagen - Folge laeuft mit der alten Fassung weiter")
+            continue
+        gebaut.append(name)
+    return gebaut
+
+
 def schnitt_vorbereiten(key: str, ordner: Path, log, warte_s: float = 300):
     """Vor jedem Rohschnitt-Versuch: (1) ausserhalb der regulaeren Slots den regulaeren Folgen den Vortritt lassen
     (nicht bei reiner Montage); (2) auf einen laufenden Rohschnitt einer anderen Folge warten (nacheinander statt
@@ -742,7 +809,10 @@ def metadaten(ordner: Path) -> dict:
         if t and t.lower() not in {x.lower() for x in tags} and laenge + len(t) + 2 < 480:
             tags.append(t)
             laenge += len(t) + 2
-    meta = {"title": texte["titel"][:100], "description": beschreibung, "tags": tags, "language": "de",
+    titel = texte["titel"]
+    if NEWS_WELTLAGE_TITEL_BREAKING and not titel.upper().startswith("BREAKING"):
+        titel = NEWS_WELTLAGE_TITEL_BREAKING_PRAEFIX + titel
+    meta = {"title": titel[:100], "description": beschreibung, "tags": tags, "language": "de",
             "titel_varianten": texte.get("titel_varianten"), "thumbnail": texte.get("thumbnail"),
             "kommentarfrage": texte.get("kommentarfrage")}
     (ordner / "metadaten.json").write_text(json.dumps(meta, indent=1, ensure_ascii=False), encoding="utf-8")
@@ -1118,6 +1188,22 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
                 raise Abbruch("Vertonung fehlgeschlagen")
         elif schritt == "schnitt":
             _warten_auf_lauf("weltlage_rohschnitt.py", ordner, log, eigene=True)
+            # Eingefrorene Sprechszenen zuerst an den heutigen Lipsync-Standard anpassen (nur vor einem neuen
+            # Render; ein fertiger Master behaelt seine Fassung, die Abnahme toleriert dort eine staerkere Stufe)
+            if not master.exists():
+                feste_szenen_aktualisieren(log)
+            # B-Roll-Planung vorgezogen (Marlon 19.10.2026, Task 20261019-182613-44c1): Stufe 1 von
+            # weltlage_broll.py (Einsatzstellen, Darstellungsart, Clips - braucht nur texte.json + audio/*.wav) lief
+            # bisher erst im Schritt "broll" NACH dem Rohschnitt; der Lipsync dort rechnete darum auch fuer
+            # Zeitspannen, die broll hinterher ohnehin vollflaechig ueberdeckt (Variante "voll"). Jetzt schon hier,
+            # VOR dem Rohschnitt-Schritt, damit der sein Ergebnis lesen und dort den teuren Mundabgleich auslassen
+            # kann (tools/weltlage_rohschnitt.py, video/freisteller_lipsync.py). Scheitert/fehlt sie, holt der
+            # Schritt "broll" sie wie bisher nach - nie ein Abbruchgrund fuer die Folge.
+            if NEWS_WELTLAGE_BROLL and not (ordner / "broll" / "plan.json").exists():
+                cmd = ["tools/weltlage_broll.py", ordner, "--vorbereiten"] + (["--ohne-ki"] if NEWS_WELTLAGE_BROLL_OHNE_KI
+                                                                              else [])
+                if _run(cmd, log, timeout_h=1) != 0:
+                    log("B-Roll-Planung vorab fehlgeschlagen - der Schritt \"broll\" versucht es nachher erneut")
             # Nach einer Feedback-Runde muessen nur die geaenderten Szenen neu gerendert werden (die uebrigen
             # liegen schon im Lipsync-Cache dieses Ordners) - das gilt auch fuer einen von Grund auf neu
             # gestarteten Lauf (Resume/Langlauf/PC-Neustart), nicht nur den noch lebenden Prozess, der das
@@ -1291,6 +1377,27 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
                     f"https://youtu.be/{res.get('video_id')}\nThumbnail: {res.get('thumbnail')}", log)
             _eintrag(key, status="veroeffentlicht" if ok else "unbestaetigt",
                      fertig=datetime.now().astimezone().isoformat(timespec="seconds"))
+        elif schritt == "frage_kommentar":
+            if trocken:
+                return
+            e = _laden().get(key) or {}
+            if e.get("frage_kommentar_erledigt"):
+                log("Frage-Kommentar schon erledigt")
+                return
+            res = e.get("upload") or {}
+            if not res.get("oeffentlich_bestaetigt") or not res.get("video_id"):
+                log("Frage-Kommentar uebersprungen: Video noch nicht oeffentlich bestaetigt")
+                return
+            meta = json.loads((ordner / "metadaten.json").read_text(encoding="utf-8"))
+            frage = (meta.get("kommentarfrage") or "").strip()
+            if not frage:
+                log("Frage-Kommentar uebersprungen: keine kommentarfrage in metadaten.json")
+                _eintrag(key, frage_kommentar_erledigt=True)
+                return
+            from upload.youtube_kommentar import frage_kommentar_posten
+            ok_fk = frage_kommentar_posten(res["video_id"], frage)
+            log(f"Frage-Kommentar {'gepostet+angeheftet' if ok_fk else 'FEHLGESCHLAGEN'}: {frage}")
+            _eintrag(key, frage_kommentar_erledigt=True, frage_kommentar_ok=ok_fk)
         elif schritt == "shorts":
             if trocken or not NEWS_WELTLAGE_SHORTS:
                 return

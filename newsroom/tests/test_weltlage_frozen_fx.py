@@ -58,5 +58,31 @@ class PipelineProbleme(unittest.TestCase):
         self.assertTrue(a.pipeline_probleme({"pipeline": {"hd": True, "composite_fx": True, "steps": 12}}, aktuell),
                         "fehlende Bild-Felder bleiben ein Fehler")
 
+class GuidanceHoehereStufeInSignatur(unittest.TestCase):
+    """Seit 20.10.2026 (Task 20261020-002406-1486): das Feld "guidance" der Signatur folgt guidance_einordnung -
+    eine hoehere Drosselstufe (2,0 = Stufe 1 bei Standard 1,5 = Stufe 2) ist nur ein Hinweis, kein Abbruch."""
+
+    def test_hoehere_stufe_kein_problem_aber_hinweis(self):
+        meta = {"pipeline": {"guidance": 2.0, "hd": True, "composite_fx": True, "steps": 5}}
+        aktuell = {"guidance": 1.5, "hd": True, "composite_fx": True, "steps": 5}
+        self.assertEqual(a.pipeline_probleme(meta, aktuell), [])
+        hinweise = a.pipeline_hinweise(meta, aktuell)
+        self.assertEqual(len(hinweise), 1)
+        self.assertIn("Drosselstufe 1", hinweise[0])
+
+    def test_hoehere_stufe_streng_ist_problem(self):
+        meta = {"pipeline": {"guidance": 2.0, "hd": True, "composite_fx": True, "steps": 5}}
+        aktuell = {"guidance": 1.5, "hd": True, "composite_fx": True, "steps": 5}
+        probleme = a.pipeline_probleme(meta, aktuell, streng=True)
+        self.assertEqual(len(probleme), 1)
+        self.assertIn("guidance=2.0", probleme[0])
+
+    def test_schwaechere_stufe_bleibt_problem(self):
+        meta = {"pipeline": {"guidance": 1.2, "hd": True, "composite_fx": True, "steps": 5}}
+        aktuell = {"guidance": 1.5, "hd": True, "composite_fx": True, "steps": 5}
+        self.assertTrue(any("guidance=1.2" in p for p in a.pipeline_probleme(meta, aktuell)))
+        self.assertEqual(a.pipeline_hinweise(meta, aktuell), [])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -94,7 +94,7 @@ from video import orte as orte_mod  # noqa: E402
 from video import freisteller_lipsync as fl  # noqa: E402
 from video import einblendungen as einblendungen_mod  # noqa: E402
 from config.settings import (NEWS_WELTLAGE_LIPSYNC_HD, NEWS_WELTLAGE_LIPSYNC_GUIDANCE,  # noqa: E402
-                             NEWS_WELTLAGE_EINBLENDUNG_PRUEFUNG)
+                             NEWS_WELTLAGE_EINBLENDUNG_PRUEFUNG, NEWS_LIPSYNC_STUFEN)
 
 SPRUNG_DB = 3.5          # benachbarte hoerbare Szenen duerfen sich hoechstens so stark unterscheiden; geschaerft von
                          # 4.0 (Task 20261003-201442-8908, Marlon: zwei Lautstaerkespruenge am 03.10. 19 Uhr genau am
@@ -108,20 +108,65 @@ BUMPER_MIN_KORR = 0.6    # Bumper-Ton im Master vs. aktive Bumper-Datei (Pegel/C
 MIN_DAUER_S = 480.0      # 8:00 Minuten (Marlons Entscheid 04.10.2026 23:53): erst ab hier erlaubt YouTube Mid-Roll-Werbung
 
 
-def guidance_probleme(meta: dict, guidance: float, hd: bool) -> list[str]:
+def guidance_stufe(guidance) -> int | None:
+    """Nummer der Lipsync-Drosselstufe (config.settings.NEWS_LIPSYNC_STUFEN), deren Staerke genau `guidance` ist,
+    sonst None (z.B. ein per Umgebungsvariable frei gesetzter Wert). Pure Funktion."""
+    try:
+        g = float(guidance)
+    except (TypeError, ValueError):
+        return None
+    return next((nr for nr, st in NEWS_LIPSYNC_STUFEN.items() if abs(float(st["guidance"]) - g) < 1e-6), None)
+
+
+def guidance_einordnung(ist, soll: float) -> tuple[str, str]:
+    """Ordnet eine beim Bau verwendete Lipsync-Staerke gegen den heutigen Standard ein. Rueckgabe (art, text):
+    ("ok", "") bei Gleichheit; ("hinweis", Text) wenn `ist` die Staerke einer HOEHEREN Drosselstufe ist (kleinere
+    Stufennummer = mehr Rechenschritte/Staerke, also mindestens gleich gute Qualitaet) - so gebaute Stuecke bleiben
+    gueltig; ("fehler", Text) bei allem anderen (unbekannter Wert, schwaechere Stufe als heute verlangt).
+    Grund (Vorfall 19.10.2026, Task 20261020-002406-1486): Marlons Umstellung auf Stufe 2 (Guidance 2,0 -> 1,5) kam
+    um 14:02 in den Code, waehrend der Rohschnitt der 10:00-Folge seit 13:45 mit 2,0 rechnete; die Abnahme um 23:23
+    verglich stur gegen 1,5 und liess eine 9-h-Folge durchfallen, obwohl Stufe 1 die bessere Qualitaet ist. Eine
+    laufende Folge ueberlebt seither eine Standard-Aenderung nach unten; nach oben (Stuecke schwaecher als heute
+    verlangt) bleibt es ein Fehler. Pure Funktion (kein Dateizugriff) - direkt testbar."""
+    try:
+        g = float(ist)
+    except (TypeError, ValueError):
+        return "fehler", f"Lipsync-Guidance {ist} statt Standard {soll:g}"
+    if abs(g - soll) < 1e-6:
+        return "ok", ""
+    s_ist, s_soll = guidance_stufe(g), guidance_stufe(soll)
+    if s_ist is not None and s_soll is not None and s_ist < s_soll:
+        return "hinweis", (f"Lipsync-Guidance {g:g} (Drosselstufe {s_ist}) statt heutigem Standard {soll:g} (Stufe "
+                           f"{s_soll}) - gebaut vor der Umstellung, mindestens gleich gute Qualitaet, bleibt gueltig")
+    return "fehler", f"Lipsync-Guidance {g:g} statt Standard {soll:g}"
+
+
+def guidance_probleme(meta: dict, guidance: float, hd: bool, streng: bool = False) -> list[str]:
     """Vergleicht die beim Bau einer eingefrorenen Sprechszene (Begruessung/Verabschiedung) verwendete
     Lipsync-Staerke/HD-Stufe (aktiv.json-Felder "guidance"/"hd") gegen die aktuellen Einstellungen. Leere Liste =
-    passt (oder Fassung von vor 02.10.2026 ohne die Felder, dafuer siehe Rueckgabe mit "aktiv.json ohne..."). Pure
-    Funktion (kein Dateizugriff) - direkt testbar."""
+    passt (oder Fassung von vor 02.10.2026 ohne die Felder, dafuer siehe Rueckgabe mit "aktiv.json ohne...").
+    Eine Staerke einer hoeheren Drosselstufe (siehe guidance_einordnung) ist seit 20.10.2026 kein Problem mehr,
+    sondern nur ein Hinweis (guidance_hinweise) - ausser streng=True (vor einem NEUEN Render soll die Szene exakt
+    zum Standard passen, tools/weltlage_tageslauf.feste_szenen_veraltet). Pure Funktion (kein Dateizugriff)."""
     if "guidance" not in meta:
         return ["aktiv.json ohne 'guidance'-Feld (gebaut vor 02.10.2026) - Staerke beim Bau nicht geprueft, "
                 "bei Zweifel neu bauen (build + freeze)"]
     probleme = []
-    if abs(float(meta["guidance"]) - guidance) > 1e-6:
+    art, _ = guidance_einordnung(meta["guidance"], guidance)
+    if art == "fehler" or (streng and art != "ok"):
         probleme.append(f"eingefroren mit Guidance {meta['guidance']} statt Standard {guidance:g}")
     if bool(meta.get("hd", False)) != bool(hd):
         probleme.append(f"eingefroren mit hd={meta.get('hd', False)} statt Standard {hd}")
     return probleme
+
+
+def guidance_hinweise(meta: dict, guidance: float) -> list[str]:
+    """Nur Hinweise (Warnung, kein Abbruch): eingefrorene Szene mit der Staerke einer hoeheren Drosselstufe als
+    heute Standard (siehe guidance_einordnung). Pure Funktion."""
+    if "guidance" not in meta:
+        return []
+    art, text = guidance_einordnung(meta["guidance"], guidance)
+    return [f"eingefroren mit {text}"] if art == "hinweis" else []
 
 
 # Signatur-Felder, die nur die Rechenzeit betreffen, nicht das Bild: eine damit anders eingefrorene Szene ist nicht
@@ -131,21 +176,28 @@ NUR_AUFWAND = {"steps"}
 
 
 def pipeline_hinweise(meta: dict, aktuell: dict) -> list[str]:
-    """Abweichungen nur bei NUR_AUFWAND-Feldern (Warnung, kein Fehler). Pure Funktion."""
+    """Abweichungen nur bei NUR_AUFWAND-Feldern sowie eine Guidance einer hoeheren Drosselstufe (Warnung, kein
+    Fehler, siehe guidance_einordnung). Pure Funktion."""
     pipeline = meta.get("pipeline")
     if pipeline is None:
         return []
-    return [f"Pipeline-Signatur ohne Feld '{k}' (gebaut vor dessen Einfuehrung) - beim naechsten Einfrieren nachgezogen"
-            if k not in pipeline else f"eingefroren mit {k}={pipeline[k]} statt Standard {soll} (nur Rechenzeit)"
-            for k, soll in aktuell.items() if k in NUR_AUFWAND and pipeline.get(k) != soll]
+    hinweise = [f"Pipeline-Signatur ohne Feld '{k}' (gebaut vor dessen Einfuehrung) - beim naechsten Einfrieren nachgezogen"
+                if k not in pipeline else f"eingefroren mit {k}={pipeline[k]} statt Standard {soll} (nur Rechenzeit)"
+                for k, soll in aktuell.items() if k in NUR_AUFWAND and pipeline.get(k) != soll]
+    if "guidance" in aktuell and "guidance" in pipeline:
+        art, text = guidance_einordnung(pipeline["guidance"], float(aktuell["guidance"]))
+        if art == "hinweis":
+            hinweise.append(f"Pipeline-Signatur: {text}")
+    return hinweise
 
 
-def pipeline_probleme(meta: dict, aktuell: dict) -> list[str]:
+def pipeline_probleme(meta: dict, aktuell: dict, streng: bool = False) -> list[str]:
     """Vergleicht die vollstaendige Pipeline-Signatur (aktiv.json-Feld "pipeline", geschrieben von
     video.freisteller_lipsync.pipeline_signatur() beim Bau) generisch gegen die aktuellen Einstellungen - anders
     als guidance_probleme() muss hier niemand ein neues Feld von Hand ergaenzen: jeder Schluessel in `aktuell` wird
     geprueft, auch kuenftige. Leere Liste = passt. Fehlt "pipeline" ganz (Fassung von vor 03.10.2026), eine einzelne
-    Meldung dafuer - der Aufrufer entscheidet, ob das nur eine Warnung ist (Uebergangsfrist) oder nicht. Pure
+    Meldung dafuer - der Aufrufer entscheidet, ob das nur eine Warnung ist (Uebergangsfrist) oder nicht. Das Feld
+    "guidance" folgt guidance_einordnung (hoehere Drosselstufe = nur Hinweis, ausser streng=True). Pure
     Funktion (kein Dateizugriff) - direkt testbar."""
     pipeline = meta.get("pipeline")
     if pipeline is None:
@@ -158,7 +210,11 @@ def pipeline_probleme(meta: dict, aktuell: dict) -> list[str]:
         if key not in pipeline:
             probleme.append(f"Pipeline-Signatur ohne Feld '{key}' - neu bauen (build + freeze)")
         elif isinstance(soll, float):
-            if abs(float(pipeline[key]) - soll) > 1e-6:
+            if key == "guidance":
+                art = guidance_einordnung(pipeline[key], soll)[0]
+            else:
+                art = "ok" if abs(float(pipeline[key]) - soll) < 1e-6 else "fehler"
+            if art == "fehler" or (streng and art != "ok"):
                 probleme.append(f"eingefroren mit {key}={pipeline[key]} statt Standard {soll:g}")
         elif bool(pipeline[key]) != bool(soll):
             probleme.append(f"eingefroren mit {key}={pipeline[key]} statt Standard {soll}")
@@ -369,6 +425,7 @@ def pruefen(ordner: Path, video: Path) -> dict:
             warnungen.append(f"{label}: {probleme[0]}")
         elif probleme:
             fehler.append(f"{label}: " + "; ".join(probleme) + " - neu bauen (build + freeze)")
+        warnungen += [f"{label}: {h}" for h in guidance_hinweise(meta, NEWS_WELTLAGE_LIPSYNC_GUIDANCE)]
         # 4f. Pipeline-Signatur: generische Nachfolgerin von 4e, deckt auch kuenftige Pipeline-Schalter ab (siehe
         # video.freisteller_lipsync.pipeline_signatur). Fehlt "pipeline" ganz, nur eine Warnung (Uebergangsfrist
         # fuer Fassungen von vor 03.10.2026); ist sie vorhanden, aber unvollstaendig/abweichend, Abbruch.
@@ -424,8 +481,13 @@ def pruefen(ordner: Path, video: Path) -> dict:
     for fp in fenster_dateien:
         g = json.loads(fp.read_text(encoding="utf-8")).get("guidance")
         info["lipsync_guidance"]["szenen"][fp.name] = g
-        if g is None or abs(float(g) - NEWS_WELTLAGE_LIPSYNC_GUIDANCE) > 1e-6:
-            fehler.append(f"{fp.name}: Lipsync-Guidance {g} statt Standard {NEWS_WELTLAGE_LIPSYNC_GUIDANCE:g}")
+        # Staerke einer hoeheren Drosselstufe (Folge lief vor einer Umstellung nach unten los) = nur Warnung,
+        # siehe guidance_einordnung; alles andere Abbruch.
+        art, text = guidance_einordnung(g, NEWS_WELTLAGE_LIPSYNC_GUIDANCE)
+        if art == "fehler":
+            fehler.append(f"{fp.name}: {text}")
+        elif art == "hinweis":
+            warnungen.append(f"{fp.name}: {text}")
     # 5. Zitate
     skp = ordner / "skript.json"
     sk = json.loads(skp.read_text(encoding="utf-8")) if skp.exists() else {"meta": {}, "skript": {}}
