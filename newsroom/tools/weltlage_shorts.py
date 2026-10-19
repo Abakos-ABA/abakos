@@ -26,6 +26,10 @@ geschnitten (kein neuer Text, keine neue Stimme/Lipsync - das bliebe der Langfol
      Beschreibung).
 Mit --max > 1 bekommt jeder weitere Short dieselbe Hook+Verweis-Rahmung, aber eine andere Fakten-Szene
 (die naechsttextreichste), nie eine zweite Short nur mit dem Hook allein.
+Zwischen Hook und Fakten liegt der Schnitt stehend (Cold Open) -> sitzend (Meldung) - Marlon 19.10.2026,
+Telegram: dort statt des harten Schnitts derselbe WK-Logo-Bumper wie im Langschnitt (_bumper_noetig,
+_bumper_rendern, UEBERGANG aus config/brand/uebergang/aktiv.json, kein neues Material, nur auf 9:16
+zugeschnitten).
 
 Aufruf: tools/weltlage_shorts.py <ordner> [--max 2] [--test]
 """
@@ -49,6 +53,15 @@ MIN_TEXT_ZEICHEN = 150
 AUSGESCHLOSSENE_SZENEN = {"themen", "s_themen"}   # Themen-Vorschau: keine eigenstaendige Aussage ausserhalb der Folge
 AUSGESCHLOSSENE_MUSTER = re.compile(r"outro|verabschied|abschluss", re.I)   # Sign-off, keine eigene Aussage
 FIXE_SZENEN_ERSTE = {"s_coldopen", "coldopen"}
+# WK-Logo-Bumper beim Wechsel stehend<->sitzend (Marlon 19.10.2026, Telegram): exakt derselbe Marken-
+# Uebergang wie im Langschnitt zwischen Themen und Meldungen (config/brand/uebergang/aktiv.json,
+# tools/weltlage_uebergang.py) - kein neues Material, nur auf 9:16 zugeschnitten. Der Hook ist immer der
+# Cold Open (stehend), die Fakten-Szene immer eine Meldung (szene 5, sitzend) - der Schnitt dazwischen ist
+# damit immer der holprige Steh-Sitz-Wechsel, den Marlon meint.
+_UEB_CFG = ROOT / "config" / "brand" / "uebergang" / "aktiv.json"
+_UEB_META = json.loads(_UEB_CFG.read_text(encoding="utf-8")) if _UEB_CFG.exists() else {}
+UEBERGANG = ROOT / "config" / "brand" / "uebergang" / _UEB_META["landscape"] if _UEB_META.get("landscape") else None
+BUMPER_DAUER_S = float(_UEB_META.get("laenge_s") or 0.0)
 ZIEL_GESAMT_S = 55.0     # Zielgesamtlaenge Hook+Fakten+Verweis, Sicherheitsabstand zum 60-s-Limit von Shorts
 OUTRO_DAUER_S = 3.5
 FAKTEN_MIN_S = 10.0      # auch wenn der Hook schon lang ist: mindestens so viel Fakten-Zeit
@@ -276,6 +289,32 @@ def _short_rendern(quelle: Path, start: float, dauer: float, ass: Path, ziel: Pa
              "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", ziel], log)
 
 
+def _ist_stehend(sid: str) -> bool:
+    """Postur wie im Langschnitt (tools/weltlage_rohschnitt.py): Cold Open, Themen, Verabschiedung/Abschluss
+    sind stehend (v6-Material); die Meldungen-Szene (szene 5, hier "s5_*") ist die einzige sitzende."""
+    return sid in FIXE_SZENEN_ERSTE or sid in AUSGESCHLOSSENE_SZENEN or bool(AUSGESCHLOSSENE_MUSTER.search(sid))
+
+
+def _bumper_noetig(hook: dict | None, fakten: dict | None) -> bool:
+    """True, wenn Hook und Fakten-Szene unterschiedliche Postur haben (stehend<->sitzend) - dann kommt
+    zwischen beiden derselbe WK-Logo-Bumper wie im Langschnitt (UEBERGANG) statt des harten Schnitts."""
+    if not hook or not fakten or not UEBERGANG or not UEBERGANG.exists():
+        return False
+    return _ist_stehend(hook["id"]) != _ist_stehend(fakten["id"])
+
+
+def _bumper_rendern(ziel: Path, log=print):
+    """Identischer WK-Logo-Bumper wie in der Langfolge (UEBERGANG), nur wie jeder andere Short-Teil auf
+    9:16 zugeschnitten (gleiche Filterkette wie _short_rendern, ohne Untertitel): Logo bleibt zentriert und
+    unverzerrt, kein neues Material, kein neuer Ton."""
+    filt = ("[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,gblur=sigma=40[bg];"
+            "[0:v]scale=1080:-2[fg];"
+            "[bg][fg]overlay=(W-w)/2:(H-h)/2[v]")
+    _ffmpeg(["-i", UEBERGANG, "-filter_complex", filt, "-map", "[v]", "-map", "0:a",
+             "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-pix_fmt", "yuv420p",
+             "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", ziel], log)
+
+
 def _outro_rendern(dauer: float, titelkarte: Path, ziel: Path, log=print):
     _ffmpeg(["-loop", "1", "-i", titelkarte,
              "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
@@ -320,9 +359,22 @@ def _baue_einen(ziel_dir: Path, hook: dict | None, fakten: dict | None, meta: di
         teile.append(hmp4)
         hook_dauer = hook["dauer"]
 
+    # WK-Logo-Bumper beim Steh-Sitz-Wechsel zwischen Hook (Cold Open, stehend) und Fakten (Meldung,
+    # sitzend) - derselbe Marken-Uebergang wie im Langschnitt, ersetzt den sonst harten Schnitt. Rein/Raus
+    # ist bei beiden Teilen jeweils eine eigene Pause (Segmentgrenze), darum wird keine Sprache
+    # abgeschnitten und Lipsync/Untertitel der Nachbarteile bleiben unberuehrt - der Bumper schiebt beim
+    # Concat einfach alles danach um seine eigene Laenge weiter.
+    bumper = _bumper_noetig(hook, fakten)
+    bumper_dauer = BUMPER_DAUER_S if bumper else 0.0
+    if bumper:
+        bmp4 = ziel_dir / f"{stamm}_bumper.mp4"
+        log(f"Short {index}: WK-Logo-Bumper beim Wechsel {hook['id']} -> {fakten['id']} ({bumper_dauer:.1f} s)")
+        _bumper_rendern(bmp4, log)
+        teile.append(bmp4)
+
     schnitt_s = 0.0
     if fakten:
-        ziel_fakten_s = min(FAKTEN_MAX_S, max(FAKTEN_MIN_S, ZIEL_GESAMT_S - hook_dauer - OUTRO_DAUER_S))
+        ziel_fakten_s = min(FAKTEN_MAX_S, max(FAKTEN_MIN_S, ZIEL_GESAMT_S - hook_dauer - bumper_dauer - OUTRO_DAUER_S))
         fwav_voll = ziel_dir / f"{stamm}_fakten_voll.wav"
         _segment_audio(quelle, fakten["start"], fakten["dauer"], fwav_voll, log)
         fwords_voll = _woerter_ausgerichtet(fwav_voll, fakten["text"], log)
@@ -342,7 +394,7 @@ def _baue_einen(ziel_dir: Path, hook: dict | None, fakten: dict | None, meta: di
 
     mp4 = ziel_dir / f"{stamm}.mp4"
     _concat(teile, mp4, log)
-    dauer_gesamt = hook_dauer + schnitt_s + OUTRO_DAUER_S
+    dauer_gesamt = hook_dauer + bumper_dauer + schnitt_s + OUTRO_DAUER_S
 
     beschreibung = titel + "\n\n"
     if video_id:

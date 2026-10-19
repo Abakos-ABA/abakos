@@ -52,5 +52,55 @@ class TitelFrageTest(unittest.TestCase):
         self.assertEqual(ws.titel_frage(ORDNER, hook, META, 1), META["title"])
 
 
+class IstStehendTest(unittest.TestCase):
+    """Postur-Zuordnung muss zum Langschnitt (tools/weltlage_rohschnitt.py) passen: Cold Open/Themen/
+    Verabschiedung/Abschluss stehend, nur die Meldungen-Szene (szene 5) sitzend."""
+
+    def test_coldopen_ist_stehend(self):
+        self.assertTrue(ws._ist_stehend("s_coldopen"))
+        self.assertTrue(ws._ist_stehend("coldopen"))
+
+    def test_themen_ist_stehend(self):
+        self.assertTrue(ws._ist_stehend("s_themen"))
+        self.assertTrue(ws._ist_stehend("themen"))
+
+    def test_outro_verabschiedung_abschluss_ist_stehend(self):
+        self.assertTrue(ws._ist_stehend("s6_outro"))
+        self.assertTrue(ws._ist_stehend("verabschiedung"))
+        self.assertTrue(ws._ist_stehend("abschluss"))
+
+    def test_meldung_ist_sitzend(self):
+        self.assertFalse(ws._ist_stehend("s5_a3_kontext"))
+
+
+class BumperNoetigTest(unittest.TestCase):
+    """Regressionstest fuer den Telegram-Auftrag vom 19.10.2026 (holpriger Steh-Sitz-Wechsel in den
+    Shorts): zwischen Hook (immer Cold Open, stehend) und Fakten (immer eine Meldung, sitzend) muss der
+    WK-Logo-Bumper eingesetzt werden; fehlt eine der beiden Szenen oder ist die Vorlage nicht gebaut, darf
+    nichts eingefuegt werden."""
+
+    def test_coldopen_zu_meldung_braucht_bumper(self):
+        hook = {"id": "s_coldopen"}
+        fakten = {"id": "s5_a3_kontext"}
+        self.assertTrue(ws._bumper_noetig(hook, fakten))
+
+    def test_gleiche_postur_braucht_keinen_bumper(self):
+        hook = {"id": "s_coldopen"}
+        fakten_stehend = {"id": "s_themen"}
+        self.assertFalse(ws._bumper_noetig(hook, fakten_stehend))
+
+    def test_fehlender_hook_oder_fakten_braucht_keinen_bumper(self):
+        self.assertFalse(ws._bumper_noetig(None, {"id": "s5_a3_kontext"}))
+        self.assertFalse(ws._bumper_noetig({"id": "s_coldopen"}, None))
+
+    def test_ohne_vorlage_kein_bumper(self):
+        alt = ws.UEBERGANG
+        ws.UEBERGANG = None
+        try:
+            self.assertFalse(ws._bumper_noetig({"id": "s_coldopen"}, {"id": "s5_a3_kontext"}))
+        finally:
+            ws.UEBERGANG = alt
+
+
 if __name__ == "__main__":
     unittest.main()
