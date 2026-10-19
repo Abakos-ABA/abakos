@@ -24,6 +24,13 @@ sich dieses Modul einmal pro Tag um den KANAL selbst, nie um laufende Produktion
   4. run() liefert ein JSON-Ergebnis; der Jarvis-Tagesauftrag baut daraus den kurzen Bericht fuer Marlon. run()
      holt dabei auch faellige 7-/28-Tage-Auswertungen aus dem Kanal-Aenderungsprotokoll nach (Feld
      "kanal_protokoll_auswertungen") - der Tagesauftrag nennt ein faelliges Ergebnis kurz im Bericht.
+  5. Top-/Flop-Vergleich + Ideen-Rueckstau (Marlon 19.10.2026, Task 20261019-115559-7e79 im Jarvis-Repo):
+     tools/weltlage_vergleich.py schreibt reports/weltlage_vergleich/<Datum>.md (Feld "vergleich_bericht").
+     Neue, mit Zahlen belegte Ideen gehoeren per `jarvis\\tools\\kanal_backlog.py vorschlagen --kanal weltlage`
+     in den Rueckstau (Cross-Repo, wie das Kanal-Aenderungsprotokoll) - NIE selbst umsetzen. Feld "naechste_idee"
+     (ueber `_kanal_backlog().naechster("weltlage")`) ist hoechstens EINE Idee als heutige Ja/Nein-Frage, bleibt
+     dieselbe Frage, bis Marlon antwortet (`kanal_backlog.py antwort --id ID --ja|--nein`), und faellt aus, wenn
+     schon ein Backlog-Experiment laeuft oder das alte experiment.json noch auf Antwort wartet.
 
 CLI:
     .venv\\Scripts\\python -m tools.weltlage_kanalmanager run [--trocken]
@@ -62,6 +69,16 @@ def _kanal_protokoll():
         sys.path.insert(0, str(_JARVIS_TOOLS))
     import kanal_protokoll
     return kanal_protokoll
+
+
+def _kanal_backlog():
+    """Ideen-Rueckstau (jarvis-Repo tools\\kanal_backlog.py, Marlon 19.10.2026, Task 20261019-115559-7e79):
+    hoechstens EINE Idee als Ja/Nein-Frage, nie mehr - sammelt neue Ideen aus `tools\\weltlage_vergleich.py`
+    aber setzt nichts selbst um. Cross-Repo-Import wie `_kanal_protokoll()`."""
+    if str(_JARVIS_TOOLS) not in sys.path:
+        sys.path.insert(0, str(_JARVIS_TOOLS))
+    import kanal_backlog
+    return kanal_backlog
 
 
 def _lesen(pfad: Path, default):
@@ -354,9 +371,22 @@ def run(trocken: bool = False, debug_dir: str | None = None) -> dict:
             faellige_auswertungen = _kanal_protokoll().auswerten_alle_faelligen()
         except Exception:   # noqa: BLE001 - die 7-/28-Tage-Auswertung darf den Tageslauf nie zum Absturz bringen
             pass
+    vergleich_bericht = None
+    if not trocken:
+        try:
+            from tools import weltlage_vergleich
+            vergleich_bericht = str(weltlage_vergleich.bericht())
+        except Exception:   # noqa: BLE001 - der Vergleichsbericht ist eine Zusatzinfo, kein Pflichtteil des Laufs
+            pass
+    naechste_idee = None
+    try:
+        naechste_idee = _kanal_backlog().naechster("weltlage")
+    except Exception:   # noqa: BLE001 - der Rueckstau darf den Tageslauf nie zum Absturz bringen
+        pass
     return {"zeit": now.isoformat(timespec="seconds"), "uploads": uploads, "analytics": analytics,
             "erkenntnisse": strategie.get("erkenntnisse") or [], "angewendet": angewendet,
-            "experiment": experiment_stand(), "kanal_protokoll_auswertungen": faellige_auswertungen}
+            "experiment": experiment_stand(), "kanal_protokoll_auswertungen": faellige_auswertungen,
+            "vergleich_bericht": vergleich_bericht, "naechste_idee": naechste_idee}
 
 
 if __name__ == "__main__":
