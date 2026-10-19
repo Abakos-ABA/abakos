@@ -134,7 +134,23 @@ NEWS_HOST_CLIP_PER_JOB = os.environ.get("NEWS_HOST_CLIP_PER_JOB", "1") == "1"
 # Lip-sync of the host's spoken segments with LatentSync 1.6 (vendor/LatentSync, .venv-lipsync,
 # models/latentsync). "0" = host clips stay mouth-closed voice-over.
 NEWS_LIPSYNC = os.environ.get("NEWS_LIPSYNC", "1") == "1"
-NEWS_LIPSYNC_STEPS = int(os.environ.get("NEWS_LIPSYNC_STEPS", "8"))
+# Lipsync-Drosselstufen: EINZIGE Quelle fuer Schritte/Guidance/Fenster, die alle Lipsync-Pipelines (video/
+# freisteller_lipsync.py fuer Weltlage Kompakt + die daraus geschnittenen Shorts, video/lipsync.py fuer die
+# aeltere Master-Clip-Pipeline) verwenden statt jede ihre eigene hartkodierte Zahl zu pflegen. Werte aus der
+# Drosselprobe (Marlons Auftrag, Task 20261019-120910-a2ea; Messung jarvis/reports/lipsync_drossel_vergleich_
+# 20261019/ergebnis.json, 5-s-Testausschnitt einer echten Folge): Rechenzeit sinkt von Stufe 1 bis 4 von 120,8
+# auf 74,4/68,8/46,8 s pro s Video. Marlons Entscheid 19.10.2026: Stufe 2 ist der neue Standard fuer alle
+# Lipsync-Pipelines (Qualitaet bis Stufe 2 ist gut) - ~38 % weniger Rechenzeit als die bisherige Stufe 1.
+NEWS_LIPSYNC_STUFEN = {
+    1: dict(steps=8, guidance=2.0, zoom=768),   # bisheriger Standard
+    2: dict(steps=5, guidance=1.5, zoom=768),   # neuer Standard (Marlon 19.10.2026)
+    3: dict(steps=4, guidance=1.2, zoom=512),
+    4: dict(steps=3, guidance=1.0, zoom=384),
+}
+NEWS_LIPSYNC_STUFE = int(os.environ.get("NEWS_LIPSYNC_STUFE", "2"))
+_lipsync_stufe = NEWS_LIPSYNC_STUFEN[NEWS_LIPSYNC_STUFE]
+NEWS_LIPSYNC_STEPS = int(os.environ.get("NEWS_LIPSYNC_STEPS", str(_lipsync_stufe["steps"])))
+NEWS_LIPSYNC_GUIDANCE = float(os.environ.get("NEWS_LIPSYNC_GUIDANCE", str(_lipsync_stufe["guidance"])))
 # Preview mode: generated clips (masters/intro/host) at 960x528 and fewer steps, upscaled once with
 # Real-ESRGAN to 1920x1080 (video/upscale.py). Screenshots, cards, captions are native 1080p anyway.
 NEWS_PREVIEW = os.environ.get("NEWS_PREVIEW", "1") == "1"
@@ -275,12 +291,17 @@ NEWS_WELTLAGE_LIPSYNC_HD = os.environ.get("NEWS_WELTLAGE_LIPSYNC_HD", "1") == "1
 # jetzt Standard 4 statt 1.
 NEWS_WELTLAGE_GESICHT_HD_BATCH = int(os.environ.get("NEWS_WELTLAGE_GESICHT_HD_BATCH", "4"))
 
-# --- Weltlage Kompakt: LatentSync-Staerke der Mundbewegung (video/freisteller_lipsync.py GUIDANCE, Task
-# 20261001-202910-0180): die Probe vom 29.09. (Task 1fa2) hatte bewusst auf 2,5 erhoeht (Mund ~50 % staerker als mit
-# LatentSync-Standard 1,5). 01.10. auf 2,0, 02.10. nachts kurz 1,5 (Task 6861), dann Marlons Entscheid 02.10. mittags
-# (Task 20261002-131755-44f2): 2,0 ist der feste Standard fuer alle Folgen. Der Wert steckt im Cache-Hash jedes
-# Lipsync-Stuecks, Stuecke mit anderem Wert werden also nie wiederverwendet; die Abnahme prueft ihn je _fenster.json.
-NEWS_WELTLAGE_LIPSYNC_GUIDANCE = float(os.environ.get("NEWS_WELTLAGE_LIPSYNC_GUIDANCE", "2.0"))
+# --- Weltlage Kompakt: LatentSync-Schritte/Staerke/Fenster (video/freisteller_lipsync.py STEPS/GUIDANCE/ZOOM,
+# Task 20261001-202910-0180). Verlauf der Guidance: Probe 29.09. (Task 1fa2) 2,5 (Mund ~50 % staerker als
+# LatentSync-Standard 1,5), 01.10. auf 2,0, 02.10. nachts kurz 1,5 (Task 6861), dann Marlons Entscheid 02.10.
+# mittags (Task 20261002-131755-44f2): 2,0 fester Standard. Seit Marlons Entscheid 19.10.2026 (Drosselprobe Task
+# 20261019-120910-a2ea, siehe NEWS_LIPSYNC_STUFEN oben) gilt stattdessen die zentrale Stufe 2 fuer alle drei
+# Werte; einzeln ueberschreibbar, Default kommt aus NEWS_LIPSYNC_STUFE. Die Werte stecken im Cache-Hash jedes
+# Lipsync-Stuecks, Stuecke mit anderen Werten werden also nie wiederverwendet; die Abnahme prueft sie je
+# _fenster.json.
+NEWS_WELTLAGE_LIPSYNC_STEPS = int(os.environ.get("NEWS_WELTLAGE_LIPSYNC_STEPS", str(_lipsync_stufe["steps"])))
+NEWS_WELTLAGE_LIPSYNC_GUIDANCE = float(os.environ.get("NEWS_WELTLAGE_LIPSYNC_GUIDANCE", str(_lipsync_stufe["guidance"])))
+NEWS_WELTLAGE_LIPSYNC_ZOOM = int(os.environ.get("NEWS_WELTLAGE_LIPSYNC_ZOOM", str(_lipsync_stufe["zoom"])))
 
 # --- Weltlage Kompakt: taeglicher Lauf zu fixen Zeiten (tools/weltlage_tageslauf.py, Marlon 01.10.2026) ---
 # Die resident laufende Pipeline (Aufgabe AbakosNewsroomPipeline, orchestrator/pipeline.py) startet pro Slot einen

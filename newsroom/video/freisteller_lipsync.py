@@ -46,20 +46,24 @@ FFMPEG = str(_ff / "ffmpeg.exe") if _ff else "ffmpeg"
 OUT_W, OUT_H = 1920, 1080     # Endaufloesung der Weltlage-Videos: Composite direkt hier, nie hochskalieren
 FPS = 25                      # LatentSync arbeitet mit 25 fps; der Schnitt setzt danach auf 24 fps
 CHUNK = 7.0                   # laengere Stuecke liefen am 29.09. ueber den VRAM
-ZOOM = 768                    # Kantenlaenge des hochskalierten Gesichtsfensters
 WIN = 2.2                     # Fensterkante in Gesichtsgroessen (eng: Gesicht fuellt den LatentSync-Eingang)
-STEPS = 8                      # 8 statt 12 (Marlons Auftrag 14.10., Task 20261014-192918-98bb: Produktion auf ~2 h
-                                # straffen; Vergleich 12 vs. 8 x Batch 1/4 in tools/lipsync_steps_vergleich.py,
-                                # Bericht reports/lipsync_steps_vergleich_20261014/ergebnis.json: SyncNet-Konfidenz
-                                # und Mundbewegungs-Kennzahl bei 8 Schritten unveraendert ggue. 12, kein Versatz,
-                                # ~20-25 % schnelleres LatentSync pro Stueck). Davor 12 statt 20 (Marlon 07.10.,
-                                # Vergleich 20/15/12 in Task 20261007-183020-9417: kein sichtbarer Unterschied) -
-                                # Feld "steps" in pipeline_signatur(), damit eingefrorene Szenen die Aenderung nicht
-                                # stillschweigend ignorieren
-try:                          # Mundbewegungs-Staerke konfigurierbar (config.settings), Standard 2.0 (Task 0180,
-    from config.settings import NEWS_WELTLAGE_LIPSYNC_GUIDANCE as GUIDANCE   # 01.10. abends: 2.5 wirkte uebertrieben)
+# STEPS/GUIDANCE/ZOOM: zentral in config.settings.NEWS_LIPSYNC_STUFEN (Drosselstufen 1-4, Marlons Entscheid
+# 19.10.2026: Stufe 2 ist der neue Standard, Task 20261019-120910-a2ea), nicht mehr hier hartkodiert - frueherer
+# Verlauf (12/8 Schritte, Guidance 2,5/2,0/1,5) stand vorher einzeln in dieser Datei, siehe deren Git-Historie.
+# Feld "steps"/"guidance" in pipeline_signatur(), damit eingefrorene Szenen eine Aenderung nicht stillschweigend
+# ignorieren.
+try:
+    from config.settings import NEWS_WELTLAGE_LIPSYNC_STEPS as STEPS
 except Exception:
-    GUIDANCE = 2.0
+    STEPS = 5
+try:
+    from config.settings import NEWS_WELTLAGE_LIPSYNC_GUIDANCE as GUIDANCE
+except Exception:
+    GUIDANCE = 1.5
+try:
+    from config.settings import NEWS_WELTLAGE_LIPSYNC_ZOOM as ZOOM   # Kantenlaenge des hochskalierten Gesichtsfensters
+except Exception:
+    ZOOM = 768
 GREY = 128
 try:                          # Gesichtsfenster KI-hochskaliert statt Lanczos (video/gesicht_hd.py), Default aus
     from config.settings import NEWS_WELTLAGE_LIPSYNC_HD as HD
