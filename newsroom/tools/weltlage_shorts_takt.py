@@ -35,7 +35,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from config.settings import NEWS_WELTLAGE_SHORTS_SLOTS, STATE_DIR  # noqa: E402
+from config.settings import NEWS_WELTLAGE_SHORTS_SLOTS, NEWS_YOUTUBE_CHANNEL_ID, STATE_DIR  # noqa: E402
 
 QUEUE_PFAD = STATE_DIR / "weltlage_shorts_queue.json"
 VERLAUF_PFAD = STATE_DIR / "weltlage_shorts_verlauf.json"
@@ -43,52 +43,109 @@ NACHTRAG_PFAD = STATE_DIR / "weltlage_shorts_nachtrag.json"
 VIDEO_ID_IN_TEXT = re.compile(r"Upload ([A-Za-z0-9_-]{11}) nach")   # Text von UploadHaltedForReview (upload_datei)
 FENSTER_MINUTEN = 110  # Toleranz je Slot (etwas unter 2 h, damit eine ausgefallene Stunden-Runde noch nachholt,
                         # aber niemals zwei Slots verschmelzen - die Wache laeuft stuendlich)
-THUMB_ZEIT_S = 1.5   # liegt im eingeblendeten Titelband (0-4 s, tools.weltlage_shorts._titelkarte)
+def _thumbnail_bild_bereitstellen(szene_id: str, titel: str | None, ordner, meta: dict | None = None,
+                                  log=print) -> Path | None:
+    """Liefert das komponierte Thumbnail (tools/weltlage_shorts_thumbnail.fuer_short) passend zum AKTUELLEN
+    Titel des Shorts und rendert es bei Bedarf neu (reines Pillow, kein GPU/Netz, ~1 s).
 
-
-def _thumbnail_aus_titelkarte(mp4: Path, log=print) -> Path | None:
-    """Standbild aus der Titelkarten-Phase des fertigen Shorts (t=THUMB_ZEIT_S) - bisher lud upload_datei() Shorts
-    IMMER mit thumb_path=None hoch (Studio waehlte selbst einen Zufalls-Frame), obwohl Studio bei Shorts ein
-    eigenes Thumbnail-Upload-Feld erlaubt (Live-Check 15.10.2026, Task t-20261015-092430-e232 von Beta: zuvor nur
-    unverifizierte Annahme 'nein' im Bericht). Gibt None zurueck, wenn ffmpeg fehlschlaegt - ein Thumbnail ist
-    Zusatznutzen, kein Pflichtschritt."""
-    from tools.weltlage_shorts import _ffmpeg
-    ziel = mp4.with_name(mp4.stem + "_thumb.jpg")
-    try:
-        _ffmpeg(["-ss", str(THUMB_ZEIT_S), "-i", str(mp4), "-frames:v", "1", "-q:v", "2", str(ziel)], log)
-    except Exception as e:   # noqa: BLE001
-        log(f"Thumbnail: Standbild aus {mp4.name} fehlgeschlagen ({type(e).__name__}: {e})")
-        return None
-    return ziel if ziel.exists() else None
-
-
-def _thumbnail_setzen_versucht(video_id: str, mp4: Path, meta: dict | None = None, log=print) -> bool:
-    """Bevorzugt das eigene, komponierte Thumbnail (Text+Branding in der Safe-Zone, von
-    weltlage_shorts_thumbnail.fuer_short() beim Schneiden des Shorts gebaut und in meta['thumbnail']
-    hinterlegt, Marlons Auftrag 15.10.2026 - Problem vorher: kein eigenes Vorschaubild, Studio/ffmpeg-Grab
-    zeigte nur einen rohen Videoframe, die Kachelansicht schnitt oben/unten je rund ein Viertel ab). Fehlt
-    das Komposit (altes meta ohne 'thumbnail'-Feld, oder Bild zwischenzeitlich geloescht), faellt es auf den
-    alten ffmpeg-Standbild-Grab zurueck, statt ganz ohne Thumbnail hochzuladen."""
+    Befund 19.10.2026 (Task 20261019-193153-93d4, vierter Anlauf "Shorts ohne Thumbnail"), zwei Faelle:
+    (a) ZkkmGOjf68w (Short vom 14.10., vor Einfuehrung des komponierten Bilds) hatte kein meta['thumbnail'];
+        der Nachtrag fiel sechsmal auf den rohen ffmpeg-Titelkarten-Frame zurueck, lud den "erfolgreich" hoch
+        (genau dieses Bild war dann auch live: sardefault.jpg zeigte den Frame mit Titelband) und zaehlte das als
+        erschoepfte Versuche - die Wache meldete "haengt", obwohl schlicht das falsche Bild gesetzt wurde.
+    (b) Titel koennen sich nach dem Schnitt noch aendern (Titel-Kollisions-Fix 18.10., eigene Nachtrag-Titel,
+        Kanal-Manager-Experimente) - das Bild wuerde dann einen anderen Text zeigen als der Titel.
+    Darum: Sidecar <szene_id>_thumb.json merkt sich, fuer welchen Titel das Bild gerendert wurde; fehlt das
+    Bild, der Sidecar oder weicht der Titel ab, wird neu gerendert. Nie mehr Rueckfall auf einen Videoframe."""
+    ordner = Path(ordner) if ordner else None
+    titel = (titel or (meta or {}).get("title") or "").strip()
     eigenes = Path(meta["thumbnail"]) if meta and meta.get("thumbnail") else None
-    aufgeraeumt = False
-    if eigenes and eigenes.exists():
-        bild = eigenes
+    if eigenes is not None and not eigenes.is_absolute():
+        eigenes = ROOT / eigenes
+    if ordner is not None:
+        ziel = ordner / "shorts" / f"{szene_id}_thumb.jpg"
+    elif eigenes is not None:
+        ziel = eigenes
     else:
-        bild = _thumbnail_aus_titelkarte(mp4, log)
-        aufgeraeumt = True
-    if bild is None:
-        return False
+        return None
+    sidecar = ziel.with_suffix(".json")
+    if ziel.exists():
+        try:
+            if json.loads(sidecar.read_text(encoding="utf-8")).get("titel") == titel:
+                return ziel
+        except (OSError, ValueError):
+            pass
+    try:
+        from tools.weltlage_shorts_thumbnail import fuer_short
+        m = dict(meta or {})
+        m["title"] = titel
+        fuer_short(m, ziel, ordner=ordner)
+        sidecar.write_text(json.dumps({"titel": titel,
+                                       "gerendert": datetime.now().astimezone().isoformat(timespec="seconds")},
+                                      ensure_ascii=False), encoding="utf-8")
+        log(f"Thumbnail: Komposit fuer {szene_id} gerendert ({ziel.name}, Titel: {titel[:60]})")
+        return ziel
+    except Exception as e:   # noqa: BLE001 - dann wenigstens das vorhandene Bild, aber nie ein Videoframe
+        log(f"Thumbnail: Komposit fuer {szene_id} nicht renderbar ({type(e).__name__}: {e})")
+        if ziel.exists():
+            return ziel
+        return eigenes if eigenes is not None and eigenes.exists() else None
+
+
+def _thumbnail_setzen_versucht(video_id: str, mp4: Path, meta: dict | None = None, log=print,
+                               titel: str | None = None, ordner=None, szene_id: str | None = None) -> dict:
+    """Setzt das komponierte Thumbnail ueber Studio (upload.youtube_playwright.set_thumbnail, seit 19.10.2026
+    deterministisch: wartet Upload und Speicher-Request ab, liest nach Neuladen zurueck) und gibt das Ergebnis
+    als Dict zurueck: versucht (Studio ueberhaupt erreicht), gespeichert (Speicher-Request beantwortet),
+    studio_bestaetigt (Studio zeigt nach Neuladen das eigene Bild; None = nicht pruefbar), bild, hinweis.
+    Fehlt das Komposit oder weicht sein Titel vom aktuellen ab, wird es vorher neu gerendert
+    (_thumbnail_bild_bereitstellen). Wirft nie - z.B. eine belegte Profil-Sperre darf den Takt nicht scheitern
+    lassen."""
+    mp4 = Path(mp4)
+    szene_id = szene_id or mp4.stem
+    if ordner is None and mp4.parent.name == "shorts":
+        ordner = mp4.parents[1]
+    bild = _thumbnail_bild_bereitstellen(szene_id, titel, ordner, meta, log)
+    if bild is None or not Path(bild).exists():
+        return {"versucht": False, "gespeichert": False, "studio_bestaetigt": None, "bild": None,
+                "hinweis": "kein komponiertes Thumbnail verfuegbar"}
     try:
         from upload.youtube_playwright import set_thumbnail
-        set_thumbnail(video_id, str(bild))
-        log(f"Thumbnail: {video_id} gesetzt ({bild.name})")
-        return True
+        res = set_thumbnail(video_id, str(bild))
     except Exception as e:   # noqa: BLE001 - z.B. Profil-Sperre belegt, nie den Takt scheitern lassen
         log(f"Thumbnail: {video_id} nicht gesetzt ({type(e).__name__}: {e})")
+        return {"versucht": False, "gespeichert": False, "studio_bestaetigt": None, "bild": str(bild),
+                "hinweis": f"{type(e).__name__}: {str(e)[:200]}"}
+    if not isinstance(res, dict):   # aeltere/fremde set_thumbnail-Fassung ohne Rueckgabe
+        res = {"gespeichert": True, "studio_bestaetigt": None, "hinweis": "ohne Rueckkontrolle"}
+    out = {"versucht": True, "gespeichert": bool(res.get("gespeichert")),
+           "studio_bestaetigt": res.get("studio_bestaetigt"), "bild": str(bild),
+           "hinweis": res.get("hinweis") or ""}
+    log(f"Thumbnail: {video_id} Studio-Lauf: gespeichert={out['gespeichert']} "
+        f"studio_bestaetigt={out['studio_bestaetigt']} ({Path(bild).name}) {out['hinweis']}".rstrip())
+    return out
+
+
+def _frage_kommentar_setzen(video_id: str, ordner: str | None, log=print) -> bool:
+    """Postet die Kommentarfrage der ZUGEHOERIGEN Folge (metadaten.json["kommentarfrage"] im Folgenordner,
+    gleiche Quelle wie fuer die lange Folge selbst) als eigenen, angehefteten Kommentar unter dem Short -
+    ein Short zeigt nur einen Ausschnitt derselben Folge, die Frage bleibt also inhaltlich passend. Fehlt
+    der Ordner/die Datei/das Feld, wird nichts gepostet (kein Fehler, nur kein Zusatznutzen); ein Fehlschlag
+    beim Posten selbst darf den Takt nie gefaehrden (Short ist bereits veroeffentlicht)."""
+    if not ordner:
         return False
-    finally:
-        if aufgeraeumt:
-            bild.unlink(missing_ok=True)
+    try:
+        meta = json.loads((Path(ordner) / "metadaten.json").read_text(encoding="utf-8"))
+        frage = (meta.get("kommentarfrage") or "").strip()
+        if not frage:
+            return False
+        from upload.youtube_kommentar import frage_kommentar_posten
+        ok = frage_kommentar_posten(video_id, frage)
+        log(f"Frage-Kommentar Short {video_id}: {'gepostet+angeheftet' if ok else 'FEHLGESCHLAGEN'}")
+        return ok
+    except Exception as e:   # noqa: BLE001
+        log(f"Frage-Kommentar Short {video_id}: FEHLER ({type(e).__name__}: {e})")
+        return False
 
 
 def _lesen(pfad: Path, default):
@@ -245,7 +302,11 @@ def takt(now: datetime | None = None, trocken: bool = False) -> dict:
     # objektiv am CDN bestaetigt hat.
     thumbnail_versucht = bool(bestaetigt and res.get("video_id"))
     if thumbnail_versucht:
-        _thumbnail_setzen_versucht(res["video_id"], mp4, eintrag.get("meta"))
+        _thumbnail_setzen_versucht(res["video_id"], mp4, eintrag.get("meta"), titel=eintrag["meta"].get("title"),
+                                   ordner=eintrag.get("ordner"), szene_id=eintrag["szene_id"])
+    frage_kommentar_ok = None
+    if bestaetigt and res.get("video_id"):
+        frage_kommentar_ok = _frage_kommentar_setzen(res["video_id"], eintrag.get("ordner"))
     verlauf.setdefault("hochgeladen", []).append({"szene_id": eintrag["szene_id"], "video_id": res.get("video_id"),
                                                   "zeit": now.isoformat(timespec="seconds"), "key": eintrag["key"],
                                                   "titel": eintrag["meta"]["title"],
@@ -255,6 +316,7 @@ def takt(now: datetime | None = None, trocken: bool = False) -> dict:
                                                   "thumbnail": False, "thumbnail_versuche": 1 if thumbnail_versucht else 0,
                                                   "thumbnail_letzter_versuch":
                                                       now.isoformat(timespec="seconds") if thumbnail_versucht else None,
+                                                  "frage_kommentar_ok": frage_kommentar_ok,
                                                   "ordner": eintrag.get("ordner"), "mp4": str(mp4)})
     verlauf["hochgeladen"] = verlauf["hochgeladen"][-200:]
     verlauf.setdefault("erledigte_slots", []).append(schluessel)
@@ -359,7 +421,8 @@ def nachtrag_takt(now: datetime | None = None, trocken: bool = False) -> dict:
     bestaetigt = bool(res.get("oeffentlich_bestaetigt"))
     thumbnail_versucht = bool(bestaetigt and res.get("video_id"))
     if thumbnail_versucht:
-        _thumbnail_setzen_versucht(res["video_id"], mp4, eintrag.get("meta"))
+        _thumbnail_setzen_versucht(res["video_id"], mp4, eintrag.get("meta"), titel=eintrag["meta"].get("title"),
+                                   ordner=eintrag.get("ordner"), szene_id=eintrag["szene_id"])
     verlauf.setdefault("hochgeladen", []).append({
         "szene_id": eintrag["szene_id"], "video_id": res.get("video_id"),
         "zeit": now.isoformat(timespec="seconds"), "key": eintrag.get("key"),
@@ -395,52 +458,84 @@ THUMBNAIL_STUDIO_WIEDERHOLEN_MIN = 60   # Mindestabstand zwischen zwei Studio-Up
 # begrenzt, unabhaengig vom Alter.
 
 
-BANDEROLE_MIN_LAUF = 20   # Mindestbreite (Pixel im hqdefault-Bild) eines zusammenhaengenden Banderole-Treffers
+BANDEROLE_MIN_LAUF = 20   # Mindestbreite (Pixel) eines zusammenhaengenden Banderole-Treffers (Rueckfall-Heuristik)
+VERGLEICH_SEITE = 48      # Kantenlaenge fuer den direkten Bildvergleich (graustufig, klein skaliert)
+# Schwelle fuer den direkten Vergleich, kalibriert 19.10.2026 an echten sardefault.jpg-Bildern: dasselbe
+# Komposit nach YouTubes Neukodierung lag bei mittlerer Pixeldifferenz < 1.5, ein anderer Text im selben Layout
+# oder ein roher Videoframe bei > 8 - 4.0 trennt beides mit Abstand nach beiden Seiten.
+VERGLEICH_SCHWELLE = 4.0
+THUMBNAIL_REGAL_WARN_MIN = 120   # ein Short, der so lange nach Upload im Regal noch ohne eigenes Bild ist, wird gemeldet
+THUMBNAIL_CDN_NACHWARTEN_S = 15  # nach bestaetigtem Studio-Speichern kurz warten, bis das CDN das Bild hat (gemessen <60 s)
+THUMBNAIL_STUDIO_MAX_PRO_LAUF = 4   # Studio-Laeufe je Nachtrag-Aufruf (je ~2-3 min; die Wache kappt den Unterprozess
+                                    # nach 20 min, Vorfall 19.10.2026: fuenf Shorts am Stueck liefen in den Timeout)
 
 
-def _thumbnail_live_sichtbar(video_id: str, log=print) -> bool | None:
-    """Objektive Pruefung OHNE Playwright/Studio, ob das komponierte Thumbnail (Banderole + Headline + Latara-
-    Foto, siehe tools/weltlage_shorts_thumbnail.render) auf YouTube wirklich sichtbar ist. Befund 16.10.2026
-    (dieser Task, Marlon-Meldung 'nur die zwei neusten Shorts mit neuem Bild haben viele Aufrufe'): Studios
-    Speichern-Button meldet bei set_thumbnail() praktisch IMMER Erfolg (kein Playwright-Fehler) - Stichprobe per
-    oEmbed/hqdefault.jpg zeigte aber bei 4 von 6 schon veroeffentlichten Shorts Stunden spaeter immer noch den
-    alten, zufaelligen Studio-Frame, bei zwei baugleichen Shorts AUS DEMSELBEN Upload-Lauf (g-JkGWZ5dJ4 vs.
-    zBFgmh-fSF0) sogar mit genau demselben Ergebniscode (True) aber unterschiedlichem Live-Ausgang - der
-    Playwright-Erfolg allein ist also kein verlaesslicher Beweis, nur eine echte Nachpruefung am CDN ist es.
+def _bilder_stimmen_ueberein(live, lokal) -> bool:
+    """Reiner Bildvergleich ohne Netz (offline testbar): beide Bilder graustufig auf VERGLEICH_SEITE skaliert,
+    mittlere Pixeldifferenz gegen VERGLEICH_SCHWELLE. live/lokal: PIL-Bilder."""
+    a = live.convert("L").resize((VERGLEICH_SEITE, VERGLEICH_SEITE))
+    b = lokal.convert("L").resize((VERGLEICH_SEITE, VERGLEICH_SEITE))
+    diff = sum(abs(x - y) for x, y in zip(a.getdata(), b.getdata())) / (VERGLEICH_SEITE ** 2)
+    return diff < VERGLEICH_SCHWELLE
 
-    Befund 18.10.2026 (Marlons Meldung: beim neusten Short fehlt wieder das eigene Thumbnail, wiederkehrender
-    Fehler): die erste Fassung tastete nur EINEN festen Punkt ab (cy = 18 % der Bildhoehe) - das nahm an, die
-    Banderole sitze bei jedem Short an derselben Stelle. Stimmt nicht: render() in weltlage_shorts_thumbnail.py
-    zentriert den ganzen Block (Banderole+Headline+Foto+Markenbalken) vertikal in der Safe-Zone, die Banderole-
-    Position haengt also von der Headline-Laenge (1-4 Zeilen) ab und verschiebt sich pro Short um bis zu einigen
-    Dutzend Pixeln. Stichprobe an sieben zuletzt hochgeladenen Shorts (3 davon seit Tagen faelschlich als "nicht
-    sichtbar" markiert, bis zu 6 nutzlose Studio-Neuversuche je Short): bei allen dreien sass die Banderole ausserhalb
-    des alten Abtastpunkts, war aber klar im Bild vorhanden. Jetzt wird die GANZE Bildhoehe zeilenweise abgetastet
-    und der laengste zusammenhaengende Lauf an Banderole-Pixeln in der horizontalen Mitte gesucht (die Banderole ist
-    ein durchgezogener farbiger Balken, darum ein breiter Lauf). Echte Treffer lagen in derselben Stichprobe
-    durchgehend bei 34-55 Pixeln Laufweite; falsche Treffer durch farbige Untertitel-Woerter im rohen Videoframe
-    (z.B. gelb hervorgehobene Begriffe) kamen nie ueber 7 Pixel - BANDEROLE_MIN_LAUF = 20 liegt mit viel Abstand
-    dazwischen. hqdefault.jpg ist das oeffentliche, unauthentifizierte Vorschaubild-CDN-Bild zu jeder Video-ID
-    (kein API-Key noetig). Gibt None zurueck, wenn das Bild gerade nicht abrufbar ist (kein Fehlschlag, einfach
-    beim naechsten Taktschlag erneut pruefen)."""
+
+def _thumbnail_live_sichtbar(video_id: str, lokal=None, log=print, url: str | None = None) -> bool | None:
+    """Objektive Pruefung OHNE Playwright/Studio, ob das komponierte Thumbnail auf YouTube wirklich sichtbar ist.
+
+    Befund 19.10.2026 (Task 20261019-193153-93d4): das Shorts-Regal der Kanalseite (youtube.com/channel/<id>/
+    shorts, ytInitialData) zeigt pro Short entweder `sardefault.jpg` (= das eigene, in Studio gesetzte Bild,
+    1080x1920) oder - wenn keins gesetzt ist - einen der automatisch gewaehlten Videoframes `oar1|oar2|oar3.jpg`.
+    Das bisher geprueft hqdefault.jpg (16:9) ist nur eine Ableitung davon; sardefault.jpg ist die Datei, die
+    Marlon im Regal sieht, und fehlt (HTTP 404), solange gar kein eigenes Bild gesetzt ist. CDN-Cache: max-age
+    7200 s, d.h. ein neu gesetztes Bild ist spaetestens nach 2 h hier sichtbar (gemessen: unter einer Minute).
+
+    Ist das erwartete lokale Bild (lokal) bekannt, zaehlt nur ein direkter Bildvergleich - so faellt auch ein
+    veraltetes Komposit mit altem Titel auf (Fall SAzJwxfnLwE). Ohne lokales Bild bleibt die aeltere Heuristik
+    (durchgezogene Banderole ueber die ganze Bildhoehe, _laengster_banderole_lauf). Rueckgabe None nur, wenn das
+    CDN gerade nicht erreichbar ist (kein Urteil); 404 heisst eindeutig "kein eigenes Bild" -> False.
+
+    url: optional die versionierte Bild-URL aus dem Shorts-Regal (sardefault.jpg?sqp=…, siehe shorts_regal_lesen).
+    Wird ein schon vorhandenes eigenes Bild ERSETZT, liefert die nackte CDN-URL bis zu 2 h das alte Bild aus dem
+    Edge-Cache (Befund ZkkmGOjf68w 19.10.2026: Age 1996 s, altes Bild), waehrend das Regal die neue, versionierte
+    URL verlinkt - die zaehlt dann."""
     import io
     import urllib.error
     import urllib.request
 
     from PIL import Image
 
-    url = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+    url = url or f"https://i.ytimg.com/vi/{video_id}/sardefault.jpg"
     try:
-        with urllib.request.urlopen(url, timeout=20) as r:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=20) as r:
             daten = r.read()
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            log(f"Thumbnail-Live-Pruefung {video_id}: kein eigenes Bild gesetzt (sardefault.jpg 404)")
+            return False
+        log(f"Thumbnail-Live-Pruefung {video_id}: sardefault.jpg nicht abrufbar (HTTP {e.code})")
+        return None
     except (urllib.error.URLError, OSError) as e:
-        log(f"Thumbnail-Live-Pruefung {video_id}: hqdefault.jpg nicht abrufbar ({e})")
+        log(f"Thumbnail-Live-Pruefung {video_id}: sardefault.jpg nicht abrufbar ({e})")
         return None
     try:
         bild = Image.open(io.BytesIO(daten)).convert("RGB")
     except Exception as e:   # noqa: BLE001 - defektes/leeres Bild zaehlt als "jetzt nicht pruefbar"
         log(f"Thumbnail-Live-Pruefung {video_id}: Bild nicht lesbar ({e})")
         return None
+    if bild.width < 300:   # YouTubes 120x90-Platzhalter = kein eigenes Bild
+        log(f"Thumbnail-Live-Pruefung {video_id}: nur Platzhalter {bild.size}, kein eigenes Bild")
+        return False
+    if lokal is not None and Path(lokal).exists():
+        try:
+            gleich = _bilder_stimmen_ueberein(bild, Image.open(lokal))
+        except Exception as e:   # noqa: BLE001
+            log(f"Thumbnail-Live-Pruefung {video_id}: lokales Bild nicht lesbar ({e})")
+            gleich = None
+        if gleich is not None:
+            log(f"Thumbnail-Live-Pruefung {video_id}: "
+                f"{'komponiertes Bild live (Bildvergleich)' if gleich else 'live ein ANDERES Bild als erwartet'}")
+            return gleich
     bester_lauf, beste_y = _laengster_banderole_lauf(bild)
     sichtbar = bester_lauf >= BANDEROLE_MIN_LAUF
     log(f"Thumbnail-Live-Pruefung {video_id}: "
@@ -450,17 +545,19 @@ def _thumbnail_live_sichtbar(video_id: str, log=print) -> bool | None:
 
 
 def _laengster_banderole_lauf(bild) -> tuple[int, int | None]:
-    """Sucht ueber das GANZE Bild (nicht nur einen Punkt) zeilenweise den laengsten zusammenhaengenden Lauf an
-    Pixeln in Banderole-Farbe (hell, deutlich mehr Rot als Blau) - weil die Banderole-Zeile je nach Headline-
-    Laenge unterschiedlich hoch sitzt (siehe _thumbnail_live_sichtbar). Eine Mindestlaufweite statt eines
-    Einzelpixels unterscheidet die durchgezogene Banderole zuverlaessig von einzelnen farbigen Untertitel-
-    Buchstaben im rohen Videoframe, die nie einen so breiten zusammenhaengenden Lauf ergeben."""
+    """Rueckfall-Heuristik ohne lokales Vergleichsbild: sucht ueber das GANZE Bild zeilenweise den laengsten
+    zusammenhaengenden Lauf an Pixeln in Banderole-Farbe (hell, deutlich mehr Rot als Blau) - die Banderole-Zeile
+    sitzt je nach Headline-Laenge unterschiedlich hoch (Befund 18.10.2026). Grosse Bilder werden vorher auf 480 px
+    Breite verkleinert (sardefault.jpg ist 1080x1920, die Pixelschleife waere sonst langsam)."""
+    if bild.width > 480:
+        bild = bild.resize((480, round(bild.height * 480 / bild.width)))
     w, h = bild.size
     bester, beste_y = 0, None
+    px = bild.load()
     for y in range(h):
         lauf = 0
         for x in range(w):
-            r, g, b = bild.getpixel((x, y))
+            r, g, b = px[x, y][:3]
             if r > 150 and r - b > 60:
                 lauf += 1
                 if lauf > bester:
@@ -470,49 +567,114 @@ def _laengster_banderole_lauf(bild) -> tuple[int, int | None]:
     return bester, beste_y
 
 
-def thumbnail_nachtrag(now: datetime | None = None) -> dict:
-    """Pflegt das Thumbnail-Setzen fuer alle Shorts nach, bei denen es (noch) nicht live bestaetigt ist. Zwei
-    getrennte Schritte pro Short: (1) billige, objektive Live-Pruefung direkt am CDN (_thumbnail_live_sichtbar) -
-    bestaetigt sie das komponierte Bild, ist der Short erledigt, ohne dass ueberhaupt ein Studio/Playwright-
-    Aufruf noetig war; (2) ist es noch nicht sichtbar, wird hoechstens alle THUMBNAIL_STUDIO_WIEDERHOLEN_MIN
-    erneut bei Studio hochgeladen (nie oefter als THUMBNAIL_VERSUCHE_MAX). Wird stuendlich von der Weltlage-
-    Wache aufgerufen (jarvis/tools/weltlage_wache.py), genau wie takt() selbst - idempotent, darf beliebig oft
-    auf denselben Short angewendet werden.
+REGAL_BILD = re.compile(r"i\.ytimg\.com/vi/([A-Za-z0-9_-]{11})/(sardefault|oardefault|oar\d)\.jpg")
+REGAL_BILD_URL = re.compile(r"https://i\.ytimg\.com/vi/([A-Za-z0-9_-]{11})/sardefault\.jpg\?sqp=[^\"\\s]+")
 
-    Befund 16.10.2026 (Task 20261016-103819-3966 hatte das Feld 'thumbnail' fälschlich schon nach dem ersten
-    fehlerfreien Playwright-Aufruf auf True gesetzt, siehe _thumbnail_live_sichtbar-Docstring): 'thumbnail' ist
-    jetzt ausschliesslich die LIVE-bestaetigte Wahrheit, nie mehr nur "Studio hat ohne Fehler gespeichert".
 
-    Befund 18.10.2026 (Marlons Meldung ueber den wiederkehrenden Fehler): bis hierhin blieb ein Short, der
-    THUMBNAIL_VERSUCHE_MAX erreicht hatte und trotzdem nie live bestaetigt wurde, STILL stecken - die Funktion
-    pruefte ihn zwar stuendlich weiter (billige Live-Pruefung), meldete das aber nirgends, darum fiel der
-    eigentliche Fehlerfall (Studio meldet Erfolg, das Bild aendert sich aber nie) erst auf, als Marlon es von
-    Hand bemerkte. 'haengt' listet jetzt genau diese erschoepften, weiterhin nicht sichtbaren Videos - die
-    Weltlage-Wache (jarvis/tools/weltlage_wache.py) meldet sie als Warnung, bis ein Mensch nachschaut."""
+def shorts_regal_auswerten(html: str, urls: dict | None = None) -> dict[str, str]:
+    """Liest aus dem HTML der Kanal-Shorts-Seite (ytInitialData), welches Bild das Shorts-Regal je Video zeigt:
+    'sardefault' = eigenes gesetztes Bild, 'oar1'/'oar2'/'oar3'/'oardefault' = automatisch gewaehlter Videoframe.
+    frame0.jpg (Poster des Players, immer der erste Videoframe) zaehlt bewusst nicht. urls (optional, wird
+    gefuellt): je Video die versionierte sardefault-URL (…?sqp=…) des Regals - umgeht den CDN-Edge-Cache der
+    nackten URL, siehe _thumbnail_live_sichtbar."""
+    regal: dict[str, str] = {}
+    for vid, art in REGAL_BILD.findall(html or ""):
+        if art == "sardefault" or vid not in regal:
+            regal[vid] = art
+    if urls is not None:
+        for m in REGAL_BILD_URL.finditer(html or ""):
+            urls.setdefault(m.group(1), m.group(0).replace("\u0026", "&"))
+    return regal
+
+
+def shorts_regal_lesen(kanal_id: str | None = None, log=print, urls: dict | None = None) -> dict[str, str] | None:
+    """Holt das echte Shorts-Regal der Kanalseite (das, was Marlon sieht) und gibt {video_id: Bildart} zurueck,
+    siehe shorts_regal_auswerten. None, wenn die Seite nicht abrufbar ist. Nur die vordersten Shorts stehen im
+    ersten Seitenabruf (rund 20-30, reicht fuer die Nachkontrolle der letzten Tage)."""
+    import urllib.error
+    import urllib.request
+
+    kanal_id = kanal_id or NEWS_YOUTUBE_CHANNEL_ID
+    if not kanal_id:
+        return None
+    url = f"https://www.youtube.com/channel/{kanal_id}/shorts"
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0", "Accept-Language": "de-CH,de;q=0.9",
+                                               "Cookie": "CONSENT=YES+1; SOCS=CAI"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            html = r.read().decode("utf-8", "replace")
+    except (urllib.error.URLError, OSError) as e:
+        log(f"Shorts-Regal nicht abrufbar ({e})")
+        return None
+    return shorts_regal_auswerten(html, urls)
+
+
+def thumbnail_nachtrag(now: datetime | None = None, regal: dict[str, str] | None = None) -> dict:
+    """Pflegt das Thumbnail-Setzen fuer alle Shorts nach, bei denen es (noch) nicht live bestaetigt ist. Pro
+    Short: (1) billige, objektive Live-Pruefung am CDN-Bild sardefault.jpg per Bildvergleich mit dem erwarteten
+    Komposit (_thumbnail_live_sichtbar) - stimmt es, ist der Short erledigt, ohne Studio/Playwright; (2) sonst
+    hoechstens alle THUMBNAIL_STUDIO_WIEDERHOLEN_MIN erneut bei Studio setzen (nie mehr als
+    THUMBNAIL_VERSUCHE_MAX echte Studio-Laeufe). Stuendlich von der Weltlage-Wache aufgerufen, idempotent.
+
+    'thumbnail' im Verlauf ist ausschliesslich die LIVE-bestaetigte Wahrheit (Befund 16.10.2026). 'haengt'
+    listet erschoepfte, weiterhin nicht sichtbare Videos (Befund 18.10.2026).
+
+    Seit 19.10.2026 (Task 20261019-193153-93d4): (a) gezaehlt werden nur echte Studio-Laeufe (versucht=True),
+    nicht z.B. eine belegte Profil-Sperre; (b) nach einem von Studio bestaetigten Speichern wird das CDN gleich
+    nachgeprueft (gemessen: Bild in unter einer Minute da), statt eine Stunde zu warten; (c) zusaetzlich wird das
+    echte Shorts-Regal der Kanalseite gelesen ('regal'): zeigt es fuer einen Short aelter als
+    THUMBNAIL_REGAL_WARN_MIN noch einen automatischen Videoframe (oarN) statt des eigenen Bilds, landet er in
+    'regal_ohne_bild' (Wache meldet) - und ein frueher bestaetigter Short, der dort wieder ohne eigenes Bild
+    steht, wird auf unbestaetigt zurueckgesetzt und automatisch neu gesetzt."""
+    import time as _time
     now = now or datetime.now().astimezone()
     verlauf = _lesen(VERLAUF_PFAD, {"hochgeladen": [], "erledigte_slots": []})
     ergebnisse = []
     haengt = []
+    regal_ohne_bild = []
     geaendert = False
+    studio_laeufe = 0
+    regal_urls: dict[str, str] = {}
+    if regal is None:
+        regal = shorts_regal_lesen(urls=regal_urls)
     for eintrag in verlauf.get("hochgeladen", []):
-        if (eintrag.get("thumbnail") is True or eintrag.get("geloescht") or not eintrag.get("oeffentlich_bestaetigt")
-                or not eintrag.get("video_id")):
+        if eintrag.get("geloescht") or not eintrag.get("oeffentlich_bestaetigt") or not eintrag.get("video_id"):
             continue
         try:
             alter_min = (now - datetime.fromisoformat(eintrag["zeit"])).total_seconds() / 60
         except (KeyError, ValueError):
             continue
+        vid = eintrag["video_id"]
+        im_regal = (regal or {}).get(vid)
+        if im_regal and im_regal != "sardefault":
+            if alter_min >= THUMBNAIL_REGAL_WARN_MIN:
+                regal_ohne_bild.append({"video_id": vid, "titel": eintrag.get("titel"), "regal": im_regal,
+                                        "versuche": eintrag.get("thumbnail_versuche") or 0})
+            if eintrag.get("thumbnail") is True:
+                # frueher bestaetigt, jetzt im Regal ohne eigenes Bild -> Selbstheilung statt stiller Rueckfall
+                eintrag["thumbnail"] = False
+                eintrag["thumbnail_versuche"] = 0
+                eintrag["thumbnail_letzter_versuch"] = None
+                eintrag["thumbnail_rueckfall"] = now.isoformat(timespec="seconds")
+                geaendert = True
+                ergebnisse.append({"video_id": vid, "regal_rueckfall": im_regal})
+        if eintrag.get("thumbnail") is True:
+            continue
         if alter_min < THUMBNAIL_NACHTRAG_WARTE_MIN:
             continue
-        live = _thumbnail_live_sichtbar(eintrag["video_id"])
+        ordner, mp4 = eintrag.get("ordner"), eintrag.get("mp4")
+        meta = _lesen(Path(ordner) / "shorts" / f"{eintrag['szene_id']}.json", None) if ordner else None
+        erwartet = (_thumbnail_bild_bereitstellen(eintrag["szene_id"], eintrag.get("titel"), ordner, meta)
+                    if ordner else None)
+        live = _thumbnail_live_sichtbar(vid, lokal=erwartet, url=regal_urls.get(vid))
         if live:
             eintrag["thumbnail"] = True
-            ergebnisse.append({"video_id": eintrag["video_id"], "live_bestaetigt": True})
+            ergebnisse.append({"video_id": vid, "live_bestaetigt": True})
             geaendert = True
             continue
         versuche = eintrag.get("thumbnail_versuche") or 0
         if versuche >= THUMBNAIL_VERSUCHE_MAX:
-            haengt.append({"video_id": eintrag["video_id"], "titel": eintrag.get("titel"), "versuche": versuche})
+            haengt.append({"video_id": vid, "titel": eintrag.get("titel"), "versuche": versuche})
             continue
         letzter = eintrag.get("thumbnail_letzter_versuch")
         zu_frueh = False
@@ -524,19 +686,35 @@ def thumbnail_nachtrag(now: datetime | None = None) -> dict:
                 zu_frueh = False
         if zu_frueh:
             continue
-        ordner, mp4 = eintrag.get("ordner"), eintrag.get("mp4")
         if not ordner or not mp4 or not Path(mp4).exists():
             continue
-        meta = _lesen(Path(ordner) / "shorts" / f"{eintrag['szene_id']}.json", None)
-        ok = _thumbnail_setzen_versucht(eintrag["video_id"], Path(mp4), meta)
-        eintrag["thumbnail_versuche"] = versuche + 1
-        eintrag["thumbnail_letzter_versuch"] = now.isoformat(timespec="seconds")
-        ergebnisse.append({"video_id": eintrag["video_id"], "versuch": versuche + 1, "studio_gesetzt": ok,
-                           "live_bestaetigt": False})
-        geaendert = True
+        if studio_laeufe >= THUMBNAIL_STUDIO_MAX_PRO_LAUF:
+            ergebnisse.append({"video_id": vid, "verschoben": "Studio-Budget dieses Laufs erschoepft"})
+            continue
+        studio_laeufe += 1
+        res = _thumbnail_setzen_versucht(vid, Path(mp4), meta, titel=eintrag.get("titel"), ordner=ordner,
+                                         szene_id=eintrag["szene_id"])
+        if not isinstance(res, dict):   # aeltere Test-Doubles liefern bool
+            res = {"versucht": True, "gespeichert": bool(res), "studio_bestaetigt": None}
+        erg = {"video_id": vid, "versuch": versuche + (1 if res.get("versucht") else 0),
+               "studio_gesetzt": bool(res.get("gespeichert")), "studio_bestaetigt": res.get("studio_bestaetigt"),
+               "live_bestaetigt": False}
+        if res.get("hinweis"):
+            erg["hinweis"] = res["hinweis"]
+        if res.get("versucht"):
+            eintrag["thumbnail_versuche"] = versuche + 1
+            eintrag["thumbnail_letzter_versuch"] = now.isoformat(timespec="seconds")
+            geaendert = True
+            if res.get("gespeichert") and res.get("studio_bestaetigt"):
+                _time.sleep(THUMBNAIL_CDN_NACHWARTEN_S)
+                if _thumbnail_live_sichtbar(vid, lokal=res.get("bild")):
+                    eintrag["thumbnail"] = True
+                    erg["live_bestaetigt"] = True
+        ergebnisse.append(erg)
     if geaendert:
         _schreiben(VERLAUF_PFAD, verlauf)
-    return {"versucht": len(ergebnisse), "ergebnisse": ergebnisse, "haengt": haengt}
+    return {"versucht": len(ergebnisse), "ergebnisse": ergebnisse, "haengt": haengt,
+            "regal_gelesen": regal is not None, "regal_ohne_bild": regal_ohne_bild}
 
 
 def status_text() -> str:

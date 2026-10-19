@@ -1023,10 +1023,62 @@ def set_metadata(video_id: str, title: str | None = None, description: str | Non
             context.close()
 
 
-def set_thumbnail(video_id: str, thumb_path: str, debug_dir: str | None = None) -> None:
-    """Sets the custom thumbnail of an already-published video via Studio's edit page (the
-    video exists already, unlike run() which uploads a new one). Reuses the same signed-in
-    profile. debug_dir, if given, gets a screenshot after each step for troubleshooting."""
+THUMB_UPLOAD_WARTEN_S = 90      # Studio laedt die Thumbnail-Datei sofort nach der Auswahl hoch ("Wird hochgeladen…")
+THUMB_SPEICHERN_WARTEN_S = 90   # bis Studios eigentlicher Speicher-Request (metadata_update) beantwortet ist
+_THUMB_UPLOAD_LAEUFT = re.compile(r"wird hochgeladen|uploading", re.I)
+_THUMB_SPEICHER_REQUEST = re.compile(r"/youtubei/v1/video_manager/metadata_update")
+# Studio zeigt im Thumbnail-Editor nach dem Neuladen entweder die drei automatischen Videoframes
+# (i9.ytimg.com/vi_webp/<id>/sd1|sd2|sd3.webp) oder, sobald ein eigenes Bild gesetzt ist, genau dieses eine Bild
+# (i9.ytimg.com/vi/<id>/sddefault.jpg?v=<version>) - daran laesst sich das Ergebnis ohne Klick ablesen.
+_THUMB_EIGENES_BILD = re.compile(r"ytimg\.com/vi/([A-Za-z0-9_-]{11})/[a-z]*default\.jpg\?v=", re.I)
+
+_JS_THUMB_ZUSTAND = """() => {
+  const save = document.querySelector('ytcp-button#save');
+  const editor = document.querySelector('ytcp-video-thumbnail-editor');
+  const imgs = Array.from(document.querySelectorAll('ytcp-video-thumbnail-editor img, ytcp-thumbnail-uploader img'))
+      .map(i => (i.src || '').slice(0, 200));
+  return {save_disabled: save ? save.hasAttribute('disabled') : null,
+          editor_text: editor ? editor.innerText.replace(/\\s+/g, ' ').slice(0, 300) : '',
+          imgs: imgs};
+}"""
+
+
+def _thumb_zustand(page) -> dict:
+    try:
+        return page.evaluate(_JS_THUMB_ZUSTAND) or {}
+    except Exception:   # noqa: BLE001 - Zustand ist Diagnose, nie Abbruchgrund
+        return {}
+
+
+def _thumb_eigenes_bild_sichtbar(zustand: dict, video_id: str) -> bool:
+    """True, wenn Studios Thumbnail-Editor das EIGENE Bild (sddefault.jpg?v=…) dieses Videos zeigt statt der
+    automatischen Frame-Vorschlaege (vi_webp/…/sdN.webp)."""
+    for src in zustand.get("imgs") or []:
+        m = _THUMB_EIGENES_BILD.search(src)
+        if m and m.group(1) == video_id:
+            return True
+    return False
+
+
+def set_thumbnail(video_id: str, thumb_path: str, debug_dir: str | None = None) -> dict:
+    """Setzt das eigene Thumbnail eines bereits veroeffentlichten Videos ueber Studios Bearbeiten-Seite (auch fuer
+    Shorts: das hier gesetzte Bild ist genau die Datei, die YouTube im Shorts-Regal der Kanalseite als
+    `sardefault.jpg` zeigt, Befund 19.10.2026 per ytInitialData der echten Kanal-Shorts-Seite).
+
+    Befund 19.10.2026 (Task 20261019-193153-93d4, vierter Anlauf "Shorts ohne Thumbnail"): die alte Fassung
+    wartete nach dem Speichern-Klick fest 3 s und schloss dann den Browser. Studio schickt den eigentlichen
+    Speicher-Request (youtubei/v1/video_manager/metadata_update) aber erst NACH einer Kette von Attestierungs-
+    Aufrufen (att/get, att/esr, security/get_web_reauth_url, ars/grst) - gemessen 6,4 s nach dem Klick. Je nach
+    Tagesform von Studio/Netz lag die Kette unter oder ueber 3 s, darum "funktionierte" das Setzen scheinbar
+    zufaellig (am 19.10. viermal hintereinander nicht, mit identischem "Erfolg" im Log). Dazu wurde der
+    Speichern-Knopf teils geklickt, waehrend die Datei noch hochlud ("Wird hochgeladen…").
+
+    Jetzt deterministisch: (1) warten, bis der Datei-Upload im Editor beendet ist und der Speichern-Knopf aktiv
+    wird; (2) Speichern klicken und auf die Antwort des metadata_update-Requests warten (zusaetzlich bis der
+    Knopf wieder inaktiv ist); (3) Seite neu laden und ablesen, ob Studio jetzt das eigene Bild zeigt. Rueckgabe
+    {"gespeichert": bool (Speicher-Request beantwortet), "studio_bestaetigt": bool|None (nach Neuladen sichtbar),
+    "dauer_s", "hinweis"} - Aufrufer entscheiden damit selbst, statt einem fehlerfreien Klick zu vertrauen.
+    debug_dir bekommt pro Schritt einen Screenshot."""
     from pathlib import Path
     from playwright.sync_api import sync_playwright
 
@@ -1034,6 +1086,10 @@ def set_thumbnail(video_id: str, thumb_path: str, debug_dir: str | None = None) 
     if not thumb_path.exists():
         raise FileNotFoundError(thumb_path)
     shots = Path(debug_dir) if debug_dir else None
+    if shots:
+        shots.mkdir(parents=True, exist_ok=True)
+    start = time.time()
+    ergebnis = {"gespeichert": False, "studio_bestaetigt": None, "hinweis": "", "dauer_s": 0.0}
 
     with sync_playwright() as p:
         context = _launch(p, headless=NEWS_PLAYWRIGHT_HEADLESS)
@@ -1044,17 +1100,60 @@ def set_thumbnail(video_id: str, thumb_path: str, debug_dir: str | None = None) 
             if shots:
                 page.screenshot(path=str(shots / "01_edit_page.png"))
             page.set_input_files("#file-loader", str(thumb_path))
-            page.wait_for_timeout(3000)
+            # (1) Datei-Upload im Editor abwarten
+            ende = time.time() + THUMB_UPLOAD_WARTEN_S
+            zustand = {}
+            while time.time() < ende:
+                page.wait_for_timeout(1000)
+                zustand = _thumb_zustand(page)
+                laeuft = bool(_THUMB_UPLOAD_LAEUFT.search(zustand.get("editor_text") or ""))
+                if not laeuft and zustand.get("save_disabled") is False:
+                    break
+            else:
+                ergebnis["hinweis"] = "Thumbnail-Upload im Editor nicht fertig geworden"
+                if shots:
+                    page.screenshot(path=str(shots / "02_upload_haengt.png"), full_page=True)
+                return ergebnis
             if shots:
                 page.screenshot(path=str(shots / "02_after_file_set.png"), full_page=True)
+            # (2) Speichern und den eigentlichen Speicher-Request abwarten
             save = page.locator("ytcp-button#save").first
             save.wait_for(state="visible")
-            save.click()
-            page.wait_for_timeout(3000)
+            try:
+                with page.expect_response(lambda r: bool(_THUMB_SPEICHER_REQUEST.search(r.url)),
+                                          timeout=THUMB_SPEICHERN_WARTEN_S * 1000) as antwort:
+                    save.click()
+                status = antwort.value.status
+                ergebnis["gespeichert"] = status == 200
+                if status != 200:
+                    ergebnis["hinweis"] = f"metadata_update antwortete HTTP {status}"
+            except Exception as e:   # noqa: BLE001 - Timeout o.ae.: kein Speicher-Request gesehen
+                ergebnis["hinweis"] = f"kein Speicher-Request innerhalb {THUMB_SPEICHERN_WARTEN_S}s ({type(e).__name__})"
+            ende = time.time() + 30
+            while time.time() < ende:
+                if _thumb_zustand(page).get("save_disabled"):
+                    break
+                page.wait_for_timeout(1000)
             if shots:
                 page.screenshot(path=str(shots / "03_after_save.png"), full_page=True)
+            # (3) Neu laden und ablesen, was Studio jetzt wirklich zeigt
+            try:
+                page.wait_for_timeout(2000)
+                page.reload(wait_until="domcontentloaded")
+                page.wait_for_selector("#file-loader", state="attached", timeout=60_000)
+                page.wait_for_timeout(4000)
+                zustand = _thumb_zustand(page)
+                ergebnis["studio_bestaetigt"] = _thumb_eigenes_bild_sichtbar(zustand, video_id)
+                if shots:
+                    page.screenshot(path=str(shots / "04_after_reload.png"), full_page=True)
+            except Exception as e:   # noqa: BLE001 - Rueckkontrolle fehlgeschlagen = unbekannt, nicht "nein"
+                ergebnis["studio_bestaetigt"] = None
+                ergebnis["hinweis"] = (ergebnis["hinweis"] + f"; Rueckkontrolle fehlgeschlagen ({type(e).__name__})").strip("; ")
         finally:
             context.close()
+    ergebnis["dauer_s"] = round(time.time() - start, 1)
+    logger.info("set_thumbnail %s: %s", video_id, ergebnis)
+    return ergebnis
 
 
 if __name__ == "__main__":

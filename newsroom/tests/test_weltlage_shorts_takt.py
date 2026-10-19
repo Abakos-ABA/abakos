@@ -23,7 +23,8 @@ NOW = datetime(2026, 10, 14, 8, 17).astimezone()
 
 
 class ThumbnailLiveSichtbarTest(unittest.TestCase):
-    """_thumbnail_live_sichtbar prueft OHNE Playwright/Studio direkt am oeffentlichen hqdefault.jpg-CDN-Bild,
+    """_thumbnail_live_sichtbar prueft OHNE Playwright/Studio direkt am oeffentlichen CDN-Bild (seit 19.10.2026
+    sardefault.jpg = das Bild des Shorts-Regals, vorher hqdefault.jpg; Rueckfall-Heuristik ohne lokales Bild),
     ob das komponierte Thumbnail (durchgezogene Banderole, Erkennung ueber die ganze Bildhoehe) wirklich sichtbar
     ist - der eigentliche Beweis-Schritt, der am 16.10.2026 fehlte (ein fehlerfreier Studio-Speichern-Klick allein
     war keiner, siehe Docstring der Funktion).
@@ -93,9 +94,9 @@ class ShortsTaktTest(unittest.TestCase):
         fake_ent = types.ModuleType("weltlage_entscheid")
         fake_ent.mitteilen = lambda titel, text, log=None: self.gemeldet.append(text)
 
-        def _thumb(video_id, mp4, meta=None, log=print):
+        def _thumb(video_id, mp4, meta=None, log=print, **kw):
             self.thumbnail_aufrufe.append((video_id, mp4, meta))
-            return thumbnail if thumbnail is not None else False
+            return {"versucht": True, "gespeichert": bool(thumbnail), "studio_bestaetigt": None}
 
         for p in (mock.patch.object(takt_mod, "QUEUE_PFAD", tmp / "q.json"),
                   mock.patch.object(takt_mod, "VERLAUF_PFAD", tmp / "v.json"),
@@ -249,9 +250,9 @@ class NachtragTaktTest(unittest.TestCase):
         fake_ent = types.ModuleType("weltlage_entscheid")
         fake_ent.mitteilen = lambda titel, text, log=None: self.gemeldet.append(text)
 
-        def _thumb(video_id, mp4, meta=None, log=print):
+        def _thumb(video_id, mp4, meta=None, log=print, **kw):
             self.thumbnail_aufrufe.append((video_id, mp4, meta))
-            return thumbnail if thumbnail is not None else False
+            return {"versucht": True, "gespeichert": bool(thumbnail), "studio_bestaetigt": None}
 
         for p in (mock.patch.object(takt_mod, "NACHTRAG_PFAD", tmp / "n.json"),
                   mock.patch.object(takt_mod, "VERLAUF_PFAD", tmp / "v.json"),
@@ -346,26 +347,30 @@ class ThumbnailNachtragTest(unittest.TestCase):
     Videoqualitaeten vermutlich noch), und selbst ein fehlerfreier Studio-Speichern-Klick ist kein Beweis
     fuer Live-Sichtbarkeit (Befund 16.10.2026, zweite Haelfte desselben Tasks)."""
 
-    def _setup(self, eintraege, ergebnis_folge=None, live_folge=None):
+    def _setup(self, eintraege, ergebnis_folge=None, live_folge=None, regal=None):
         tmp = Path(tempfile.mkdtemp())
         self.versuche = []
         self.live_pruefungen = []
 
-        def _thumb(video_id, mp4, meta=None, log=print):
+        def _thumb(video_id, mp4, meta=None, log=print, **kw):
             self.versuche.append(video_id)
             if ergebnis_folge is None:
                 return True
             return ergebnis_folge.pop(0)
 
-        def _live(video_id, log=print):
+        def _live(video_id, lokal=None, log=print, url=None):
             self.live_pruefungen.append(video_id)
             if live_folge is None:
                 return False
             return live_folge.pop(0)
 
+        self.regal = regal if regal is not None else {}
         for p in (mock.patch.object(takt_mod, "VERLAUF_PFAD", tmp / "v.json"),
                   mock.patch.object(takt_mod, "_thumbnail_setzen_versucht", _thumb),
-                  mock.patch.object(takt_mod, "_thumbnail_live_sichtbar", _live)):
+                  mock.patch.object(takt_mod, "_thumbnail_live_sichtbar", _live),
+                  mock.patch.object(takt_mod, "_thumbnail_bild_bereitstellen", lambda *a, **k: None),
+                  mock.patch.object(takt_mod, "shorts_regal_lesen", lambda *a, **k: self.regal),
+                  mock.patch.object(takt_mod, "THUMBNAIL_CDN_NACHWARTEN_S", 0)):
             p.start()
             self.addCleanup(p.stop)
         ordner = tmp / "folge"
@@ -493,46 +498,347 @@ class ThumbnailNachtragTest(unittest.TestCase):
         erg = takt_mod.thumbnail_nachtrag(now)
         self.assertEqual(erg["haengt"], [])
 
+    # ---- seit 19.10.2026 (Task 20261019-193153-93d4): echte Studio-Laeufe zaehlen, Sofort-Nachpruefung, Regal
+    def test_nicht_erreichter_studio_lauf_zaehlt_nicht_als_versuch(self):
+        """Eine belegte Profil-Sperre o.ae. (versucht=False) darf das Versuchs-Budget nicht aufbrauchen - genau so
+        liefen frueher Shorts in 'haengt', ohne dass Studio je erreicht wurde."""
+        from datetime import timedelta
+        now = NOW
+        alt = (now - timedelta(minutes=30)).isoformat(timespec="seconds")
+        self._setup([{"video_id": "v1", "oeffentlich_bestaetigt": True, "thumbnail": False,
+                      "thumbnail_versuche": 2, "zeit": alt}], live_folge=[False],
+                    ergebnis_folge=[{"versucht": False, "gespeichert": False, "studio_bestaetigt": None,
+                                     "hinweis": "Studio-Profil belegt"}])
+        erg = takt_mod.thumbnail_nachtrag(now)
+        v = json.loads(takt_mod.VERLAUF_PFAD.read_text(encoding="utf-8"))
+        self.assertEqual(v["hochgeladen"][0]["thumbnail_versuche"], 2)
+        self.assertIsNone(v["hochgeladen"][0].get("thumbnail_letzter_versuch"))
+        self.assertEqual(erg["ergebnisse"][0]["hinweis"], "Studio-Profil belegt")
+
+    def test_studio_bestaetigt_wird_sofort_live_nachgeprueft(self):
+        """Befund 19.10.2026: nach einem von Studio bestaetigten Speichern ist das Bild in unter einer Minute am
+        CDN - der Nachtrag prueft darum gleich nach statt eine Stunde zu warten."""
+        from datetime import timedelta
+        now = NOW
+        alt = (now - timedelta(minutes=30)).isoformat(timespec="seconds")
+        self._setup([{"video_id": "v1", "oeffentlich_bestaetigt": True, "thumbnail": False,
+                      "thumbnail_versuche": 0, "zeit": alt}], live_folge=[False, True],
+                    ergebnis_folge=[{"versucht": True, "gespeichert": True, "studio_bestaetigt": True,
+                                     "bild": "x.jpg"}])
+        erg = takt_mod.thumbnail_nachtrag(now)
+        self.assertEqual(self.live_pruefungen, ["v1", "v1"])
+        v = json.loads(takt_mod.VERLAUF_PFAD.read_text(encoding="utf-8"))
+        self.assertIs(v["hochgeladen"][0]["thumbnail"], True)
+        self.assertEqual(v["hochgeladen"][0]["thumbnail_versuche"], 1)
+        self.assertTrue(erg["ergebnisse"][0]["live_bestaetigt"])
+
+    def test_studio_gespeichert_aber_nicht_bestaetigt_bleibt_offen(self):
+        from datetime import timedelta
+        now = NOW
+        alt = (now - timedelta(minutes=30)).isoformat(timespec="seconds")
+        self._setup([{"video_id": "v1", "oeffentlich_bestaetigt": True, "thumbnail": False,
+                      "thumbnail_versuche": 0, "zeit": alt}], live_folge=[False],
+                    ergebnis_folge=[{"versucht": True, "gespeichert": True, "studio_bestaetigt": False}])
+        takt_mod.thumbnail_nachtrag(now)
+        self.assertEqual(self.live_pruefungen, ["v1"])   # keine Sofort-Nachpruefung ohne Studio-Bestaetigung
+        v = json.loads(takt_mod.VERLAUF_PFAD.read_text(encoding="utf-8"))
+        self.assertIs(v["hochgeladen"][0]["thumbnail"], False)
+        self.assertEqual(v["hochgeladen"][0]["thumbnail_versuche"], 1)
+
+    def test_studio_laeufe_pro_aufruf_begrenzt(self):
+        """Vorfall 19.10.2026: fuenf Studio-Laeufe am Stueck (je 2-3 min) liefen in den 20-min-Timeout der Wache -
+        der Rest wird auf den naechsten Stundenlauf verschoben statt alles zu verlieren."""
+        from datetime import timedelta
+        now = NOW
+        alt = (now - timedelta(minutes=30)).isoformat(timespec="seconds")
+        eintraege = [{"video_id": f"v{i}", "oeffentlich_bestaetigt": True, "thumbnail": False,
+                      "thumbnail_versuche": 0, "zeit": alt} for i in range(6)]
+        self._setup(eintraege, live_folge=[False] * 6)
+        erg = takt_mod.thumbnail_nachtrag(now)
+        self.assertEqual(self.versuche, [f"v{i}" for i in range(takt_mod.THUMBNAIL_STUDIO_MAX_PRO_LAUF)])
+        verschoben = [e for e in erg["ergebnisse"] if e.get("verschoben")]
+        self.assertEqual(len(verschoben), 6 - takt_mod.THUMBNAIL_STUDIO_MAX_PRO_LAUF)
+
+    def test_regal_ohne_eigenes_bild_wird_gemeldet(self):
+        """Das echte Shorts-Regal der Kanalseite (das, was Marlon sieht) zeigt oar1/oar2/oar3 = automatischer
+        Videoframe statt sardefault = eigenes Bild -> nach THUMBNAIL_REGAL_WARN_MIN eine Meldung."""
+        from datetime import timedelta
+        now = NOW
+        alt = (now - timedelta(hours=3)).isoformat(timespec="seconds")
+        self._setup([{"video_id": "v1", "titel": "Ohne Bild", "oeffentlich_bestaetigt": True, "thumbnail": False,
+                      "thumbnail_versuche": 1, "zeit": alt,
+                      "thumbnail_letzter_versuch": (now - timedelta(minutes=10)).isoformat(timespec="seconds")}],
+                    live_folge=[False], regal={"v1": "oar2"})
+        erg = takt_mod.thumbnail_nachtrag(now)
+        self.assertTrue(erg["regal_gelesen"])
+        self.assertEqual(erg["regal_ohne_bild"], [{"video_id": "v1", "titel": "Ohne Bild", "regal": "oar2",
+                                                   "versuche": 1}])
+
+    def test_regal_frisch_hochgeladen_noch_keine_meldung(self):
+        from datetime import timedelta
+        now = NOW
+        alt = (now - timedelta(minutes=30)).isoformat(timespec="seconds")
+        self._setup([{"video_id": "v1", "oeffentlich_bestaetigt": True, "thumbnail": False,
+                      "thumbnail_versuche": 1, "zeit": alt,
+                      "thumbnail_letzter_versuch": (now - timedelta(minutes=10)).isoformat(timespec="seconds")}],
+                    live_folge=[False], regal={"v1": "oar1"})
+        erg = takt_mod.thumbnail_nachtrag(now)
+        self.assertEqual(erg["regal_ohne_bild"], [])
+
+    def test_regal_rueckfall_setzt_bestaetigten_short_zurueck(self):
+        """Ein frueher bestaetigter Short, der im Regal wieder ohne eigenes Bild steht, wird auf unbestaetigt
+        zurueckgesetzt und im selben Lauf neu gesetzt - statt still fuer immer 'thumbnail: true' zu bleiben."""
+        from datetime import timedelta
+        now = NOW
+        alt = (now - timedelta(hours=5)).isoformat(timespec="seconds")
+        self._setup([{"video_id": "v1", "titel": "Rueckfall", "oeffentlich_bestaetigt": True, "thumbnail": True,
+                      "thumbnail_versuche": 6, "zeit": alt}], live_folge=[False], regal={"v1": "oar3"})
+        erg = takt_mod.thumbnail_nachtrag(now)
+        v = json.loads(takt_mod.VERLAUF_PFAD.read_text(encoding="utf-8"))
+        self.assertIs(v["hochgeladen"][0]["thumbnail"], False)
+        self.assertEqual(self.versuche, ["v1"])   # Budget zurueckgesetzt, gleich neu gesetzt
+        self.assertEqual(v["hochgeladen"][0]["thumbnail_versuche"], 1)
+        self.assertIn({"video_id": "v1", "regal_rueckfall": "oar3"}, erg["ergebnisse"])
+        self.assertEqual(erg["regal_ohne_bild"][0]["video_id"], "v1")
+
+    def test_regal_mit_eigenem_bild_aendert_nichts(self):
+        from datetime import timedelta
+        now = NOW
+        alt = (now - timedelta(hours=5)).isoformat(timespec="seconds")
+        self._setup([{"video_id": "v1", "oeffentlich_bestaetigt": True, "thumbnail": True,
+                      "thumbnail_versuche": 1, "zeit": alt}], regal={"v1": "sardefault"})
+        erg = takt_mod.thumbnail_nachtrag(now)
+        self.assertEqual(erg["versucht"], 0)
+        self.assertEqual(erg["regal_ohne_bild"], [])
+
+    def test_regal_nicht_abrufbar_ist_kein_fehler(self):
+        from datetime import timedelta
+        now = NOW
+        alt = (now - timedelta(hours=5)).isoformat(timespec="seconds")
+        self._setup([{"video_id": "v1", "oeffentlich_bestaetigt": True, "thumbnail": True,
+                      "thumbnail_versuche": 1, "zeit": alt}])
+        self.regal = None
+        erg = takt_mod.thumbnail_nachtrag(now)
+        self.assertFalse(erg["regal_gelesen"])
+        self.assertEqual(erg["regal_ohne_bild"], [])
+
 
 class ThumbnailSetzenVersucht(unittest.TestCase):
-    """15.10.2026 (Marlons Auftrag, analog zum Jarvis-KI-Kanal-Fund): das eigene, komponierte Thumbnail aus
-    meta['thumbnail'] hat Vorrang vor dem alten ffmpeg-Standbild-Grab."""
+    """15.10.2026: das eigene, komponierte Thumbnail. Seit 19.10.2026 (Task 20261019-193153-93d4): nie mehr
+    Rueckfall auf einen rohen Videoframe (so wurden bei ZkkmGOjf68w sechs Versuche mit dem falschen Bild
+    verbraucht), Rueckgabe ist ein Dict mit dem echten Studio-Ergebnis (versucht/gespeichert/studio_bestaetigt)."""
 
-    def _mit_set_thumbnail(self, fake_set):
+    def _mit_set_thumbnail(self, fake_set, bild=None):
         tmp = Path(tempfile.mkdtemp())
         fake_up = types.ModuleType("upload.youtube_playwright")
         fake_up.set_thumbnail = fake_set
-        p = mock.patch.dict(sys.modules, {"upload.youtube_playwright": fake_up})
-        p.start()
-        self.addCleanup(p.stop)
+        for p in (mock.patch.dict(sys.modules, {"upload.youtube_playwright": fake_up}),
+                  mock.patch.object(takt_mod, "_thumbnail_bild_bereitstellen", lambda *a, **k: bild)):
+            p.start()
+            self.addCleanup(p.stop)
         return tmp
 
-    def test_bevorzugt_eigenes_komponiertes_thumbnail(self):
-        tmp = self._mit_set_thumbnail(lambda vid, pfad: self.gesetzt.append((vid, pfad)))
+    def test_setzt_komponiertes_bild_und_gibt_studio_ergebnis_zurueck(self):
         self.gesetzt = []
-        eigenes = tmp / "eigenes_thumb.jpg"
-        eigenes.write_bytes(b"x")
-        mp4 = tmp / "short.mp4"
-        mp4.write_bytes(b"x")
-        with mock.patch.object(takt_mod, "_thumbnail_aus_titelkarte") as grab:
-            ok = takt_mod._thumbnail_setzen_versucht("vid1", mp4, {"thumbnail": str(eigenes)})
-        self.assertTrue(ok)
-        grab.assert_not_called()   # kein ffmpeg-Grab noetig, eigenes Bild war schon da
-        self.assertEqual(self.gesetzt, [("vid1", str(eigenes))])
-        self.assertTrue(eigenes.exists())   # eigenes Thumbnail wird NICHT geloescht (gehoert zum Short-Ordner)
+        tmp = Path(tempfile.mkdtemp())
+        bild = tmp / "short_thumb.jpg"
+        bild.write_bytes(b"x")
+        self._mit_set_thumbnail(lambda vid, pfad: (self.gesetzt.append((vid, pfad)) or
+                                                   {"gespeichert": True, "studio_bestaetigt": True, "hinweis": ""}),
+                                bild=bild)
+        res = takt_mod._thumbnail_setzen_versucht("vid1", tmp / "short.mp4", {"title": "T"}, titel="T")
+        self.assertEqual(self.gesetzt, [("vid1", str(bild))])
+        self.assertEqual((res["versucht"], res["gespeichert"], res["studio_bestaetigt"]), (True, True, True))
+        self.assertTrue(bild.exists())   # eigenes Thumbnail wird NICHT geloescht (gehoert zum Short-Ordner)
 
-    def test_faellt_auf_ffmpeg_grab_zurueck_wenn_kein_eigenes_thumbnail(self):
-        tmp = self._mit_set_thumbnail(lambda vid, pfad: self.gesetzt.append((vid, pfad)))
+    def test_ohne_komponiertes_bild_kein_studio_aufruf(self):
+        """Kein Videoframe-Rueckfall mehr: ohne Komposit wird Studio gar nicht erst bemueht."""
         self.gesetzt = []
-        mp4 = tmp / "short.mp4"
-        mp4.write_bytes(b"x")
-        grab_bild = tmp / "short_thumb.jpg"
-        grab_bild.write_bytes(b"x")
-        with mock.patch.object(takt_mod, "_thumbnail_aus_titelkarte", return_value=grab_bild) as grab:
-            ok = takt_mod._thumbnail_setzen_versucht("vid2", mp4, {"title": "ohne Thumbnail-Feld"})
-        self.assertTrue(ok)
-        grab.assert_called_once()
-        self.assertFalse(grab_bild.exists())   # Rueckfall-Standbild ist nur ein Zwischending, wird aufgeraeumt
+        self._mit_set_thumbnail(lambda vid, pfad: self.gesetzt.append((vid, pfad)), bild=None)
+        res = takt_mod._thumbnail_setzen_versucht("vid2", Path("x.mp4"), {"title": "ohne"})
+        self.assertFalse(res["versucht"])
+        self.assertEqual(self.gesetzt, [])
+
+    def test_studio_fehler_zaehlt_nicht_als_versuch(self):
+        tmp = Path(tempfile.mkdtemp())
+        bild = tmp / "short_thumb.jpg"
+        bild.write_bytes(b"x")
+
+        def _wirft(vid, pfad):
+            raise RuntimeError("Studio-Profil seit 30 min von PID 1 belegt")
+        self._mit_set_thumbnail(_wirft, bild=bild)
+        res = takt_mod._thumbnail_setzen_versucht("vid3", tmp / "short.mp4", {"title": "T"})
+        self.assertFalse(res["versucht"])
+        self.assertIn("belegt", res["hinweis"])
+
+    def test_alte_set_thumbnail_fassung_ohne_rueckgabe(self):
+        tmp = Path(tempfile.mkdtemp())
+        bild = tmp / "short_thumb.jpg"
+        bild.write_bytes(b"x")
+        self._mit_set_thumbnail(lambda vid, pfad: None, bild=bild)
+        res = takt_mod._thumbnail_setzen_versucht("vid4", tmp / "short.mp4", {"title": "T"})
+        self.assertEqual((res["versucht"], res["gespeichert"], res["studio_bestaetigt"]), (True, True, None))
+
+
+class ThumbnailBildBereitstellenTest(unittest.TestCase):
+    """_thumbnail_bild_bereitstellen rendert das Komposit passend zum AKTUELLEN Titel (Sidecar merkt sich den
+    Titel) - Befund 19.10.2026: ZkkmGOjf68w hatte gar kein Komposit (Short von vor dem 15.10.), der Nachtrag
+    lud darum sechsmal einen rohen Videoframe hoch."""
+
+    def _mit_fuer_short(self):
+        self.gerendert = []
+        fake = types.ModuleType("tools.weltlage_shorts_thumbnail")
+
+        def fuer_short(meta, out, ordner=None, merken=True):
+            self.gerendert.append((meta.get("title"), Path(out)))
+            Path(out).parent.mkdir(parents=True, exist_ok=True)
+            Path(out).write_bytes(b"jpg")
+            return Path(out)
+        fake.fuer_short = fuer_short
+        p = mock.patch.dict(sys.modules, {"tools.weltlage_shorts_thumbnail": fake})
+        p.start()
+        self.addCleanup(p.stop)
+        tmp = Path(tempfile.mkdtemp())
+        (tmp / "shorts").mkdir()
+        return tmp
+
+    def test_fehlendes_bild_wird_gerendert_und_sidecar_geschrieben(self):
+        ordner = self._mit_fuer_short()
+        bild = takt_mod._thumbnail_bild_bereitstellen("short_1_a", "Titel A", ordner, {"title": "alt"},
+                                                      log=lambda *a: None)
+        self.assertEqual(bild, ordner / "shorts" / "short_1_a_thumb.jpg")
+        self.assertEqual(self.gerendert, [("Titel A", bild)])
+        sidecar = json.loads((ordner / "shorts" / "short_1_a_thumb.json").read_text(encoding="utf-8"))
+        self.assertEqual(sidecar["titel"], "Titel A")
+
+    def test_passender_sidecar_rendert_nicht_erneut(self):
+        ordner = self._mit_fuer_short()
+        takt_mod._thumbnail_bild_bereitstellen("short_1_a", "Titel A", ordner, None, log=lambda *a: None)
+        takt_mod._thumbnail_bild_bereitstellen("short_1_a", "Titel A", ordner, None, log=lambda *a: None)
+        self.assertEqual(len(self.gerendert), 1)
+
+    def test_geaenderter_titel_rendert_neu(self):
+        ordner = self._mit_fuer_short()
+        takt_mod._thumbnail_bild_bereitstellen("short_1_a", "Titel A", ordner, None, log=lambda *a: None)
+        takt_mod._thumbnail_bild_bereitstellen("short_1_a", "Titel B (neu)", ordner, None, log=lambda *a: None)
+        self.assertEqual([t for t, _ in self.gerendert], ["Titel A", "Titel B (neu)"])
+
+    def test_vorhandenes_bild_ohne_sidecar_wird_einmal_neu_gerendert(self):
+        """Bilder aus dem Schnitt vor dem 19.10. haben keinen Sidecar - einmal neu rendern (billig), danach stabil."""
+        ordner = self._mit_fuer_short()
+        (ordner / "shorts" / "short_1_a_thumb.jpg").write_bytes(b"alt")
+        takt_mod._thumbnail_bild_bereitstellen("short_1_a", "Titel A", ordner, {"thumbnail": "irgendwo.jpg"},
+                                               log=lambda *a: None)
+        self.assertEqual(len(self.gerendert), 1)
+
+    def test_render_fehler_liefert_vorhandenes_bild_nie_videoframe(self):
+        ordner = self._mit_fuer_short()
+        alt = ordner / "shorts" / "short_1_a_thumb.jpg"
+        alt.write_bytes(b"alt")
+        fake = sys.modules["tools.weltlage_shorts_thumbnail"]
+
+        def kaputt(*a, **k):
+            raise RuntimeError("Font fehlt")
+        fake.fuer_short = kaputt
+        bild = takt_mod._thumbnail_bild_bereitstellen("short_1_a", "Titel A", ordner, None, log=lambda *a: None)
+        self.assertEqual(bild, alt)
+
+
+class ThumbnailLiveVergleichTest(unittest.TestCase):
+    """Seit 19.10.2026 prueft _thumbnail_live_sichtbar sardefault.jpg (das Bild des Shorts-Regals) und vergleicht
+    direkt mit dem erwarteten lokalen Komposit; 404 heisst eindeutig 'kein eigenes Bild'."""
+
+    def _jpg(self, farbe, groesse=(1080, 1920)):
+        import io
+        from PIL import Image
+        buf = io.BytesIO()
+        Image.new("RGB", groesse, farbe).save(buf, format="JPEG", quality=90)
+        return buf.getvalue()
+
+    def _mock_urlopen(self, daten=None, wirft=None):
+        cm = mock.MagicMock()
+        cm.__enter__.return_value.read.return_value = daten
+        cm.__exit__.return_value = False
+        if wirft:
+            return mock.patch("urllib.request.urlopen", side_effect=wirft)
+        return mock.patch("urllib.request.urlopen", return_value=cm)
+
+    def test_404_heisst_kein_eigenes_bild(self):
+        import urllib.error
+        fehler = urllib.error.HTTPError("u", 404, "Not Found", {}, None)
+        with self._mock_urlopen(wirft=fehler):
+            self.assertIs(takt_mod._thumbnail_live_sichtbar("v1", log=lambda *a: None), False)
+
+    def test_anderer_http_fehler_ist_kein_urteil(self):
+        import urllib.error
+        fehler = urllib.error.HTTPError("u", 503, "busy", {}, None)
+        with self._mock_urlopen(wirft=fehler):
+            self.assertIsNone(takt_mod._thumbnail_live_sichtbar("v1", log=lambda *a: None))
+
+    def test_gleiches_lokales_bild_wird_bestaetigt(self):
+        tmp = Path(tempfile.mkdtemp())
+        lokal = tmp / "thumb.jpg"
+        lokal.write_bytes(self._jpg((120, 20, 30)))
+        with self._mock_urlopen(self._jpg((121, 21, 31))):   # YouTube-Neukodierung: minimal anders
+            self.assertIs(takt_mod._thumbnail_live_sichtbar("v1", lokal=lokal, log=lambda *a: None), True)
+
+    def test_anderes_lokales_bild_wird_abgelehnt(self):
+        tmp = Path(tempfile.mkdtemp())
+        lokal = tmp / "thumb.jpg"
+        lokal.write_bytes(self._jpg((120, 20, 30)))
+        with self._mock_urlopen(self._jpg((20, 40, 70))):
+            self.assertIs(takt_mod._thumbnail_live_sichtbar("v1", lokal=lokal, log=lambda *a: None), False)
+
+    def test_platzhalter_zaehlt_nicht(self):
+        with self._mock_urlopen(self._jpg((200, 200, 200), groesse=(120, 90))):
+            self.assertIs(takt_mod._thumbnail_live_sichtbar("v1", log=lambda *a: None), False)
+
+    def test_versionierte_regal_url_hat_vorrang(self):
+        """Befund ZkkmGOjf68w 19.10.2026: die nackte CDN-URL lieferte 33 min nach dem Ersetzen noch das alte Bild
+        (Edge-Cache, max-age 7200), das Regal verlinkte schon die neue versionierte URL (?sqp=…)."""
+        gesehen = []
+
+        def fake(req, timeout=0):
+            gesehen.append(req.full_url)
+            raise OSError("offline")
+        with mock.patch("urllib.request.urlopen", side_effect=fake):
+            takt_mod._thumbnail_live_sichtbar("abcdefghijk", log=lambda *a: None,
+                                              url="https://i.ytimg.com/vi/abcdefghijk/sardefault.jpg?sqp=XYZ")
+        self.assertEqual(gesehen, ["https://i.ytimg.com/vi/abcdefghijk/sardefault.jpg?sqp=XYZ"])
+
+    def test_url_ist_sardefault(self):
+        gesehen = []
+
+        def fake(req, timeout=0):
+            gesehen.append(req.full_url)
+            raise OSError("offline")
+        with mock.patch("urllib.request.urlopen", side_effect=fake):
+            takt_mod._thumbnail_live_sichtbar("abcdefghijk", log=lambda *a: None)
+        self.assertEqual(gesehen, ["https://i.ytimg.com/vi/abcdefghijk/sardefault.jpg"])
+
+
+class ShortsRegalAuswertenTest(unittest.TestCase):
+    """shorts_regal_auswerten liest aus der echten Kanal-Shorts-Seite, welches Bild das Regal je Short zeigt."""
+
+    HTML = ('{"url":"https://i.ytimg.com/vi/AAAAAAAAAAA/frame0.jpg"} '
+            '{"url":"https://i.ytimg.com/vi/AAAAAAAAAAA/sardefault.jpg?sqp=x"} '
+            '{"url":"https://i.ytimg.com/vi/BBBBBBBBBBB/frame0.jpg"} '
+            '{"url":"https://i.ytimg.com/vi/BBBBBBBBBBB/oar2.jpg?sqp=y"} '
+            '{"url":"https://i.ytimg.com/vi/BBBBBBBBBBB/oar2.jpg?sqp=z"} '
+            '{"url":"https://i.ytimg.com/vi/CCCCCCCCCCC/frame0.jpg"}')
+
+    def test_eigenes_bild_vs_automatischer_frame(self):
+        regal = takt_mod.shorts_regal_auswerten(self.HTML)
+        self.assertEqual(regal, {"AAAAAAAAAAA": "sardefault", "BBBBBBBBBBB": "oar2"})
+
+    def test_versionierte_urls_werden_mitgeliefert(self):
+        urls = {}
+        takt_mod.shorts_regal_auswerten(self.HTML, urls)
+        self.assertEqual(urls, {"AAAAAAAAAAA": "https://i.ytimg.com/vi/AAAAAAAAAAA/sardefault.jpg?sqp=x"})
+
+    def test_leer(self):
+        self.assertEqual(takt_mod.shorts_regal_auswerten(""), {})
+        self.assertEqual(takt_mod.shorts_regal_auswerten(None), {})
 
 
 if __name__ == "__main__":
