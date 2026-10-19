@@ -29,9 +29,18 @@ def norm(text: str) -> str:
 class AbkuerzungenTest(unittest.TestCase):
     def test_marlons_beispiele_buchstabiert(self):
         out = norm("Das FBI, die CIA, die USA, die EU, die UN, die WHO, die CDU und die AfD.")
-        for soll in ("Eff Beh Ih", "Zeh Ih Ah", "Uh Ess Ah", "Eh Uh", "Uh Enn", "Weh Hah Oh", "Zeh Deh Uh",
+        for soll in ("Eff Bi Ai", "Si Ai Ei", "Uh Ess Ah", "Eh Uh", "Uh Enn", "Weh Hah Oh", "Zeh Deh Uh",
                      "Ah Eff Deh"):
             self.assertIn(soll, out)
+
+    def test_englische_kuerzel_englisch_buchstabiert(self):
+        # Marlons Rueckmeldung 18.10.2026 (Folgeauftrag): FBI/CIA/NSA englisch buchstabiert ("Eff Bi Ai"),
+        # nicht deutsch ("Eff Beh Ih"); andere Kuerzel (NSA selbst eingeschlossen) bleiben in SPELL_OUT_EN.
+        out = norm("Das FBI, die CIA und die NSA ermitteln.")
+        for soll in ("Eff Bi Ai", "Si Ai Ei", "En Es Ei"):
+            self.assertIn(soll, out)
+        for nicht_soll in ("Eff Beh Ih", "Zeh Ih Ah", "Enn Ess Ah"):
+            self.assertNotIn(nicht_soll, out)
 
     def test_als_wort_gesprochene_bleiben(self):
         out = norm("Die NATO und die UNO, die NASA und die OPEC.")
@@ -65,8 +74,17 @@ class ZahlenTest(unittest.TestCase):
         self.assertIn("ein Uhr dreißig", norm("um 1:30 Uhr"))
 
     def test_jahreszahl_wie_ein_sprecher(self):
+        # Marlons Regel (Folgeauftrag Unreal-Studio, 19.10.2026): ab 2000 als "zweitausend..."-Zahlwort, vor 2000
+        # als "neunzehnhundert..."-Zahlwort - beides liefert num2words(..., to="year") bereits korrekt (_jahr()).
         self.assertIn("neunzehnhundertvierundneunzig", norm("seit 1994"))
+        self.assertIn("neunzehnhundertzehn", norm("Das war 1910."))
+        self.assertIn("neunzehnhundertneunundneunzig", norm("von 1999 auf 2000"))
+        self.assertIn("zweitausend", norm("von 1999 auf 2000"))
         self.assertIn("zweitausendsechsundzwanzig", norm("im Jahr 2026"))
+        self.assertIn("zweitausendsechzehn", norm("2016 Franken Schulden"))
+        # Das Intro-Beispiel aus dem Unreal-Studio-Auftrag genau wie gesprochen
+        self.assertEqual("Weltlage kompakt am neunzehnten Oktober zweitausendsechsundzwanzig.",
+                          norm("Weltlage kompakt am 19. Oktober 2026."))
 
     def test_prozent_vorzeichen_spanne(self):
         out = norm("Minus -3,5 % und +2 %, von 2010-2015.")
