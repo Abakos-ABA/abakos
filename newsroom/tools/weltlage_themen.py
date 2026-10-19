@@ -246,7 +246,12 @@ Regeln:
 - Jede Storyline stuetzt sich NUR auf Artikel aus der nummerierten Liste unten (mindestens 3 Artikel, moeglichst aus
   verschiedenen Quellen). Gruppiere die Artikel einer Storyline in 2 bis 4 «meldungen» (jede Meldung = Liste von
   Artikelnummern zu einem Teilaspekt, wichtigste zuerst).
-- titel: zugespitzte Frage auf Deutsch, hoechstens 70 Zeichen, endet mit «?», nennt Person/Land/Ort.
+- titel: GENAU EINE zugespitzte Frage auf Deutsch, hoechstens 65 Zeichen, endet mit «?» - nur dieser eine Frage-Satz,
+  KEIN vorangestellter Doppelpunkt-Teil (kein «X: Y?») und KEIN Plus-Verbund zweier Ereignisse (kein «A + B?»): die
+  Titel-/Thumbnail-Auswertung vom 19.10.2026 (reports/weltlage_titelformel_20261019.md) zeigt diese Zusatzklausel bei
+  Folgen wie Shorts schwaecher (weniger Aufrufe/Tag, mehr Swipe-away). Nennt eine bereits bekannte Person/Institution
+  (z.B. Trump, Putin, Selenskyj, Nato, EU) als Subjekt der Frage, auch wenn eine Nebenfigur das Ereignis ausgeloest
+  hat, und enthaelt ein klares Konfliktverb (droht, eskaliert, stuerzt, greift an, u.ae.).
 - inhalt: genau ein Satz auf Deutsch, was die Folge erzaehlt (konkret, mit dem staerksten Fakt).
 - gruene_quellen: 1 bis 3 passende frei lizenzierte Bildquellen fuer Symbolbilder aus dieser Liste: {gruen}
 - Schweizer Schreibweise (ss statt sz).
@@ -302,7 +307,14 @@ def vorschlagen(ordner: Path, feste: dict | None = None, modell=None, artikel: l
     """Recherche + Storylines. feste = {"titel","inhalt"}: Storyline schon gewaehlt (nur Artikel zuordnen), dann
     kein Wiederholungs-Check (Marlon hat das Thema bewusst selbst bestimmt)."""
     modell = modell or _modell
+    eigene_abfrage = artikel is None
     artikel = artikel if artikel is not None else artikel_liste()
+    if not artikel and eigene_abfrage:
+        # Regulaerer RSS-Sammler laeuft nur, wenn die Pipeline nicht pausiert ist (bot_settings.json);
+        # ohne frische Rohmeldungen hier einmal selbst nachholen, bevor aufgegeben wird.
+        from collector.fetch import fetch_all
+        fetch_all()
+        artikel = artikel_liste()
     if not artikel:
         raise RuntimeError("keine Rohmeldungen der letzten Stunden (Pipeline/RSS laeuft nicht?)")
     pool = pool_laden()
