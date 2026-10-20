@@ -402,11 +402,36 @@ def pruefen(ordner: Path, video: Path) -> dict:
     for label, pfad in fest.items():
         if not (pfad and pfad.exists()) or label not in laenge_im_video:
             continue
+        if label == "Szene Intro":
+            # Das Intro wird pro Folge neu gebaut; massgeblich ist die Laenge, die DIESE Folge tatsaechlich benutzte
+            # (intro_verwendet.json aus dem Rohschnitt). Fehlt der Nachweis, lief die Folge vor der Umstellung auf das
+            # Unreal-Intro (20.10.2026) mit dem alten Globus-Intro: nur Warnung, kein Laengenfehler.
+            nachweis = ordner / "intro_verwendet.json"
+            if not nachweis.exists():
+                warnungen.append("Intro: kein Nachweis intro_verwendet.json - Folge mit altem Globus-Intro (vor 20.10.2026 gebaut)")
+                continue
+            pfad_soll = round(json.loads(nachweis.read_text(encoding="utf-8")).get("laenge", 0), 2)
+            ist = laenge_im_video[label]
+            info["feste_szenen"][label] = {"soll": pfad_soll, "ist": ist}
+            if abs(ist - pfad_soll) > 0.1:
+                fehler.append(f"{label}: {ist:.2f} s im Video, Intro dieser Folge war {pfad_soll:.2f} s (intro_verwendet.json)")
+            continue
         soll, ist = round(dur(pfad), 2), laenge_im_video[label]
         info["feste_szenen"][label] = {"soll": soll, "ist": ist}
         if abs(ist - soll) > 0.1:
             fehler.append(f"{label}: {ist:.2f} s im Video, aktuell eingefroren sind {soll:.2f} s ({pfad.name}) - "
                           f"Render lief vor einer Aenderung an der zugehoerigen aktiv.json, Folge neu rendern")
+    # 4d. Intro = Unreal-Standard-Intro (Marlon 20.10.2026): aktiv.json darf nie wieder auf das alte Globus-Intro
+    #     zeigen (Fehler); Datum/Boersenkurse/Ton des Intros muessen zur Folge passen (Warnung bei Rueckfall).
+    import weltlage_intro
+    try:
+        _fdatum = json.loads((ordner / "texte.json").read_text(encoding="utf-8")).get("datum")
+    except (OSError, ValueError):
+        _fdatum = None
+    ifehler, iwarn = weltlage_intro.pruefen(_fdatum)
+    fehler += ifehler
+    warnungen += iwarn
+    info["intro"] = weltlage_intro.meta_lesen()
     # 4e. Eingefrorene Sprechszenen: Lipsync-Staerke/HD-Stufe beim Bau gegen die aktuellen Einstellungen (4c sieht
     # nur die Laenge, nicht wie die aktive Datei gebaut wurde).
     info["feste_sprechszenen_staerke"] = {}

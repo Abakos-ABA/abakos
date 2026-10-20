@@ -62,7 +62,9 @@ ROOT = Path(__file__).resolve().parents[1]
 BRAND = ROOT / "config" / "brand"
 V6 = BRAND / "szene1_stehend_animation" / "szene1_stehend_v6_neuer_hintergrund.mp4"
 SITZ = BRAND / "studio_bg" / "composite_host_v4_full.mp4"
-INTRO = BRAND / "intro" / json.loads((BRAND / "intro" / "aktiv.json").read_text(encoding="utf-8"))["landscape"]
+# Intro: seit 20.10.2026 IMMER das Unreal-Standard-Intro (tools/weltlage_intro.py baut es pro Folge mit Tageskursen +
+# Datumsansage); das alte Globus-Intro ist abgeloest, aktiv.json zeigt darauf (Abnahme prueft das).
+INTRO = BRAND / "intro" / "weltlage_intro_unreal_standard.mp4"
 LOGO = BRAND / "logo.png"
 _BUMPER_CFG = BRAND / "bumper" / "aktiv.json"
 _bumper = json.loads(_BUMPER_CFG.read_text(encoding="utf-8")).get("landscape") if _BUMPER_CFG.exists() else None
@@ -504,7 +506,21 @@ def main():
         comp = fl.render_scene(pose, wav, start, length, fwork, name, log=lambda m: print(m, flush=True), ort=ort)
         zeiten[name] = round(time.time() - t, 1)
         return comp
-    texte = json.loads((test / "texte.json").read_text(encoding="utf-8"))["szenen"]
+    _texte_roh = json.loads((test / "texte.json").read_text(encoding="utf-8"))
+    if not kurztest and "--ohne-intro-bau" not in sys.argv:
+        # Unreal-Standard-Intro dieser Folge (Tageskurse + Datum) VOR dem Lipsync bauen: der Bau reiht sich selbst
+        # in die GPU-Warteschlange ein und darf keinen Slot von uns halten. Scheitert er, bleibt die letzte gute
+        # Fassung (laut geloggt, Abnahme warnt) - die Folge wird nie blockiert.
+        import weltlage_intro
+        _im = weltlage_intro.vorbereiten(_texte_roh.get("datum") or time.strftime("%Y-%m-%d"),
+                                         log=lambda m: print(m, flush=True))
+        zeiten["intro_bau_ok"] = bool(_im.get("ok"))
+        # Nachweis, WELCHES Intro in dieser Folge steckt (Abnahme: Datum/Laenge; fehlt er = Folge von vor der
+        # Umstellung 20.10.2026 mit altem Globus-Intro, nur Warnung statt Laengenfehler).
+        (test / "intro_verwendet.json").write_text(json.dumps({"datei": INTRO.name, "laenge": round(dur(INTRO), 2),
+                                                               "meta": weltlage_intro.meta_lesen()},
+                                                              indent=2, ensure_ascii=False), encoding="utf-8")
+    texte = _texte_roh["szenen"]
     # Orte pro Szene (optional, texte.json Feld "ort", z.B. "bruessel"; fehlt es oder ist es "studio", bleibt alles
     # wie bisher). Unbekannte Orte brechen hier ab statt mitten im Render.
     from video import orte as orte_mod

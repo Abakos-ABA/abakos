@@ -197,7 +197,7 @@ Handlungen (Reisen, Gipfel, Telefonate, Unterschriften, Entlassungen …), dazwi
 |---|-------|------|-----|--------|
 | 1 | Cold Open | Latara **stehend am Pult** (v6-Freisteller, Lipsync) | Anriss der Top-Meldungen, endet mit «Das alles gleich in Weltlage Kompakt.» | **pro Folge neu** (30.09. abends wieder eingebaut), 0,3 s Überblendung in den Bumper |
 | 1b | Welt-Bumper | Montage A2 (Weltbilder, digitale Übergänge), 4,8 s | eigener Sting | **fest eingebaut** (Marlon 29.09.) |
-| 2 | Intro | bestehender Intro-Sting | Intro-Musik | vorhanden |
+| 2 | Intro | **Unreal-Studio-Intro** mit echtem Börsenticker (SMI, DAX, S&P, Nasdaq, Dow, Gold, Brent, BTC, EUR/CHF, USD/CHF), 12 s | Musikbett + Latara spricht das Folgedatum | **pro Folge neu gebaut, Standard seit 20.10.2026** (`tools/weltlage_intro.py`, ersetzt das Globus-Intro vollständig; Details Jarvis `docs/unreal-studio.md`) |
 | 3 | Reinlaufen/Auftritt | Latara **läuft ins Bild**; ihr letzter Frame = erster Frame der stehenden v6-Pose | kein Text, nur leiser Raumton | **fest eingebaut** (29.09.), unverändert (Marlon 30.09.: «ist gut so») |
 | Begr. | Begrüssung | **stehend am Pult**, gleicher Hintergrund/Platzierung wie v6 | «Willkommen bei Weltlage Kompakt, ich bin Latara. Heute kommen die folgenden Themen.» – zeitlos, kein Datum, keine Themen | **fest eingefroren** (30.09.2026, `config/brand/begruessung/`), in jeder Folge identisch, nie neu gerendert |
 | Wisch | Logo-Wisch | WK-Logo + diagonaler Lichtwisch auf dunklem Studioblau, Stil von Bumper/Intro | kurzer Ton-Swoosh (aus dem aktiven Bumper) | **fest eingefroren** (30.09.2026, `config/brand/uebergang/`), ersetzt den harten Schnitt Begrüssung→Themen, in jeder Folge identisch |
