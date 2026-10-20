@@ -190,21 +190,62 @@ def vorgabe_block(vorgabe: str) -> str:
 
 
 # ------------------------------------------------------------------ LLM
+# Umgebungsvariablen, die die Claude-CLI vom Max-Abo wegsteuern wuerden, bekommt der Kindprozess nicht: ein
+# API-Key oder Proxy-Token (ANTHROPIC_API_KEY/ANTHROPIC_AUTH_TOKEN) wuerde statt des Abo-Logins benutzt und endet
+# in 401/"credit balance", eine fremde Basis-URL zeigt auf einen anderen Dienst, CLAUDECODE markiert einen
+# verschachtelten Lauf. Das Abo-Login (OAuth-Token der CLI) bleibt davon unberuehrt.
+_CLAUDE_ENV_RAUS = ("CLAUDECODE", "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY")
+
+
+def _claude_env() -> dict:
+    return {k: v for k, v in os.environ.items() if k not in _CLAUDE_ENV_RAUS}
+
+
+def _claude_fehler(returncode: int, stdout: str, stderr: str, daten: dict | None) -> str:
+    """Lesbare Ursache (Login abgelaufen, Limit erschoepft, kein Netz) fuer Log und Telegram statt nur 'Fehler'."""
+    teile = []
+    if daten:
+        grund = daten.get("result") or daten.get("error") or daten.get("subtype")
+        if grund:
+            teile.append(str(grund)[:500])
+    stderr = (stderr or "").strip()
+    if stderr:
+        teile.append("stderr: " + stderr[-500:])
+    if not teile and stdout:
+        teile.append("stdout: " + stdout.strip()[-500:])
+    text = " | ".join(teile) or "keine Ausgabe"
+    tipp = ""
+    low = text.lower()
+    if any(w in low for w in ("401", "unauthori", "not logged in", "login", "authentication", "oauth", "token")):
+        tipp = " -> Abo-Login pruefen: claude.exe starten und /login ausfuehren"
+    elif any(w in low for w in ("rate limit", "rate_limit", "usage limit", "429", "overloaded", "limit reached")):
+        tipp = " -> Max-Limit erschoepft, spaeter erneut"
+    elif any(w in low for w in ("enotfound", "econnrefused", "econnreset", "etimedout", "fetch failed", "network")):
+        tipp = " -> Netzwerk/DNS pruefen (api.anthropic.com)"
+    return f"Claude-CLI Fehler (Exit {returncode}): {text}{tipp}"
+
+
 def _claude(prompt: str) -> str:
     cli = NEWS_CLAUDE_CLI
     if not Path(cli).exists():
         raise RuntimeError(f"Claude-CLI nicht gefunden: {cli} (NEWS_CLAUDE_CLI setzen oder NEWS_WELTLAGE_SKRIPT_LLM=ollama)")
-    env = {k: v for k, v in os.environ.items() if k not in ("CLAUDECODE", "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN")}
     cmd = [cli, "-p", "--output-format", "json", "--model", NEWS_WELTLAGE_SKRIPT_MODELL, "--setting-sources", "",
            "--tools", "", "--max-turns", "1"]
-    p = subprocess.run(cmd, input=prompt, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                       timeout=900, env=env, cwd=str(ROOT), creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    try:
+        p = subprocess.run(cmd, input=prompt, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                           timeout=900, env=_claude_env(), cwd=str(ROOT),
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("Claude-CLI Fehler: keine Antwort nach 900 s (haengt die CLI am Login-Browser oder am Netz?)")
+    daten = None
     try:
         daten = json.loads(p.stdout.strip().splitlines()[-1])
     except (IndexError, json.JSONDecodeError):
-        raise RuntimeError(f"Claude-CLI ohne lesbare Antwort: {(p.stderr or p.stdout)[-500:]}")
+        pass
+    if daten is None or not isinstance(daten, dict):
+        raise RuntimeError("Claude-CLI ohne lesbare Antwort: " + _claude_fehler(p.returncode, p.stdout, p.stderr, None))
     if daten.get("is_error") or p.returncode != 0:
-        raise RuntimeError(f"Claude-CLI Fehler: {str(daten.get('result') or daten.get('subtype'))[:500]}")
+        raise RuntimeError(_claude_fehler(p.returncode, p.stdout, p.stderr, daten))
     return daten.get("result") or ""
 
 
