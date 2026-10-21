@@ -843,3 +843,33 @@ class ShortsRegalAuswertenTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class VerwaisterUploadTest(unittest.TestCase):
+    """Befund 21.10.2026: Takt-Prozess mitten im Upload beendet -> Video bei YouTube, nicht im Verlauf, naechster
+    Slot lud dasselbe Short nochmal hoch. _verwaister_upload uebernimmt die Video-ID aus dem Upload-Log."""
+
+    def _log(self, text):
+        d = tempfile.mkdtemp()
+        p = Path(d) / "x_upload.log"
+        p.write_text(text, encoding="utf-8")
+        return p
+
+    def test_juengere_unbekannte_id_wird_uebernommen(self):
+        p = self._log("2026-10-21 06:56:11 Video-ID: ECzVpvXEpoY\n2026-10-21 06:59:18 Studio-Status ECzVpvXEpoY: PUBLIC (Ziel PUBLIC)\n")
+        now = datetime(2026, 10, 21, 8, 5).astimezone()
+        res = takt_mod._verwaister_upload(p, set(), now)
+        self.assertEqual(res["video_id"], "ECzVpvXEpoY")
+        self.assertTrue(res["oeffentlich_bestaetigt"])
+
+    def test_ohne_studio_status_unbestaetigt(self):
+        p = self._log("2026-10-21 06:56:11 Video-ID: ECzVpvXEpoY\n")
+        res = takt_mod._verwaister_upload(p, set(), datetime(2026, 10, 21, 8, 5).astimezone())
+        self.assertFalse(res["oeffentlich_bestaetigt"])
+
+    def test_bekannte_oder_alte_id_wird_ignoriert(self):
+        p = self._log("2026-10-21 06:56:11 Video-ID: ECzVpvXEpoY\n")
+        now = datetime(2026, 10, 21, 8, 5).astimezone()
+        self.assertIsNone(takt_mod._verwaister_upload(p, {"ECzVpvXEpoY"}, now))
+        self.assertIsNone(takt_mod._verwaister_upload(p, set(), datetime(2026, 10, 22, 8, 5).astimezone()))
+        self.assertIsNone(takt_mod._verwaister_upload(Path("fehlt.log"), set(), now))

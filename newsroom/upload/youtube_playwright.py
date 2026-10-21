@@ -737,17 +737,225 @@ def upload_datei(video_path, meta: dict, thumb_path=None, visibility: str = "PUB
     return ergebnis
 
 
+# ------------------------------------------------------------------ Browser-Start und -Ende robust (21.10.2026)
+# Befund 21.10.2026 (Tasks 20261021-103334-7434 fuer den Jarvis-Kanal, 20261021-105909-286b fuer Weltlage-Shorts):
+# seit Edge 155.0.4283.62 (installiert 18.10.2026) beenden sich Edge-Haupt- und Hilfsprozesse nach "Browser.close"
+# nicht sauber, sondern bleiben einige Minuten als Zombies stehen. Folgen: (1) context.close() blockiert, bis der
+# Kernel sie freigibt - Werkzeuge liefen in ihr Zeitlimit, der Weltlage-Shorts-Thumbnail-Nachtrag meldete
+# "nicht gesetzt", obwohl Studio das Bild laengst gespeichert hatte (MnePPAJE0Ug, 11:06 Uhr); (2) ein Zombie haelt
+# <profil>\lockfile noch 1-2 min, der naechste Start scheitert mit "Failed to create a ProcessSingleton ... Lock file
+# can not be created! Error code: 32" oder haengt. Die Datei-Sperre (sperre_holen) schuetzt davor nicht, weil sie
+# nur lebende Python-Aufrufer kennt. Darum hier, fuer ALLE Aufrufer von _launch(): vor dem Start auf ein freies
+# Lockfile warten und bei genau diesem Fehler neu starten; beim Schliessen ein Watchdog, der nach LAUNCH_CLOSE_WARTE_S
+# nur die Browser-Prozesse unter dem EIGENEN Playwright-Treiber beendet (Prozessbaum ueber Eltern-PIDs, nie nach
+# Bildname - Memory browser-automation-kill-vorsicht.md) und nach LAUNCH_CLOSE_TREIBER_S den eigenen Treiber selbst,
+# womit context.close() sofort mit "Connection closed" zurueckkommt (hier geschluckt). Gleiche Logik wie
+# jarvis\tools\yt_close_watchdog.py (Task 7434) fuer den Jarvis-Kanal - bewusst ohne Import ueber die Repo-Grenze.
+LAUNCH_CLOSE_WARTE_S = 20.0      # danach eigene Browser-Prozesse beenden
+LAUNCH_CLOSE_TREIBER_S = 35.0    # danach den eigenen Playwright-Treiber beenden
+LAUNCH_LOCKFILE_WARTEN_S = 180.0  # vor dem Start auf das Profil-Lockfile des Vorgaengers warten
+LAUNCH_VERSUCHE = 3              # Starts bei ProcessSingleton-Fehler
+_BROWSER_NAMEN = ("msedge.exe", "identity_helper.exe", "chrome.exe", "msedgewebview2.exe")
+_TREIBER_NAMEN = ("node.exe",)
+
+
+def _prozessliste() -> list[tuple[int, int, str]]:
+    """(pid, eltern_pid, exe-name) aller Prozesse - Toolhelp32-Schnappschuss, ohne WMI/Kommandozeile (die ist bei
+    Edge-Prozessen oft nicht lesbar) und ohne Unterprozess. Leer auf Nicht-Windows."""
+    if os.name != "nt":
+        return []
+    import ctypes
+    from ctypes import wintypes
+
+    class PE32(ctypes.Structure):
+        _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD), ("th32ProcessID", wintypes.DWORD),
+                    ("th32DefaultHeapID", ctypes.POINTER(ctypes.c_ulong)), ("th32ModuleID", wintypes.DWORD),
+                    ("cntThreads", wintypes.DWORD), ("th32ParentProcessID", wintypes.DWORD),
+                    ("pcPriClassBase", ctypes.c_long), ("dwFlags", wintypes.DWORD), ("szExeFile", ctypes.c_char * 260)]
+    k = ctypes.windll.kernel32
+    k.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    k.Process32First.argtypes = [wintypes.HANDLE, ctypes.POINTER(PE32)]
+    k.Process32Next.argtypes = [wintypes.HANDLE, ctypes.POINTER(PE32)]
+    k.CloseHandle.argtypes = [wintypes.HANDLE]
+    snap = k.CreateToolhelp32Snapshot(0x2, 0)
+    if not snap or snap == wintypes.HANDLE(-1).value:
+        return []
+    out = []
+    try:
+        e = PE32()
+        e.dwSize = ctypes.sizeof(PE32)
+        ok = k.Process32First(snap, ctypes.byref(e))
+        while ok:
+            out.append((int(e.th32ProcessID), int(e.th32ParentProcessID),
+                        e.szExeFile.decode("mbcs", "replace").lower()))
+            ok = k.Process32Next(snap, ctypes.byref(e))
+    finally:
+        k.CloseHandle(snap)
+    return out
+
+
+def _nachkommen(wurzel: int, prozesse: list[tuple[int, int, str]]) -> list[tuple[int, int, str]]:
+    """Alle Prozesse im Baum unter wurzel (ohne wurzel selbst), Eltern vor Kindern."""
+    kinder: dict[int, list] = {}
+    for pid, ppid, name in prozesse:
+        kinder.setdefault(ppid, []).append((pid, ppid, name))
+    out, stapel = [], [wurzel]
+    gesehen = {wurzel}
+    while stapel:
+        for k_ in kinder.get(stapel.pop(0), []):
+            if k_[0] not in gesehen:
+                gesehen.add(k_[0])
+                out.append(k_)
+                stapel.append(k_[0])
+    return out
+
+
+def _prozess_beenden(pid: int) -> bool:
+    """TerminateProcess auf genau diese PID. False, wenn Windows ablehnt (z.B. Zombie) - nie nach Bildname."""
+    if os.name != "nt":
+        try:
+            os.kill(int(pid), 9)
+            return True
+        except OSError:
+            return False
+    import ctypes
+    k = ctypes.windll.kernel32
+    h = k.OpenProcess(0x0001, False, int(pid))    # PROCESS_TERMINATE
+    if not h:
+        return False
+    try:
+        return bool(k.TerminateProcess(h, 1))
+    finally:
+        k.CloseHandle(h)
+
+
+def _eigene_browser_pids(eigene_pid: int | None = None) -> tuple[list[int], list[int]]:
+    """(treiber_pids, browser_pids) unter dem eigenen Python-Prozess: Playwright-Treiber (node.exe) als direkte
+    Kinder, Browser-Prozesse (Edge + Helfer) als deren Nachkommen. Nur dieser Baum darf beendet werden."""
+    eigene_pid = eigene_pid or os.getpid()
+    prozesse = _prozessliste()
+    treiber = [pid for pid, ppid, name in prozesse if ppid == eigene_pid and name in _TREIBER_NAMEN]
+    browser = []
+    for t in treiber:
+        browser += [pid for pid, _, name in _nachkommen(t, prozesse) if name in _BROWSER_NAMEN]
+    return treiber, browser
+
+
+def _lockfile_frei(profil=None) -> bool:
+    """True, wenn Chromiums ProcessSingleton-Datei <profil>\lockfile von keinem Prozess exklusiv offen ist
+    (Probe oeffnet nur zum Anhaengen). Fehlt die Datei: frei."""
+    pfad = Path(profil or PLAYWRIGHT_PROFILE_DIR) / "lockfile"
+    try:
+        with open(pfad, "a"):
+            pass
+        return True
+    except FileNotFoundError:
+        return True
+    except PermissionError:
+        return False
+    except OSError as e:
+        return getattr(e, "winerror", None) not in (32, 33)
+
+
+def _lockfile_frei_abwarten(max_s: float = LAUNCH_LOCKFILE_WARTEN_S, schritt_s: float = 5.0, frei=None,
+                            schlafen=time.sleep, log=None) -> bool:
+    """Wartet bis zu max_s auf ein freies Profil-Lockfile (Edge-Zombie des Vorgaengers im Abbau). True = frei."""
+    frei = frei or _lockfile_frei
+    log = log or logger.info
+    t0 = time.time()
+    gemeldet = False
+    while not frei():
+        if time.time() - t0 >= max_s:
+            log(f"Profil-Lockfile auch nach {max_s:.0f} s belegt (Edge-Zombie?) - starte trotzdem")
+            return False
+        if not gemeldet:
+            log("Profil-Lockfile noch von einem Browser-Prozess belegt (Zombie des Vorgaengers) - warte")
+            gemeldet = True
+        schlafen(schritt_s)
+    if gemeldet:
+        log(f"Profil-Lockfile nach {time.time() - t0:.0f} s frei")
+    return True
+
+
+def _ist_process_singleton_fehler(e: BaseException) -> bool:
+    return "ProcessSingleton" in str(e) or "Lock file can not be created" in str(e)
+
+
+def _close_mit_watchdog(schliessen, beenden_browser=None, beenden_treiber=None,
+                        warte_s: float = LAUNCH_CLOSE_WARTE_S, treiber_s: float = LAUNCH_CLOSE_TREIBER_S,
+                        log=None) -> dict:
+    """Fuehrt schliessen() (context.close) im aufrufenden Thread aus; ein Watchdog-Thread beendet nach warte_s die
+    eigenen Browser-Prozesse und nach treiber_s den eigenen Treiber (nur Betriebssystem-Aufrufe, nie Playwright aus
+    einem fremden Thread). Rueckgabe: {"dauer_s", "browser_beendet", "treiber_beendet", "fehler"}. Ein
+    Verbindungsabbruch nach dem Treiber-Ende ist der beabsichtigte Ausweg und kein Fehler."""
+    import threading
+    log = log or logger.info
+    stand = {"dauer_s": 0.0, "browser_beendet": False, "treiber_beendet": False, "fehler": None}
+    fertig = threading.Event()
+    beenden_browser = beenden_browser or (lambda: [_prozess_beenden(pid) for pid in _eigene_browser_pids()[1]])
+    beenden_treiber = beenden_treiber or (lambda: [_prozess_beenden(pid) for pid in _eigene_browser_pids()[0]])
+
+    def wache():
+        if fertig.wait(warte_s):
+            return
+        log(f"Browser schliesst nach {warte_s:.0f} s nicht (Edge-Zombie?) - beende eigene Browser-Prozesse")
+        try:
+            beenden_browser()
+            stand["browser_beendet"] = True
+        except Exception as e:   # noqa: BLE001
+            log(f"Browser-Prozesse beenden fehlgeschlagen: {e}")
+        if fertig.wait(max(treiber_s - warte_s, 0.1)):
+            return
+        log("immer noch blockiert - beende den eigenen Playwright-Treiber")
+        try:
+            beenden_treiber()
+            stand["treiber_beendet"] = True
+        except Exception as e:   # noqa: BLE001
+            log(f"Treiber beenden fehlgeschlagen: {e}")
+
+    t0 = time.time()
+    w = threading.Thread(target=wache, name="pw-close-watchdog", daemon=True)
+    w.start()
+    try:
+        schliessen()
+    except Exception as e:   # noqa: BLE001 - nach Treiber-Ende erwartet ("Connection closed"), sonst melden
+        if not (stand["treiber_beendet"] or stand["browser_beendet"]):
+            stand["fehler"] = f"{type(e).__name__}: {str(e)[:200]}"
+            log(f"context.close() fehlgeschlagen: {stand['fehler']}")
+    finally:
+        fertig.set()
+        stand["dauer_s"] = round(time.time() - t0, 1)
+    w.join(timeout=2)
+    if stand["browser_beendet"] or stand["treiber_beendet"] or stand["dauer_s"] > warte_s:
+        log(f"Browser geschlossen nach {stand['dauer_s']} s (browser_beendet={stand['browser_beendet']}, "
+            f"treiber_beendet={stand['treiber_beendet']})")
+    return stand
+
+
 def _launch(p, headless: bool):
     """Persistent context on a real installed browser so Google's sign-in accepts it. Holt vorher die Profil-Sperre
-    (sperre_holen) und gibt sie mit context.close() wieder frei."""
+    (sperre_holen) und gibt sie mit context.close() wieder frei. Seit 21.10.2026: wartet auf ein freies Profil-
+    Lockfile, startet bei ProcessSingleton-Fehler bis zu LAUNCH_VERSUCHE-mal neu und schliesst mit Watchdog
+    (_close_mit_watchdog), damit kein Aufrufer mehr an einem Edge-Zombie haengen bleibt."""
     sperre_holen()
     try:
-        context = p.chromium.launch_persistent_context(
-            str(PLAYWRIGHT_PROFILE_DIR), channel=NEWS_PLAYWRIGHT_CHANNEL, headless=headless,
-            locale="en-US",
-            args=["--disable-blink-features=AutomationControlled"],
-            ignore_default_args=["--enable-automation"],
-        )
+        context = None
+        for versuch in range(1, LAUNCH_VERSUCHE + 1):
+            _lockfile_frei_abwarten()
+            try:
+                context = p.chromium.launch_persistent_context(
+                    str(PLAYWRIGHT_PROFILE_DIR), channel=NEWS_PLAYWRIGHT_CHANNEL, headless=headless,
+                    locale="en-US",
+                    args=["--disable-blink-features=AutomationControlled"],
+                    ignore_default_args=["--enable-automation"],
+                )
+                break
+            except Exception as e:   # noqa: BLE001
+                if versuch >= LAUNCH_VERSUCHE or not _ist_process_singleton_fehler(e):
+                    raise
+                logger.warning("Browser-Start %d/%d: Profil noch von einem Edge-Zombie belegt - warte und starte neu",
+                               versuch, LAUNCH_VERSUCHE)
+                time.sleep(10)
     except Exception:
         sperre_freigeben()
         raise
@@ -755,7 +963,12 @@ def _launch(p, headless: bool):
 
     def close(*a, **k):
         try:
-            return schliessen(*a, **k)
+            try:
+                for seite in list(context.pages):
+                    seite.close()
+            except Exception:   # noqa: BLE001 - Seiten schliessen ist nur Beschleunigung
+                pass
+            return _close_mit_watchdog(lambda: schliessen(*a, **k))
         finally:
             sperre_freigeben()
     context.close = close

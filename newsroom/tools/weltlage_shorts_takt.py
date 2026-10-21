@@ -92,15 +92,40 @@ def _thumbnail_bild_bereitstellen(szene_id: str, titel: str | None, ordner, meta
         return eigenes if eigenes is not None and eigenes.exists() else None
 
 
+THUMBNAIL_STUDIO_ANLAEUFE = 2        # Studio-Anlaeufe innerhalb EINES Versuchs (Edge-Zombie, Speicher-Request fehlt)
+THUMBNAIL_ANLAUF_PAUSE_S = 20.0      # Pause zwischen zwei Anlaeufen
+
+
+def _thumbnail_api_setzen(video_id: str, bild, log=print) -> dict | None:
+    """Klickfreier Weg (seit 21.10.2026, Task 20261021-105909-286b): YouTube Data API thumbnails.set ueber
+    upload.youtube_api, sobald die einmalige Einrichtung da ist (secrets/client_secret.json + youtube_token.json,
+    `python -m upload.youtube_api --einrichten`). Braucht keinen Browser, kein Studio-Profil, keine Sperre. None =
+    nicht eingerichtet oder fehlgeschlagen (dann Rueckfall auf Studio, nie ein Abbruch)."""
+    try:
+        from upload import youtube_api
+        if not youtube_api.verfuegbar():
+            return None
+        res = youtube_api.thumbnail_setzen(video_id, str(bild))
+    except Exception as e:   # noqa: BLE001 - Quota, Token abgelaufen, Netz: Studio bleibt der Rueckfall
+        log(f"Thumbnail: {video_id} Data-API fehlgeschlagen ({type(e).__name__}: {str(e)[:160]}) - Rueckfall Studio")
+        return None
+    return {"versucht": True, "gespeichert": True, "studio_bestaetigt": True, "bild": str(bild), "weg": "api",
+            "hinweis": (res or {}).get("hinweis") or "Data API thumbnails.set"}
+
+
 def _thumbnail_setzen_versucht(video_id: str, mp4: Path, meta: dict | None = None, log=print,
                                titel: str | None = None, ordner=None, szene_id: str | None = None) -> dict:
-    """Setzt das komponierte Thumbnail ueber Studio (upload.youtube_playwright.set_thumbnail, seit 19.10.2026
-    deterministisch: wartet Upload und Speicher-Request ab, liest nach Neuladen zurueck) und gibt das Ergebnis
-    als Dict zurueck: versucht (Studio ueberhaupt erreicht), gespeichert (Speicher-Request beantwortet),
-    studio_bestaetigt (Studio zeigt nach Neuladen das eigene Bild; None = nicht pruefbar), bild, hinweis.
+    """Setzt das komponierte Thumbnail und gibt das Ergebnis als Dict zurueck: versucht (Dienst ueberhaupt
+    erreicht), gespeichert (Speichern beantwortet), studio_bestaetigt (nach Neuladen sichtbar; None = nicht
+    pruefbar), bild, weg ("api"|"studio"), hinweis. Reihenfolge seit 21.10.2026: (1) YouTube Data API, wenn
+    eingerichtet (_thumbnail_api_setzen) - kein Browser; (2) sonst Studio ueber upload.youtube_playwright.
+    set_thumbnail (seit 19.10.2026 deterministisch: wartet Upload und Speicher-Request ab, liest nach Neuladen
+    zurueck), bei nicht gespeichertem Ergebnis oder einem Fehler, der nicht die belegte Profil-Sperre ist, bis zu
+    THUMBNAIL_STUDIO_ANLAEUFE Anlaeufe mit Pause - zaehlt beim Aufrufer trotzdem als EIN Versuch.
     Fehlt das Komposit oder weicht sein Titel vom aktuellen ab, wird es vorher neu gerendert
     (_thumbnail_bild_bereitstellen). Wirft nie - z.B. eine belegte Profil-Sperre darf den Takt nicht scheitern
     lassen."""
+    import time as _time
     mp4 = Path(mp4)
     szene_id = szene_id or mp4.stem
     if ordner is None and mp4.parent.name == "shorts":
@@ -109,21 +134,36 @@ def _thumbnail_setzen_versucht(video_id: str, mp4: Path, meta: dict | None = Non
     if bild is None or not Path(bild).exists():
         return {"versucht": False, "gespeichert": False, "studio_bestaetigt": None, "bild": None,
                 "hinweis": "kein komponiertes Thumbnail verfuegbar"}
-    try:
-        from upload.youtube_playwright import set_thumbnail
-        res = set_thumbnail(video_id, str(bild))
-    except Exception as e:   # noqa: BLE001 - z.B. Profil-Sperre belegt, nie den Takt scheitern lassen
-        log(f"Thumbnail: {video_id} nicht gesetzt ({type(e).__name__}: {e})")
-        return {"versucht": False, "gespeichert": False, "studio_bestaetigt": None, "bild": str(bild),
-                "hinweis": f"{type(e).__name__}: {str(e)[:200]}"}
-    if not isinstance(res, dict):   # aeltere/fremde set_thumbnail-Fassung ohne Rueckgabe
-        res = {"gespeichert": True, "studio_bestaetigt": None, "hinweis": "ohne Rueckkontrolle"}
-    out = {"versucht": True, "gespeichert": bool(res.get("gespeichert")),
-           "studio_bestaetigt": res.get("studio_bestaetigt"), "bild": str(bild),
-           "hinweis": res.get("hinweis") or ""}
-    log(f"Thumbnail: {video_id} Studio-Lauf: gespeichert={out['gespeichert']} "
-        f"studio_bestaetigt={out['studio_bestaetigt']} ({Path(bild).name}) {out['hinweis']}".rstrip())
-    return out
+    api = _thumbnail_api_setzen(video_id, bild, log)
+    if api:
+        log(f"Thumbnail: {video_id} per Data API gesetzt ({Path(bild).name})")
+        return api
+    letztes: dict = {"versucht": False, "gespeichert": False, "studio_bestaetigt": None, "bild": str(bild),
+                     "weg": "studio", "hinweis": ""}
+    for anlauf in range(1, THUMBNAIL_STUDIO_ANLAEUFE + 1):
+        try:
+            from upload.youtube_playwright import set_thumbnail
+            res = set_thumbnail(video_id, str(bild))
+        except Exception as e:   # noqa: BLE001 - z.B. Profil-Sperre belegt, nie den Takt scheitern lassen
+            log(f"Thumbnail: {video_id} nicht gesetzt ({type(e).__name__}: {e})")
+            letztes = {"versucht": False, "gespeichert": False, "studio_bestaetigt": None, "bild": str(bild),
+                       "weg": "studio", "hinweis": f"{type(e).__name__}: {str(e)[:200]}"}
+            if "belegt" in str(e) or anlauf >= THUMBNAIL_STUDIO_ANLAEUFE:
+                return letztes   # Sperre schon bis zur Wartegrenze belegt: nicht noch einmal 30 min warten
+            _time.sleep(THUMBNAIL_ANLAUF_PAUSE_S)
+            continue
+        if not isinstance(res, dict):   # aeltere/fremde set_thumbnail-Fassung ohne Rueckgabe
+            res = {"gespeichert": True, "studio_bestaetigt": None, "hinweis": "ohne Rueckkontrolle"}
+        letztes = {"versucht": True, "gespeichert": bool(res.get("gespeichert")),
+                   "studio_bestaetigt": res.get("studio_bestaetigt"), "bild": str(bild), "weg": "studio",
+                   "hinweis": res.get("hinweis") or ""}
+        log(f"Thumbnail: {video_id} Studio-Lauf {anlauf}/{THUMBNAIL_STUDIO_ANLAEUFE}: "
+            f"gespeichert={letztes['gespeichert']} studio_bestaetigt={letztes['studio_bestaetigt']} "
+            f"({Path(bild).name}) {letztes['hinweis']}".rstrip())
+        if letztes["gespeichert"] or anlauf >= THUMBNAIL_STUDIO_ANLAEUFE:
+            return letztes
+        _time.sleep(THUMBNAIL_ANLAUF_PAUSE_S)
+    return letztes
 
 
 def _frage_kommentar_setzen(video_id: str, ordner: str | None, log=print) -> bool:
@@ -233,6 +273,38 @@ def faelliger_slot(now: datetime, verlauf: dict) -> str | None:
     return None
 
 
+VERWAISTER_UPLOAD_MAX_STD = 12
+
+
+def _verwaister_upload(log_pfad: Path, bekannte_ids: set[str], now: datetime) -> dict | None:
+    """Befund 21.10.2026 (Task 20261021-065618-c914): wird der Takt-Prozess mitten im Upload beendet (Worker-
+    Timeout), steht das Video schon bei YouTube (Video-ID im Upload-Log), aber weder Warteschlange noch Verlauf
+    wissen davon - der naechste Slot lud dieselbe Datei ein zweites Mal hoch (Duplikat ECzVpvXEpoY/MnePPAJE0Ug).
+    Liest darum das Upload-Log der Szene: eine juengere Video-ID (< VERWAISTER_UPLOAD_MAX_STD h), die noch nicht im
+    Verlauf steht, wird uebernommen statt neu hochgeladen. Rueckgabe wie upload_datei (video_id,
+    oeffentlich_bestaetigt, studio_status), sonst None."""
+    try:
+        zeilen = Path(log_pfad).read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return None
+    vid, zeit = None, None
+    for i, z in enumerate(zeilen):
+        m = re.match(r"(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d) Video-ID: ([A-Za-z0-9_-]{11})(?![A-Za-z0-9_-])", z)
+        if m:
+            vid, zeit, start = m.group(2), m.group(1), i
+    if not vid or vid in bekannte_ids:
+        return None
+    try:
+        alter_h = (now.replace(tzinfo=None) - datetime.strptime(zeit, "%Y-%m-%d %H:%M:%S")).total_seconds() / 3600
+    except ValueError:
+        return None
+    if alter_h > VERWAISTER_UPLOAD_MAX_STD:
+        return None
+    public = any(f"Studio-Status {vid}: PUBLIC" in z for z in zeilen[start:])
+    return {"video_id": vid, "oeffentlich_bestaetigt": public, "studio_status": "PUBLIC" if public else None,
+            "nachzug_fehler": None if public else "verwaister Upload uebernommen, Studio-Bestaetigung unklar"}
+
+
 def takt(now: datetime | None = None, trocken: bool = False) -> dict:
     now = now or datetime.now().astimezone()
     verlauf = _lesen(VERLAUF_PFAD, {"hochgeladen": [], "erledigte_slots": []})
@@ -257,9 +329,14 @@ def takt(now: datetime | None = None, trocken: bool = False) -> dict:
         _schreiben(QUEUE_PFAD, q)
         return {"faellig": True, "slot": schluessel, "hochgeladen": False,
                 "grund": f"Datei fehlt, verworfen: {mp4}"}
+    log_pfad = Path(eintrag["ordner"]) / "shorts" / f"{eintrag['szene_id']}_upload.log"
+    bekannte = {e.get("video_id") for e in verlauf.get("hochgeladen", [])}
     try:
-        res = upload_datei(mp4, eintrag["meta"], None, visibility="public",
-                           log_path=Path(eintrag["ordner"]) / "shorts" / f"{eintrag['szene_id']}_upload.log")
+        res = _verwaister_upload(log_pfad, bekannte, now)
+        if res is None:
+            res = upload_datei(mp4, eintrag["meta"], None, visibility="public", log_path=log_pfad)
+        else:
+            print(f"Verwaister Upload {res['video_id']} im Log gefunden - uebernommen, kein zweiter Upload")
     except Exception as e:   # noqa: BLE001
         # Datei ist schon bei YouTube (Video-ID bekannt): NIE neu hochladen (Duplikat), sondern als nicht bestaetigt
         # vermerken - die stuendliche Haenger-Nachpruefung (jarvis tools/youtube_haenger.py) zieht ihn nach.
@@ -301,27 +378,34 @@ def takt(now: datetime | None = None, trocken: bool = False) -> dict:
     # darum NIE mehr der rohe Playwright-Rueckgabewert, sondern bleibt False, bis thumbnail_nachtrag() es unten
     # objektiv am CDN bestaetigt hat.
     thumbnail_versucht = bool(bestaetigt and res.get("video_id"))
-    if thumbnail_versucht:
-        _thumbnail_setzen_versucht(res["video_id"], mp4, eintrag.get("meta"), titel=eintrag["meta"].get("title"),
-                                   ordner=eintrag.get("ordner"), szene_id=eintrag["szene_id"])
-    frage_kommentar_ok = None
-    if bestaetigt and res.get("video_id"):
-        frage_kommentar_ok = _frage_kommentar_setzen(res["video_id"], eintrag.get("ordner"))
-    verlauf.setdefault("hochgeladen", []).append({"szene_id": eintrag["szene_id"], "video_id": res.get("video_id"),
-                                                  "zeit": now.isoformat(timespec="seconds"), "key": eintrag["key"],
-                                                  "titel": eintrag["meta"]["title"],
-                                                  "oeffentlich_bestaetigt": bestaetigt,
-                                                  "studio_status": res.get("studio_status"),
-                                                  "fehler": res.get("nachzug_fehler"),
-                                                  "thumbnail": False, "thumbnail_versuche": 1 if thumbnail_versucht else 0,
-                                                  "thumbnail_letzter_versuch":
-                                                      now.isoformat(timespec="seconds") if thumbnail_versucht else None,
-                                                  "frage_kommentar_ok": frage_kommentar_ok,
-                                                  "ordner": eintrag.get("ordner"), "mp4": str(mp4)})
+    # Befund 21.10.2026 (Task 20261021-065618-c914): der Verlaufseintrag wurde erst NACH Thumbnail-Setzen und
+    # Frage-Kommentar (zusammen Minuten) geschrieben. Wurde der Takt-Prozess in dieser Zeit beendet (Worker-
+    # Timeout, Neustart), war der Short live, aber nicht im Verlauf - thumbnail_nachtrag() kennt nur Verlaufs-
+    # eintraege und hat ihn nie geprueft (Pentagon-Short 02OUSEsRRK4 blieb ohne Thumbnail). Darum zuerst den
+    # Eintrag sichern, dann die langsamen Schritte.
+    eintrag_neu = {"szene_id": eintrag["szene_id"], "video_id": res.get("video_id"),
+                   "zeit": now.isoformat(timespec="seconds"), "key": eintrag["key"],
+                   "titel": eintrag["meta"]["title"],
+                   "oeffentlich_bestaetigt": bestaetigt,
+                   "studio_status": res.get("studio_status"),
+                   "fehler": res.get("nachzug_fehler"),
+                   "thumbnail": False, "thumbnail_versuche": 0, "thumbnail_letzter_versuch": None,
+                   "frage_kommentar_ok": None,
+                   "ordner": eintrag.get("ordner"), "mp4": str(mp4)}
+    verlauf.setdefault("hochgeladen", []).append(eintrag_neu)
     verlauf["hochgeladen"] = verlauf["hochgeladen"][-200:]
     verlauf.setdefault("erledigte_slots", []).append(schluessel)
     verlauf["erledigte_slots"] = verlauf["erledigte_slots"][-60:]
     _schreiben(VERLAUF_PFAD, verlauf)
+    if thumbnail_versucht:
+        _thumbnail_setzen_versucht(res["video_id"], mp4, eintrag.get("meta"), titel=eintrag["meta"].get("title"),
+                                   ordner=eintrag.get("ordner"), szene_id=eintrag["szene_id"])
+        eintrag_neu["thumbnail_versuche"] = 1
+        eintrag_neu["thumbnail_letzter_versuch"] = now.isoformat(timespec="seconds")
+        _schreiben(VERLAUF_PFAD, verlauf)
+    if bestaetigt and res.get("video_id"):
+        eintrag_neu["frage_kommentar_ok"] = _frage_kommentar_setzen(res["video_id"], eintrag.get("ordner"))
+        _schreiben(VERLAUF_PFAD, verlauf)
     try:
         import weltlage_entscheid as ent
         wie = ("Short veröffentlicht" if bestaetigt else
@@ -698,7 +782,7 @@ def thumbnail_nachtrag(now: datetime | None = None, regal: dict[str, str] | None
             res = {"versucht": True, "gespeichert": bool(res), "studio_bestaetigt": None}
         erg = {"video_id": vid, "versuch": versuche + (1 if res.get("versucht") else 0),
                "studio_gesetzt": bool(res.get("gespeichert")), "studio_bestaetigt": res.get("studio_bestaetigt"),
-               "live_bestaetigt": False}
+               "live_bestaetigt": False, "weg": res.get("weg")}
         if res.get("hinweis"):
             erg["hinweis"] = res["hinweis"]
         if res.get("versucht"):
@@ -713,8 +797,15 @@ def thumbnail_nachtrag(now: datetime | None = None, regal: dict[str, str] | None
         ergebnisse.append(erg)
     if geaendert:
         _schreiben(VERLAUF_PFAD, verlauf)
+    # Seit 21.10.2026 (Task 20261021-105909-286b): Alarm nur, wenn auch die Reparatur scheitert - ein Short, dessen
+    # Bild in diesem Lauf gesetzt und live bestaetigt wurde, verschwindet aus regal_ohne_bild; 'repariert' nennt
+    # die Wache nur im Tagesbericht.
+    jetzt_live = {e["video_id"] for e in ergebnisse if e.get("live_bestaetigt")}
+    regal_ohne_bild = [h for h in regal_ohne_bild if h["video_id"] not in jetzt_live]
+    repariert = [{"video_id": e["video_id"], "weg": e.get("weg")} for e in ergebnisse
+                 if e.get("live_bestaetigt") and e.get("versuch")]
     return {"versucht": len(ergebnisse), "ergebnisse": ergebnisse, "haengt": haengt,
-            "regal_gelesen": regal is not None, "regal_ohne_bild": regal_ohne_bild}
+            "regal_gelesen": regal is not None, "regal_ohne_bild": regal_ohne_bild, "repariert": repariert}
 
 
 def status_text() -> str:
