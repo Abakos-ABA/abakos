@@ -10,6 +10,12 @@ Ausbau 18.10.2026 (Marlons Rueckmeldung "FBI und weitere Woerter schlecht ausges
 - Buchstabiert wird mit gedehnter Lautschrift ("Eff Beh Ih" statt "Ef Be I"): Chatterbox las die
   kurzen Einzelbuchstaben "I"/"E"/"Be" oft englisch oder verschluckte sie; gemessen mit Whisper-Rueckhoeren
   (jarvis/reports/stimme_aussprache_20261018/messung_abkuerzungen.json).
+- Zweiter Ausbau 18.10.2026 (Hoerprobe alt/neu, Task ad90 Folgeauftrag): FBI klang mit deutschen Buchstabennamen
+  ("Eff Beh Ih") falsch, Marlon will die im Deutschen uebliche englische Aussprache ("Eff Bi Ai"). SPELL_OUT_EN
+  listet die wenigen Kuerzel, die deutsche Sprecher englisch buchstabieren (FBI, CIA, NSA); alles andere in
+  SPELL_OUT (AfD, CDU, EU, USA ...) bleibt deutsch buchstabiert. LETTER_EN enthaelt bewusst nur die dafuer
+  gemessenen Buchstaben, nicht das ganze Alphabet - bei neuen Eintraegen in SPELL_OUT_EN mit Whisper nachmessen
+  statt zu raten (siehe Datei-Kopf-Hinweis oben).
 - Woerter in Grossschrift zur Betonung (WAHL, JETZT, NICHTS) werden als Wort gesprochen statt buchstabiert, wenn sie
   im Wortschatz (config/brand/stimme/wortschatz_de.txt) stehen.
 - Datum (18.10.2026), Uhrzeit (14:30 Uhr), Jahreszahlen (1994 -> neunzehnhundertvierundneunzig), "1 Milliarde"
@@ -21,7 +27,7 @@ import unicodedata
 from functools import lru_cache
 from pathlib import Path
 
-from num2words import num2words
+from tts.zahlen_de import MONATE as _MONATE_Z, _num as zahlen_num, dezimal as zahlen_dezimal, jahr as zahlen_jahr, zahlen_sprechen
 
 WORTSCHATZ_PFAD = Path(__file__).resolve().parent.parent / "config" / "brand" / "stimme" / "wortschatz_de.txt"
 
@@ -33,17 +39,20 @@ SAY_AS_WORD = {"NATO", "UNO", "NASA", "UNESCO", "UNICEF", "OPEC", "FIFA", "UEFA"
                "OPEC+", "ICE", "SIM", "PIN", "ISAF", "AKW", "KITA", "BAFÖG", "HARTZ", "IFO", "DIW", "VDA", "UNHCR",
                "UNRWA", "AUKUS", "QUAD", "NOVA", "ATACMS", "HIMARS", "NASDAQ", "BAFIN", "ZEW"}
 # Acronyms that are ALWAYS spelled out (also when they don't look like one, e.g. mixed case).
-SPELL_OUT = {"AfD", "CSU", "CDU", "SPD", "FDP", "USA", "UN", "EU", "UK", "US", "BBC", "CNN", "FBI", "CIA", "NSA", "IWF",
+# Englische Medien/Behoerden stehen zusaetzlich in SPELL_OUT_EN (geht vor, siehe unten); die Eintraege hier sind der
+# deutsche Altstand fuer Szenen vor KUERZEL_EN_AB.
+SPELL_OUT_ALT_EN = {"CNBC", "AP", "CBS", "NBC", "ABC", "NPR", "AI", "GOP", "CEO", "CFO", "NHS", "MI6", "MI5", "DOJ", "USAID", "FP"}
+SPELL_OUT = {"AfD", "CSU", "CDU", "SPD", "FDP", "USA", "UN", "EU", "UK", "US", "IWF",
              "IMF", "EZB", "ECB", "BND", "KI", "IT", "TV", "PKW", "LKW", "SUV", "GPS", "DNA", "HIV", "WM", "EM", "NGO",
              "ICC", "IStGH", "IGH", "EuGH", "BGH", "BVerfG", "ARD", "ZDF", "RTL", "ÖVP", "FPÖ", "SVP", "DUP", "ANC",
-             "GOP", "MEP", "MP", "PM", "CEO", "CFO", "KP", "ÖRR", "BIP", "GDP", "MI6", "MI5", "IDF", "PKK", "PLO",
-             "WHO", "WTO", "AP", "AFP", "DPA", "SRF", "ORF", "CBS", "NBC", "ABC", "NPR", "CNBC", "DW", "USS", "USB",
+             "MEP", "MP", "PM", "KP", "ÖRR", "BIP", "GDP", "IDF", "PKK", "PLO",
+             "WHO", "WTO", "AFP", "DPA", "SRF", "ORF", "DW", "USS", "USB",
              "RAF", "AAP", "BSW", "SED", "DDR", "BRD", "UdSSR", "SBB", "EDA", "SECO", "SNB", "FINMA", "UBS", "ETH",
              "ESC", "WEF", "IAEA", "IAEO", "ILO", "OAS", "AU", "EWG", "EVP", "SPÖ", "KZ", "SS", "NS", "LGBTQ", "NHS",
              "BKA", "LKA", "BfV", "BAMF", "THW", "DGB", "IG", "VW", "BMW", "AG", "GmbH", "SA", "ÖBB", "EKD", "KPCh",
-             "AKP", "CHP", "HDP", "PiS", "PO", "ANO", "CNA", "AI", "CPU", "GPU", "PC", "SMS", "PR", "HR", "OB", "MdB",
-             "USAID", "DOJ", "DOGE", "IRGC", "RSF", "UAE", "VAE", "EAU", "ID", "PDF", "UKMTO", "BFMTV", "RAC", "AARP",
-             "JD", "FP", "KKM", "GFS", "MS", "SB", "ING", "IRA", "IS-K"}
+             "AKP", "CHP", "HDP", "PiS", "PO", "ANO", "CNA", "CPU", "GPU", "PC", "SMS", "PR", "HR", "OB", "MdB",
+             "DOGE", "IRGC", "RSF", "UAE", "VAE", "EAU", "ID", "PDF", "UKMTO", "BFMTV", "RAC", "AARP",
+             "JD", "KKM", "GFS", "MS", "SB", "ING", "IRA", "IS-K"}
 # Deutsche Buchstabennamen in gedehnter Lautschrift (18.10.2026): "I"/"E"/"A" allein liest Chatterbox oft englisch
 # ("ai", "i") oder kurz verschluckt, "Be" wie engl. "be", "Ce" wie "ke" - die Dehnung mit h macht sie eindeutig.
 LETTER = {"A": "Ah", "B": "Beh", "C": "Zeh", "D": "Deh", "E": "Eh", "F": "Eff", "G": "Geh", "H": "Hah", "I": "Ih",
@@ -54,6 +63,46 @@ LETTER = {"A": "Ah", "B": "Beh", "C": "Zeh", "D": "Deh", "E": "Eh", "F": "Eff", 
 # 18.10.2026 (Whisper medium, 6 Saetze x 2 Seeds): alt "Ef Be I" 27/35 erkannt, "Eff-Beh-Ih" 30/32, "Eff Beh Ih" 31/32 -
 # der Bindestrich zieht Nachbarbuchstaben zu Diphthongen zusammen ("Weh-Hah-Oh" -> "Wehau").
 SPELL_JOIN = " "
+# Kuerzel, die englisch buchstabiert werden (FBI -> "Eff Bi Ai", nicht "Eff Beh Ih"). Regel (Marlon 18./22.10.2026):
+# englische Medien-/Organisationskuerzel englisch, deutsche und EU/UN-Kuerzel deutsch (SPELL_OUT).
+SPELL_OUT_EN_ALT = {"FBI", "CIA", "NSA"}      # Stand bis KUERZEL_EN_AB
+SPELL_OUT_EN = {"FBI", "CIA", "NSA",
+                # 22.10.2026 (Marlon: "CNBC falsch, englische Medien-/Organisationskuerzel englisch"): englischsprachige
+                # Medien, US/UK-Behoerden und Unternehmensbegriffe. Deutsch bleiben EU, UN, USA, US, UK, CDU, AfD ... (SPELL_OUT).
+                "CNBC", "CNN", "BBC", "NBC", "ABC", "CBS", "AP", "NPR", "NYT", "WSJ", "MSNBC", "HBO", "ESPN", "RAC", "AAA",
+                "DOJ", "DHS", "IRS", "TSA", "FAA", "FDA", "CDC", "DEA", "ATF", "NYPD", "LAPD", "GOP", "CEO", "CFO", "COO", "CTO",
+                "NHS", "MI5", "MI6", "USAID", "FP", "AI", "WTI", "SEC", "FCC", "FTC", "OMB"}
+
+KUERZEL_EN_PFAD = Path(__file__).resolve().parent.parent / "config" / "brand" / "stimme" / "kuerzel_en.json"
+
+
+_GELERNT_ZEIT: dict[str, str] = {}
+
+
+def _kuerzel_gelernt() -> set:
+    """Automatisch gelernte englische Kuerzel (tts/kuerzel_lernen.py); fehlt die Datei, ist die Menge leer."""
+    try:
+        import json
+        d = json.loads(KUERZEL_EN_PFAD.read_text(encoding="utf-8"))
+        gesperrt = set(d.get("gesperrt", []))
+        _GELERNT_ZEIT.update({k: str(e.get("zeit", "")) for k, e in d.get("eintraege", {}).items()})
+        return {k for k in d.get("eintraege", {}) if k not in gesperrt}
+    except (OSError, ValueError):
+        return set()
+
+
+# Von Hand gepflegte Liste plus automatisch gelernte Kuerzel (config/brand/stimme/kuerzel_en.json, tts/kuerzel_lernen.py).
+# Deterministisch: die Datei aendert sich nur durch Lernen/Rueckgaengig, nicht pro Aufruf.
+SPELL_OUT_EN |= _kuerzel_gelernt()
+# Szenen, die VOR diesem Zeitpunkt vertont wurden, behalten ihre Tonspur: weltlage_tts.sprechtext_veraltet rechnet fuer
+# sie mit dem alten Stand (ohne_gelernt_ab, tts/aussprache_lexikon.py), sonst wuerde jede laufende Folge neu vertont.
+KUERZEL_EN_AB = "2026-10-22 14:20:00"
+# Englische Buchstabennamen in deutscher Lautschrift. A/B/C/F/I/N/S gemessen mit Whisper-Rueckhoeren 18.10.2026
+# (jarvis/reports/stimme_aussprache_20261018/messung_fbi_cia_englisch.json), der Rest 22.10.2026 per Rueckhoeren
+# der echten Stimme nachgemessen (jarvis/reports/stimme_aussprache_20261022/).
+LETTER_EN = {"A": "Ei", "B": "Bi", "C": "Si", "D": "Di", "E": "Ih", "F": "Eff", "G": "Dschi", "H": "Eitsch", "I": "Ai",
+             "J": "Dschej", "K": "Kei", "L": "El", "M": "Em", "N": "En", "O": "Oh", "P": "Pi", "Q": "Kju", "R": "Ahr",
+             "S": "Es", "T": "Ti", "U": "Ju", "V": "Wi", "W": "Dabbeljuh", "X": "Eks", "Y": "Wai", "Z": "Sed"}
 MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November",
           "Dezember"]
 ABBREVIATIONS = [
@@ -74,23 +123,13 @@ _FREMD = {"ı": "i", "ł": "l", "Ł": "L", "ø": "ö", "Ø": "Ö", "æ": "ä", "
           "ć": "tsch", "Ć": "Tsch", "š": "sch", "Š": "Sch", "ž": "sch", "Ž": "Sch", "ñ": "nj", "œ": "ö", "þ": "th"}
 
 
-def _num(n: float | int, ordinal: bool = False) -> str:
-    try:
-        return num2words(n, lang="de", to="ordinal" if ordinal else "cardinal")
-    except Exception:
-        return str(n)
+_num = zahlen_num
+_jahr = zahlen_jahr
+_decimal = zahlen_dezimal
 
 
-def _jahr(n: int) -> str:
-    """Jahreszahl wie ein Sprecher: 1994 -> neunzehnhundertvierundneunzig, 2026 -> zweitausendsechsundzwanzig."""
-    try:
-        return num2words(n, lang="de", to="year")
-    except Exception:
-        return _num(n)
-
-
-def _spell(token: str) -> str:
-    letters = [LETTER.get(ch.upper(), ch) for ch in token if ch.isalpha()]
+def _spell(token: str, table: dict[str, str] = LETTER) -> str:
+    letters = [table.get(ch.upper(), ch) for ch in token if ch.isalpha()]
     digits = [_num(int(ch)) for ch in token if ch.isdigit()]
     return SPELL_JOIN.join(letters + digits)
 
@@ -111,16 +150,30 @@ def ist_deutsches_wort(token: str) -> bool:
     return len(token) >= 3 and token.lower() in wortschatz()
 
 
+def _alter_stand(core: str) -> bool:
+    """True, wenn gerade fuer eine Szene vor KUERZEL_EN_AB gerechnet wird und `core` damals noch deutsch lief."""
+    from tts import aussprache_lexikon as lex
+    ab = lex._OHNE_GELERNT_AB
+    if not ab or core in SPELL_OUT_EN_ALT:
+        return False
+    return ab < _GELERNT_ZEIT.get(core, KUERZEL_EN_AB)   # gelernte Kuerzel: erst ab Lernzeitpunkt, Handliste: ab KUERZEL_EN_AB
+
+
 def _acronym(match: re.Match) -> str:
     token, hyphen = match.group(1), match.group(2) or ""
     core = token.rstrip("s")                    # "NGOs" -> "NGO" + plural s
     plural = token.endswith("s") and core.isupper() and len(core) >= 2
     if core in SAY_AS_WORD or token in SAY_AS_WORD:
         return token + hyphen
-    if token.isupper() and token not in SPELL_OUT and ist_deutsches_wort(token):
+    if token.isupper() and token not in SPELL_OUT and token not in SPELL_OUT_EN and ist_deutsches_wort(token):
         from tts.aussprache_lexikon import anwenden as _lexikon   # TRUMP -> Trump -> Lexikon-Form
         return _lexikon(token.capitalize()) + hyphen   # Betonung in Grossschrift ("die WAHL") -> als Wort sprechen
-    if core in SPELL_OUT or (core.isupper() and 2 <= len(core) <= 5 and not re.search(r"[AEIOUÄÖÜ]{2}", core)):
+    if core in SPELL_OUT_EN and not _alter_stand(core):
+        spelled = _spell(core, LETTER_EN)
+        if hyphen:
+            return spelled.replace(" ", "-") + "-"
+        return spelled + ("s" if plural else "")
+    if core in SPELL_OUT or core in SPELL_OUT_ALT_EN or (core.isupper() and 2 <= len(core) <= 5 and not re.search(r"[AEIOUÄÖÜ]{2}", core)):
         spelled = _spell(core)
         if hyphen:                              # "US-Angriffe" -> "Uh-Ess-Angriffe" (one compound for the voice)
             return spelled.replace(" ", "-") + "-"
@@ -128,74 +181,9 @@ def _acronym(match: re.Match) -> str:
     return token + hyphen
 
 
-def _datum(m: re.Match) -> str:
-    tag, monat, jahr = int(m.group(1)), int(m.group(2)), m.group(3)
-    if not (1 <= tag <= 31 and 1 <= monat <= 12):
-        return m.group(0)
-    out = f"{_num(tag, ordinal=True)}n {MONATE[monat - 1]}"
-    if jahr:
-        j = int(jahr)
-        out += " " + _jahr(j if len(jahr) == 4 else 2000 + j)
-    return out
-
-
-def _ordinal(m: re.Match) -> str:
-    artikel, zahl = m.group(1), _num(int(m.group(2)), ordinal=True)     # num2words: "zweite"
-    if not artikel:
-        return zahl + "n"
-    endung = "r" if artikel.lower() == "ein" else ""
-    return f"{artikel} {zahl}{endung}"
-
-
 def _numbers(text: str) -> str:
-    # Datum 18.10.2026 / 18.10. -> "achtzehnten Oktober zweitausendsechsundzwanzig"
-    text = re.sub(r"\b(\d{1,2})\.(\d{1,2})\.(\d{4}|\d{2}(?!\d))?", _datum, text)
-    # Uhrzeit 14:30 (Uhr) -> "vierzehn Uhr dreißig", 9:00 Uhr -> "neun Uhr"
-    text = re.sub(r"\b([01]?\d|2[0-3])[:.]([0-5]\d)(\s?Uhr)?\b",
-                  lambda m: (_num(int(m.group(1))) + " Uhr" + ("" if m.group(2) == "00" else " " + _num(int(m.group(2)))))
-                  if (m.group(3) or ":" in m.group(0)) else m.group(0), text)
-    # Spannen 2010-2015 / 10–15 -> "bis"; Saison 2025/26 -> "zweitausendfünfundzwanzig auf sechsundzwanzig"
-    text = re.sub(r"\b(\d+)\s?[–-]\s?(\d+)\b(?!\s?[–-])", r"\1 bis \2", text)
-    text = re.sub(r"\b((?:19|20)\d{2})/(\d{2})\b", r"\1 auf \2", text)
-    # Vorzeichen vor Zahlen: -3,5 % -> minus, +2 % -> plus
-    text = re.sub(r"(?<![\w\d])[−-](?=\d)", "minus ", text)
-    text = re.sub(r"(?<![\w\d])\+(?=\d)", "plus ", text)
-    # 3,5 % / 3.5 % / 12 Prozent
-    text = re.sub(r"(\d+(?:[.,]\d+)?)\s?%", lambda m: _decimal(m.group(1)) + " Prozent", text)
-    # currency: 4,2 Mrd. €  /  $200  /  200 Euro
-    text = re.sub(r"€\s?(\d[\d.,]*\d|\d)", lambda m: _decimal(m.group(1)) + " Euro", text)
-    text = re.sub(r"\$\s?(\d[\d.,]*\d|\d)", lambda m: _decimal(m.group(1)) + " Dollar", text)
-    text = re.sub(r"(\d[\d.,]*)\s?€", lambda m: _decimal(m.group(1)) + " Euro", text)
-    text = re.sub(r"(\d[\d.,]*)\s?\$", lambda m: _decimal(m.group(1)) + " Dollar", text)
-    # ordinals: "am 3." "der 2. Weltkrieg" (a dot directly after a small number, followed by a word)
-    # Endung nach dem Artikel: "der 2. Weltkrieg" -> zweite, "ein 4. Versuch" -> vierter, sonst "am 3." -> dritten
-    text = re.sub(r"\b(?:(der|die|das|eine|ein)\s+)?(\d{1,2})\.(?=\s+[A-ZÄÖÜa-zäöü])", _ordinal, text, flags=re.I)
-    # Jahreszahlen 1100-1999 wie ein Sprecher ("neunzehnhundert..."), nicht "eintausendneunhundert..."
-    text = re.sub(r"(?<![\d.,])(1[1-9]\d{2})(?![\d.,]\d)", lambda m: _jahr(int(m.group(1))), text)
-    # remaining numbers with German thousands dots / decimal commas
-    text = re.sub(r"\d+(?:\.\d{3})+(?:,\d+)?|\d+,\d+|\d+", lambda m: _decimal(m.group(0)), text)
-    # "eins Milliarde/Prozent" -> "eine Milliarde" / "ein Prozent" (num2words kennt nur die Grundzahl)
-    text = re.sub(r"\beins(?=\s+(?:Million|Milliarde|Billion)\b)", "eine", text)
-    text = re.sub(r"\beins(?=\s+[A-ZÄÖÜ])", "ein", text)
-    return text
-
-
-def _decimal(s: str) -> str:
-    s = s.strip()
-    if re.fullmatch(r"\d+(?:\.\d{3})+", s):                      # 800.000
-        return _num(int(s.replace(".", "")))
-    if re.fullmatch(r"\d+(?:\.\d{3})+,\d+", s):                  # 1.234,5
-        whole, frac = s.split(",")
-        return _num(int(whole.replace(".", ""))) + " Komma " + " ".join(_num(int(d)) for d in frac)
-    if re.fullmatch(r"\d+,\d+", s):                              # 3,5
-        whole, frac = s.split(",")
-        return _num(int(whole)) + " Komma " + " ".join(_num(int(d)) for d in frac)
-    if re.fullmatch(r"\d+\.\d+", s):                             # 3.5 (English decimal slipped through)
-        whole, frac = s.split(".")
-        return _num(int(whole)) + " Komma " + " ".join(_num(int(d)) for d in frac)
-    if s.isdigit():
-        return _num(int(s))
-    return s
+    """Zahlen, Daten, Uhrzeiten: eine gemeinsame Funktion fuer alle Ton-Ketten (tts/zahlen_de.py)."""
+    return zahlen_sprechen(text)
 
 
 def fremdzeichen(text: str) -> str:

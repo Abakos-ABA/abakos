@@ -88,14 +88,14 @@ def pruefe(text: str, lexikon: set[str] | None = None) -> dict:
         kern = wort[:-1] if wort.endswith("s") and wort[:-1].isupper() else wort
         if not (kern.isupper() or sum(c.isupper() for c in kern) >= len(kern) - 1):
             continue                                       # CamelCase-Namen (McConnell, OpenAI) sind keine Kuerzel
-        if kern in nd.SAY_AS_WORD or kern in nd.SPELL_OUT or _im_lexikon(wort, lexikon):
+        if kern in nd.SAY_AS_WORD or kern in nd.SPELL_OUT or kern in nd.SPELL_OUT_EN or kern in nd.SPELL_OUT_ALT_EN or _im_lexikon(wort, lexikon):
             continue
         if kern.isupper() and nd.ist_deutsches_wort(kern):
             continue                                       # Betonung in Grossschrift (WAHL) -> als Wort, kein Fall
         gesprochen = nd.normalize_for_tts(wort)
         weise = "buchstabiert" if gesprochen.count(" ") >= len(kern) - 1 >= 1 else "als Wort"
-        melde("abkuerzung_unbekannt", wort, True, f"{weise}: «{gesprochen}» (Liste SAY_AS_WORD/SPELL_OUT in "
-              "tts/normalize_de.py ergänzen, wenn das falsch ist)")
+        melde("abkuerzung_unbekannt", wort, True, f"{weise}: «{gesprochen}» (Liste SAY_AS_WORD/SPELL_OUT/SPELL_OUT_EN "
+              "in tts/normalize_de.py ergänzen, wenn das falsch ist)")
     for m in _FREMD_WORT.finditer(text):
         wort = m.group(0)
         if not _im_lexikon(wort, lexikon):
@@ -134,6 +134,11 @@ def _szenen(ordner: Path) -> list[dict]:
 
 def pruefe_folge(ordner: Path, log=print) -> dict:
     """Alle Szenen einer Folge pruefen, Ergebnis nach <ordner>/aussprache_pruefung.json. Nie fatal."""
+    try:                                       # englische Kuerzel lernen (tts/kuerzel_lernen.py), vor der Pruefung
+        from tts.kuerzel_lernen import lerne_aus_folge
+        lerne_aus_folge(ordner, log=log)
+    except Exception as e:  # noqa: BLE001
+        log(f"Kuerzel-Lernen uebersprungen: {e}")
     lexikon = _lexikon_schluessel()
     szenen = {s["id"]: pruefe(s["text"], lexikon) for s in _szenen(ordner)}
     alle = [dict(x, szene=sid) for sid, e in szenen.items() for x in e["meldungen"]]

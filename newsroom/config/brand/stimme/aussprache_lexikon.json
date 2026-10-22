@@ -277,10 +277,13 @@
    "folge": "weltlage_midterms_2026"
   },
   "CBS News": {
-   "sprich": "Zeh Beh Ess Njuhs",
+   "sprich": "Si Bi Es Njuhs",
    "quelle": "manuell",
    "hinzugefuegt": "2026-10-18",
-   "folge": "weltlage_midterms_2026"
+   "folge": "weltlage_midterms_2026",
+   "vorher": "Zeh Beh Ess Njuhs",
+   "ab": "2026-10-22 14:20:00",
+   "grund": "englische Medienkuerzel englisch (22.10.2026)"
   },
   "All In": {
    "sprich": "Ohl In",
@@ -1183,16 +1186,22 @@
    "grund": "Task ad90 Aussprache-Ausbau"
   },
   "Hegseth": {
-   "sprich": "Hägsess",
+   "sprich": "Hägseth",
    "quelle": "manuell",
-   "hinzugefuegt": "2026-10-18",
-   "grund": "Task ad90 Aussprache-Ausbau"
+   "hinzugefuegt": "2026-10-21",
+   "grund": "Task 19a7: Rueckhoeren Hexess (alt Haegsess) -> Hegsett (neu), Einzeltest"
   },
   "Hegseths": {
-   "sprich": "Häggsässs",
-   "quelle": "llm",
-   "hinzugefuegt": "2026-10-09",
-   "folge": "weltlage_20261010_1100"
+   "sprich": "Hägseths",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-21",
+   "grund": "Task 19a7: wie Hegseth"
+  },
+  "Meerenge": {
+   "sprich": "Meer-enge",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-21",
+   "grund": "Task 19a7: alt Meeren (-enge verschluckt, 7 von 9 Stellen), neu mehr Enge"
   },
   "Nidal Hasan": {
    "sprich": "Nidall Hassan",
@@ -2701,6 +2710,681 @@
    "quelle": "manuell",
    "hinzugefuegt": "2026-10-18",
    "grund": "Task ad90 Aussprache-Ausbau"
+  },
+  "IRNA": {
+   "sprich": "Irna",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-19",
+   "folge": "weltlage_20261019_0000"
+  },
+  "Vanguard": {
+   "sprich": "Wänngard",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-19",
+   "folge": "weltlage_20261019_0000"
+  },
+  "Ali Azmaei": {
+   "sprich": "Ali Asma-i",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-19",
+   "folge": "weltlage_20261019_0000"
+  },
+  "Newsmax": {
+   "sprich": "Njuhsmäcks",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-19",
+   "folge": "weltlage_20261019_0000"
+  },
+  "Mohammad Mossadegh": {
+   "sprich": "Mohammad Mossadek",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-19",
+   "folge": "weltlage_20261019_0000"
+  },
+  "Mike Pompeo": {
+   "sprich": "Maik Pommpio",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-19",
+   "folge": "weltlage_20261019_0000"
+  },
+  "Fordo": {
+   "sprich": "Fordo",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-19",
+   "folge": "weltlage_20261019_0000"
+  },
+  "Isfahan": {
+   "sprich": "Is-fa-han",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-19",
+   "folge": "weltlage_20261019_0000"
+  },
+  "Lindsey-Graham-Gesetz": {
+   "sprich": "Lindsi-Gräm-Gesetz",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-19",
+   "folge": "weltlage_20261019_0000"
+  },
+  "Javier Milei": {
+   "sprich": "Chawjer Mileï",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-19",
+   "folge": "weltlage_20261019_1000"
+  },
+  "Rio de Janeiro": {
+   "sprich": "Rio de Schaneiro",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-19",
+   "folge": "weltlage_20261019_1000"
+  },
+  "Limoges": {
+   "sprich": "Limohsch",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-20",
+   "folge": "weltlage_20261020_0000"
+  },
+  "Bordeaux": {
+   "sprich": "Bordoh",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-20",
+   "folge": "weltlage_20261020_0000"
+  },
+  "Thomas Cazenave": {
+   "sprich": "Tomah Kasnahw",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-20",
+   "folge": "weltlage_20261020_0000"
+  },
+  "Guillaume Guérin": {
+   "sprich": "Gijohm Gerräng",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-20",
+   "folge": "weltlage_20261020_0000"
+  },
+  "Élysée-Palast": {
+   "sprich": "Elisee-Palast",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-20",
+   "folge": "weltlage_20261020_0000"
+  },
+  "Lyon": {
+   "sprich": "Liong",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-20",
+   "folge": "weltlage_20261020_0000"
+  },
+  "Place de la République": {
+   "sprich": "Plass de la Rehpüblick",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-20",
+   "folge": "weltlage_20261020_0000"
+  },
+  "Les Halles": {
+   "sprich": "Lä Al",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-20",
+   "folge": "weltlage_20261020_0000"
+  },
+  "Marseille": {
+   "sprich": "Marssäj",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-20",
+   "folge": "weltlage_20261020_0000"
+  },
+  "Louvre": {
+   "sprich": "Luhwr",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-20",
+   "folge": "weltlage_20261020_0000"
+  },
+  "Société Générale": {
+   "sprich": "Sossjetee Schenerall",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-20",
+   "folge": "weltlage_20261020_0000"
+  },
+  "Jim Reid": {
+   "sprich": "Dschim Riid",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-20",
+   "folge": "weltlage_20261020_0000"
+  },
+  "Neil Wilson": {
+   "sprich": "Niel Wilsen",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-20",
+   "folge": "weltlage_20261020_0000"
+  },
+  "Mark Halperin": {
+   "sprich": "Mark Hälperin",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-20",
+   "folge": "weltlage_20261020_1000"
+  },
+  "Vances": {
+   "sprich": "Wänses",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-20",
+   "folge": "weltlage_20261020_1000"
+  },
+  "Netanyahus": {
+   "sprich": "Netanjahus",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-20",
+   "folge": "weltlage_20261020_1000"
+  },
+  "Giorgia Meloni": {
+   "sprich": "Dschordscha Meloni",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-21",
+   "folge": "weltlage_20261021_0000"
+  },
+  "Giorgia": {
+   "sprich": "Dschordscha",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-21",
+   "folge": "weltlage_20261021_0000"
+  },
+  "Chanel": {
+   "sprich": "Schanell",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-21",
+   "folge": "weltlage_20261021_0000"
+  },
+  "Tiffany": {
+   "sprich": "Tiffeni",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-21",
+   "folge": "weltlage_20261021_0000"
+  },
+  "Gela": {
+   "sprich": "Dschela",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-21",
+   "folge": "weltlage_20261021_0000"
+  },
+  "Arcangelo Gambino": {
+   "sprich": "Arkandschelo Gambino",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-21",
+   "folge": "weltlage_20261021_0000"
+  },
+  "Caltanissetta": {
+   "sprich": "Kaltanissetta",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-21",
+   "folge": "weltlage_20261021_0000"
+  },
+  "Douglas Yates": {
+   "sprich": "Daggles Jeits",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-21",
+   "folge": "weltlage_20261021_0000"
+  },
+  "American Graduate School": {
+   "sprich": "Ämerikän Grädschuet Skuhl",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-21",
+   "folge": "weltlage_20261021_0000"
+  },
+  "Andrew Kenningham": {
+   "sprich": "Ändru Kenningämm",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-21",
+   "folge": "weltlage_20261021_0000"
+  },
+  "Kenningham": {
+   "sprich": "Kenningämm",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-21",
+   "folge": "weltlage_20261021_0000"
+  },
+  "Sidorela Vatnikaj": {
+   "sprich": "Sidoréla Watnikai",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-21",
+   "folge": "weltlage_20261021_0000"
+  },
+  "Tajani": {
+   "sprich": "Tajahni",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-21",
+   "folge": "weltlage_20261021_0000"
+  },
+  "Dior": {
+   "sprich": "Djoor",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-21",
+   "folge": "weltlage_20261021_0000"
+  },
+  "Jonas Gahr Støre": {
+   "sprich": "Jonas Gaar Störe",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-21",
+   "folge": "weltlage_20261021_1000"
+  },
+  "Li Qiang": {
+   "sprich": "Li Tschiang",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-21",
+   "folge": "weltlage_20261021_1000"
+  },
+  "Oval Office": {
+   "sprich": "Ouwel Offiss",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-21",
+   "folge": "weltlage_20261021_1000"
+  },
+  "Ian Bond": {
+   "sprich": "Ien Bond",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-21",
+   "folge": "weltlage_20261021_1000"
+  },
+  "Patriot-Abfangraketen": {
+   "sprich": "Päitriett-Abfangraketen",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-21",
+   "folge": "weltlage_20261021_1000"
+  },
+  "Patriots": {
+   "sprich": "Päitrietts",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-21",
+   "folge": "weltlage_20261021_1000"
+  },
+  "würden": {
+   "sprich": "wür-den",
+   "quelle": "rueckhoeren",
+   "hinzugefuegt": "2026-10-22",
+   "zeit": "2026-10-22 00:13:12",
+   "folge": "weltlage_20261021_1000",
+   "szene": "s5_a3_kontext",
+   "vorher_gehoert": "nutzungsürden",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Journal": {
+   "sprich": "Dschörnel",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-22",
+   "folge": "weltlage_20261021_1000",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Angriffsdrohnen": {
+   "sprich": "an-griffsdrohnen",
+   "quelle": "rueckhoeren",
+   "hinzugefuegt": "2026-10-22",
+   "zeit": "2026-10-22 01:02:00",
+   "folge": "weltlage_20261022_0000",
+   "szene": "s5_a1_ausgangslage",
+   "vorher_gehoert": "anklifstonen",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "bremsen": {
+   "sprich": "brem-sen",
+   "quelle": "rueckhoeren",
+   "hinzugefuegt": "2026-10-22",
+   "zeit": "2026-10-22 01:05:34",
+   "folge": "weltlage_20261022_0000",
+   "szene": "s5_a1_ausgangslage",
+   "vorher_gehoert": "plämsen",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "anerkannt": {
+   "sprich": "aanerkannt",
+   "quelle": "rueckhoeren",
+   "hinzugefuegt": "2026-10-22",
+   "zeit": "2026-10-22 01:15:01",
+   "folge": "weltlage_20261021_0000",
+   "szene": "s5_a8_schluss",
+   "vorher_gehoert": "anerkennung",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Moskau": {
+   "sprich": "mooskau",
+   "quelle": "rueckhoeren",
+   "hinzugefuegt": "2026-10-22",
+   "zeit": "2026-10-22 01:15:13",
+   "folge": "weltlage_20261021_1000",
+   "szene": "s5_a6_relevanz",
+   "vorher_gehoert": "ruskao",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Systeme": {
+   "sprich": "sys-teme",
+   "quelle": "rueckhoeren",
+   "hinzugefuegt": "2026-10-22",
+   "zeit": "2026-10-22 01:17:10",
+   "folge": "weltlage_20261022_0000",
+   "szene": "s5_a2_wendepunkt",
+   "vorher_gehoert": "deme",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Golf": {
+   "sprich": "goolf",
+   "quelle": "rueckhoeren",
+   "hinzugefuegt": "2026-10-22",
+   "zeit": "2026-10-22 01:20:58",
+   "folge": "weltlage_20261021_0000",
+   "szene": "s_themen",
+   "vorher_gehoert": "klick",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Schreib": {
+   "sprich": "schreiib",
+   "quelle": "rueckhoeren",
+   "hinzugefuegt": "2026-10-22",
+   "zeit": "2026-10-22 01:53:53",
+   "folge": "weltlage_20261021_1000",
+   "szene": "s5_a8_schluss",
+   "vorher_gehoert": "halb",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Sondern": {
+   "sprich": "soondern",
+   "quelle": "rueckhoeren",
+   "hinzugefuegt": "2026-10-22",
+   "zeit": "2026-10-22 01:56:36",
+   "folge": "weltlage_20261021_1000",
+   "szene": "s5_a8_schluss",
+   "vorher_gehoert": "und",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "bestreitet": {
+   "sprich": "beestreitet",
+   "quelle": "rueckhoeren",
+   "hinzugefuegt": "2026-10-22",
+   "zeit": "2026-10-22 02:05:29",
+   "folge": "weltlage_20261022_0000",
+   "szene": "s5_a5_gegenargument",
+   "vorher_gehoert": "bestaltet",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "behindert": {
+   "sprich": "beehindert",
+   "quelle": "rueckhoeren",
+   "hinzugefuegt": "2026-10-22",
+   "zeit": "2026-10-22 02:05:29",
+   "folge": "weltlage_20261022_0000",
+   "szene": "s5_a5_gegenargument",
+   "vorher_gehoert": "beginnt",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "darüber": {
+   "sprich": "da-rüber",
+   "quelle": "rueckhoeren",
+   "hinzugefuegt": "2026-10-22",
+   "zeit": "2026-10-22 02:32:39",
+   "folge": "weltlage_20261022_0000",
+   "szene": "s5_a7_einordnung",
+   "vorher_gehoert": "übernimmt",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "CJ Moses": {
+   "sprich": "Ssi-Dschei Mousis",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-22",
+   "folge": "weltlage_20261022_1000",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Moses": {
+   "sprich": "Mousis",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-22",
+   "folge": "weltlage_20261022_1000",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Alan Woodward": {
+   "sprich": "Ällen Wudwörd",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-22",
+   "folge": "weltlage_20261022_1000",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Surrey": {
+   "sprich": "Sarri",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-22",
+   "folge": "weltlage_20261022_1000",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Sanae Takaichi": {
+   "sprich": "Sana-e Takaitschi",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-22",
+   "folge": "weltlage_20261022_1000",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Tweede Kamer": {
+   "sprich": "Twehde Kahmer",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-22",
+   "folge": "weltlage_20261022_1000",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Dane Knecht": {
+   "sprich": "Dejn Knecht",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-22",
+   "folge": "weltlage_20261022_1000",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Cloudflare": {
+   "sprich": "Klaudfläär",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-22",
+   "folge": "weltlage_20261022_1000",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Wordpress": {
+   "sprich": "Wördpress",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-22",
+   "folge": "weltlage_20261022_1000",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Slack": {
+   "sprich": "Släck",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-22",
+   "folge": "weltlage_20261022_1000",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Ryan Austin": {
+   "sprich": "Raien Ostin",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-22",
+   "folge": "weltlage_20261022_1000",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Austin": {
+   "sprich": "Ostin",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-22",
+   "folge": "weltlage_20261022_1000",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Calif": {
+   "sprich": "Kälif",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-22",
+   "folge": "weltlage_20261022_1000",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Patch the Planet": {
+   "sprich": "Pätsch se Plännet",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-22",
+   "folge": "weltlage_20261022_1000",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Wiz Atlas": {
+   "sprich": "Wiss Ätlas",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-22",
+   "folge": "weltlage_20261022_1000",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Wiz": {
+   "sprich": "Wiss",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-22",
+   "folge": "weltlage_20261022_1000",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Gemini 4 Argon": {
+   "sprich": "Dschemini vier Argon",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-22",
+   "folge": "weltlage_20261022_1000",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Node.js": {
+   "sprich": "Noud Dschej Ess",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-22",
+   "folge": "weltlage_20261022_1000",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "LiteLLM": {
+   "sprich": "Lait El El Emm",
+   "quelle": "llm",
+   "hinzugefuegt": "2026-10-22",
+   "folge": "weltlage_20261022_1000",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Bloomberg": {
+   "sprich": "Blumbörg",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-22",
+   "grund": "Aussprache-Ausbau englische Medien/Namen",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Politico": {
+   "sprich": "Politiko",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-22",
+   "grund": "Aussprache-Ausbau englische Medien/Namen",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Sky News": {
+   "sprich": "Skai Njuhs",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-22",
+   "grund": "Aussprache-Ausbau englische Medien/Namen",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Wall Street": {
+   "sprich": "Wohl Striet",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-22",
+   "grund": "Aussprache-Ausbau englische Medien/Namen",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Anthropic": {
+   "sprich": "Anthropik",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-22",
+   "grund": "Aussprache-Ausbau englische Medien/Namen",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Newsweek": {
+   "sprich": "Njuhswiek",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-22",
+   "grund": "Aussprache-Ausbau englische Medien/Namen",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Forbes": {
+   "sprich": "Forbs",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-22",
+   "grund": "Aussprache-Ausbau englische Medien/Namen",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Wired": {
+   "sprich": "Waierd",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-22",
+   "grund": "Aussprache-Ausbau englische Medien/Namen",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Capitol": {
+   "sprich": "Käpitol",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-22",
+   "grund": "Aussprache-Ausbau englische Medien/Namen",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "NBC News": {
+   "sprich": "En Bi Si Njuhs",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-22",
+   "grund": "Aussprache-Ausbau englische Medien/Namen",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "ABC News": {
+   "sprich": "Ei Bi Si Njuhs",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-22",
+   "grund": "Aussprache-Ausbau englische Medien/Namen",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "CNN International": {
+   "sprich": "Si En En Inter-näschenel",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-22",
+   "grund": "Aussprache-Ausbau englische Medien/Namen",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "BBC News": {
+   "sprich": "Bi Bi Si Njuhs",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-22",
+   "grund": "Aussprache-Ausbau englische Medien/Namen",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "BBC World": {
+   "sprich": "Bi Bi Si Wörld",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-22",
+   "grund": "Aussprache-Ausbau englische Medien/Namen",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Goldman Sachs": {
+   "sprich": "Goldmen Säks",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-22",
+   "grund": "Aussprache-Ausbau englische Medien/Namen",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Morgan Stanley": {
+   "sprich": "Morgen Stänli",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-22",
+   "grund": "Aussprache-Ausbau englische Medien/Namen",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "JPMorgan": {
+   "sprich": "Dschej Pi Morgen",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-22",
+   "grund": "Aussprache-Ausbau englische Medien/Namen",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "DeepSeek": {
+   "sprich": "Diep Siek",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-22",
+   "grund": "Aussprache-Ausbau englische Medien/Namen",
+   "ab": "2026-10-22 14:20:00"
+  },
+  "Anthropic Claude": {
+   "sprich": "Anthropik Klood",
+   "quelle": "manuell",
+   "hinzugefuegt": "2026-10-22",
+   "grund": "Aussprache-Ausbau englische Medien/Namen",
+   "ab": "2026-10-22 14:20:00"
   }
  }
 }

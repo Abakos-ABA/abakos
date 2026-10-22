@@ -53,11 +53,38 @@ def sichern(daten: dict):
     tmp.replace(LEXIKON_PFAD)
 
 
+_OHNE_GELERNT_AB: str | None = None
+
+
+class ohne_gelernt_ab:
+    """Kontext: anwenden() ueberspringt Eintraege der Rueckhoer-Kontrolle (quelle "rueckhoeren"), die NACH `zeit`
+    entstanden sind. So gilt eine vor dem Lernen gesprochene Szene nicht als "Aussprache seit dem Rendern geaendert"."""
+
+    def __init__(self, zeit: str):
+        self.zeit = zeit
+
+    def __enter__(self):
+        global _OHNE_GELERNT_AB
+        self.alt, _OHNE_GELERNT_AB = _OHNE_GELERNT_AB, self.zeit
+
+    def __exit__(self, *exc):
+        global _OHNE_GELERNT_AB
+        _OHNE_GELERNT_AB = self.alt
+
+
 def anwenden(text: str, eintraege: dict | None = None) -> str:
     """Ersetzt bekannte Schreibweisen durch ihre Sprich-Form (Wortgrenzen, verträgt ein angehängtes
     deutsches Genitiv-/Plural-s: "Erdoğans" -> "Erdoans"). Laengere Eintraege (z.B. "Xi Jinping") gehen
     vor kuerzeren ("Xi"), damit die Mehrwort-Form zuerst greift."""
-    eintraege = eintraege if eintraege is not None else laden()["eintraege"]
+    if eintraege is None:
+        eintraege = laden()["eintraege"]
+        if _OHNE_GELERNT_AB:
+            eintraege = {k: e for k, e in eintraege.items()
+                         if not (e.get("quelle") == "rueckhoeren" and str(e.get("zeit", "")) > _OHNE_GELERNT_AB)}
+            # Eintraege mit "ab" (22.10.2026): Szenen davor behalten die alte Form ("vorher") bzw. gar keinen Eintrag
+            eintraege = {k: ({**e, "sprich": e["vorher"]} if e.get("vorher") else None) if e.get("ab") and _OHNE_GELERNT_AB < e["ab"] else e
+                         for k, e in eintraege.items()}
+            eintraege = {k: e for k, e in eintraege.items() if e}
     if not eintraege:
         return text
     keys = sorted(eintraege.keys(), key=len, reverse=True)
