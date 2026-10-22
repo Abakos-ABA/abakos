@@ -8,7 +8,8 @@ Prueft und schreibt <master>_abnahme.json + <master>_begleittext.txt (Themen, Zi
   2. Lautheit: Master integriert MASTER_LUFS +-1 LU, True Peak <= MASTER_TP + 0,5 dB.
   3. Keine abrupten Lautstaerkespruenge: Lautheit pro Szene (Zeitmarken) gegen die mittlere Sprachlautheit, und
      benachbarte hoerbare Szenen hoechstens SPRUNG_DB auseinander (Raumton/Stille ausgenommen).
-  4. Ton: AAC 48 kHz Stereo >= 230 kbps (Erkenntnis 30.09.: gut 237 kbit, nie neu codieren).
+  4. Ton: AAC 48 kHz Stereo >= TON_MIN_KBPS (192) kbps (Master mit 256k codiert, nie neu codieren; die gemessene
+     Rate haengt vom Inhalt ab, siehe TON_MIN_KBPS).
   4b. Lipsync-Aufloesung: bei NEWS_WELTLAGE_LIPSYNC_HD an (Standard seit 01.10., Task d71b) muss jedes
      <name>_fenster.json unter <ordner>/_schnitt/_freisteller mit "hd": true gerechnet worden sein (Real-ESRGAN +
      GFPGAN statt Lanczos) und "zoom" >= 768 erreichen, sonst lief die Szene unbemerkt im alten Lanczos-Pfad.
@@ -103,7 +104,13 @@ SPRUNG_DB = 3.5          # benachbarte hoerbare Szenen duerfen sich hoechstens s
                          # darum noch genug Abstand ohne Fehlalarme.
 SZENE_MAX_UEBER_DB = MARKE_UEBER_SPRACHE_DB + 1.5   # Szene lauter als Sprache
 SZENE_MAX_UNTER_DB = 6.0                            # Sprechszene leiser als die mittlere Sprache
-TON_MIN_KBPS = 230
+# Die Pruefung soll eine Neu-Codierung erkennen (ffmpeg-Standard 128k, Shorts 160k, Telegram-Grenze 180), nicht den
+# Inhalt bewerten. ffmpegs AAC-Encoder unterschreitet -b:a 256k je nach Material deutlich (Sprache ohne Musik braucht
+# weniger Bits): Folgen bis 20.10. 245-247, 21.10. 229/226, 22.10. 00:00 nur 217 kbit -> zweimal durchgefallen
+# (230, dann 220), obwohl korrekt mit 256k codiert. Gemessen am audio_all.wav vom 22.10.: 256k -> 219, 288k -> 223,
+# 320k -> 228 kbit - der Encoder ist gesaettigt, mehr Bitrate bringt nichts. Darum Grenze 192: sicher ueber jeder
+# Neu-Codierung, sicher unter jedem 256k-Master.
+TON_MIN_KBPS = 192
 BUMPER_MIN_KORR = 0.6    # Bumper-Ton im Master vs. aktive Bumper-Datei (Pegel/Crossfade aendern wenig, fremder Ton < 0,3)
 MIN_DAUER_S = 480.0      # 8:00 Minuten (Marlons Entscheid 04.10.2026 23:53): erst ab hier erlaubt YouTube Mid-Roll-Werbung
 
@@ -312,6 +319,11 @@ def _lautheit(video: Path, start: float | None = None, dauer: float | None = Non
     return {"I": val("I"), "LRA": val("LRA"), "TP": val("Peak")}
 
 
+def ton_ok(t: dict) -> bool:
+    """Master-Ton gueltig: AAC 48 kHz Stereo mit mindestens TON_MIN_KBPS. Pure Funktion, offline testbar."""
+    return t["codec"] == "aac" and t["sr"] == 48000 and t["ch"] == 2 and t["kbps"] >= TON_MIN_KBPS
+
+
 def _ton(video: Path) -> dict:
     out = subprocess.run([FFPROBE, "-v", "error", "-select_streams", "a:0", "-show_entries",
                           "stream=codec_name,sample_rate,channels,bit_rate", "-of", "json", str(video)],
@@ -483,7 +495,7 @@ def pruefen(ordner: Path, video: Path) -> dict:
     # 4. Ton
     t = _ton(video)
     info["ton"] = t
-    if not (t["codec"] == "aac" and t["sr"] == 48000 and t["ch"] == 2 and t["kbps"] >= TON_MIN_KBPS):
+    if not ton_ok(t):
         fehler.append(f"Ton {t} statt AAC 48 kHz Stereo >= {TON_MIN_KBPS} kbps")
     # 4i. Mindestlaenge: ab 8:00 Minuten erlaubt YouTube Mid-Roll-Werbung (Marlons Entscheid 04.10.2026 23:53)
     dauer_s = dur(video)
