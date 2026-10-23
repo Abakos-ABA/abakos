@@ -64,6 +64,11 @@ try:
     from config.settings import NEWS_WELTLAGE_LIPSYNC_ZOOM as ZOOM   # Kantenlaenge des hochskalierten Gesichtsfensters
 except Exception:
     ZOOM = 768
+try:                          # LatentSync-Stuecke einer Szene gebuendelt in EINEM Prozess (Modelle nur einmal laden), Default aus
+    from config.settings import NEWS_LIPSYNC_BATCH as LS_BATCH
+except Exception:
+    LS_BATCH = False
+LS_BATCH_MAX = 8              # Stuecke je Prozess/GPU-Platz (Platz wird nicht ueber die ganze Szene gehalten)
 GREY = 128
 try:                          # Gesichtsfenster KI-hochskaliert statt Lanczos (video/gesicht_hd.py), Default aus
     from config.settings import NEWS_WELTLAGE_LIPSYNC_HD as HD
@@ -81,6 +86,13 @@ except Exception:
 # 20261010-081311-ca9f): Aktivierungsspeicher waechst mit der Stapelgroesse, nicht die Gewichte selbst.
 _ZOOM_VRAM_MB = 3000 if HD_BATCH <= 1 else min(3000 + 350 * (HD_BATCH - 1), 9000)
 _RESTORE_VRAM_MB = 2000 if HD_BATCH <= 1 else min(2000 + 250 * (HD_BATCH - 1), 6000)
+
+
+def _esrgan_an() -> bool:
+    from video import gesicht_hd
+    return gesicht_hd.ESRGAN
+
+
 SHADOW_REF = 0.32             # Referenzskala, auf die der Schlagschatten abgestimmt ist (composite_host.py)
 
 
@@ -298,6 +310,52 @@ def quiet_cuts(wav: Path, total_frames: int) -> list[int]:
     return cuts
 
 
+CHIN_FULL, CHIN_ZERO = 0.50, 0.62   # Maske voll bis hier, null ab hier (Gesichtsgroessen unter der Gesichtsmitte)
+KINN_SIGMA = 0.12                # Weichzeichner der Farbkorrektur in Gesichtsgroessen
+KINN_AB, KINN_VOLL = 0.36, 0.48   # Korrektur wirkt unter dem Mund (ab / voll, Gesichtsgroessen unter der Gesichtsmitte)
+
+
+def _kinn_angleichen(win: np.ndarray, alpha: np.ndarray, fr: np.ndarray, dy: np.ndarray, size: float) -> np.ndarray:
+    """Kinn/Wange unter dem Mund: Helligkeit und Farbton (nur die groben Anteile) des LatentSync-Ergebnisses ans Original
+    angleichen. LatentSync liefert dort einen dunklen Schatten-Halbmond am Kinn und leicht dunklere Haut; die Mundpartie
+    selbst bleibt unberuehrt (Korrektur erst unter dem Mund, weich eingeblendet). Referenz = Freisteller ueber Grau
+    (transparente Pixel haben keine verlaessliche Farbe). Abschalten: NEWS_LIPSYNC_KINN=0 (Umgebungsvariable)."""
+    if os.environ.get("NEWS_LIPSYNC_KINN", "1") == "0":
+        return fr
+    import cv2
+    a = (alpha.astype(np.float32) / 255)[..., None]
+    ref = win * a + GREY * (1 - a)
+    sg = max(3.0, KINN_SIGMA * size)
+    fr = fr.astype(np.float32)
+    h, w0 = fr.shape[:2]
+    k = 4                                          # Korrektur ist grob (sigma gross) -> auf 1/4 rechnen, spart ~15x Zeit
+    sm = (w0 // k, h // k)
+    korr = (cv2.GaussianBlur(cv2.resize(ref, sm, interpolation=cv2.INTER_AREA), (0, 0), sg / k)
+            - cv2.GaussianBlur(cv2.resize(fr, sm, interpolation=cv2.INTER_AREA), (0, 0), sg / k))
+    korr = cv2.resize(korr, (w0, h), interpolation=cv2.INTER_LINEAR)
+    w = np.clip((dy - KINN_AB) / (KINN_VOLL - KINN_AB), 0, 1)
+    w = (w * w * (3 - 2 * w))[..., None]
+    return np.clip(fr + korr * w + 0.5, 0, 255)
+
+
+MIN_CHUNK = round(1.0 * FPS)      # kein LatentSync-Stueck kuerzer als 1 s
+
+
+def _mit_skip_grenzen(cuts: list[int], skip_frames: list[tuple[int, int]], n: int) -> list[int]:
+    """Fuegt an jeder Vollbild-Spannen-Grenze einen zusaetzlichen Schnittpunkt ein: eine geplante Vollbild-Stelle
+    (hoechstens VOLL_MAX=4 s) ist immer kuerzer als CHUNK=7 s - ohne eigene Grenze laege dort nie ein GANZES
+    LatentSync-Stueck vollstaendig in der Spanne, das Ueberspringen in lipsync_freisteller() griffe also praktisch
+    nie. Eine Grenze zu dicht an einem vorhandenen Schnittpunkt (< MIN_CHUNK) wird ausgelassen (kein Mini-Stueck);
+    dann bleibt der nahe vorhandene Punkt die wirksame Kante - im Zweifel also ein Stueck mehr normal gerechnet statt
+    ein zu kurzes LatentSync-Stueck erzwungen (Marlon 19.10.2026)."""
+    pts = set(cuts)
+    for a, b in skip_frames:
+        for p in (a, b):
+            if 0 < p < n and all(abs(p - c) >= MIN_CHUNK for c in pts):
+                pts.add(p)
+    return sorted(pts)
+
+
 def windows_for(faces: np.ndarray, cuts: list[int], w: int, h: int) -> list[tuple[int, int, int]]:
     """Quadratisches Gesichtsfenster (x, y, s) pro Stueck: 2,2x Gesicht, gross genug fuer die Kopfbewegung im Stueck."""
     wins = []
@@ -367,33 +425,98 @@ def _run_with_gpu(step_name: str, vram_mb: int, log, fn):
         return fn()
 
 
+def _chunk_key(tag, wav, a, b, box, cache: Path, ident: str):
+    """(Ton-Stueck, Zwischenspeicher-Datei) eines LatentSync-Stuecks; gleiche Berechnung wie bisher in sync_chunk."""
+    seg_wav = cache / f"{tag}.wav"
+    run([FFMPEG, "-y", "-v", "error", "-i", wav, "-ss", f"{a / FPS:.3f}", "-to", f"{b / FPS:.3f}", "-ar", "16000",
+         "-ac", "1", seg_wav])
+    h = hashlib.sha1(seg_wav.read_bytes())
+    h.update(json.dumps([ident, a, b, box, ZOOM, STEPS, GUIDANCE, "refclosed"] + (["hd1"] if HD else []) + (["noesr"] if HD and not _esrgan_an() else [])).encode())
+    return seg_wav, SHARED_CACHE / f"{tag}_{h.hexdigest()[:10]}_synced.mp4"
+
+
+def _zoom_video(tag, grey_scene, a, b, box, cache: Path, log) -> Path:
+    """Gesichtsfenster-Video (ZOOM x ZOOM) fuer Bilder [a, b) (+5 Reserve), HD oder Lanczos wie bisher in sync_chunk."""
+    x, y, s = box
+    seg_vid = cache / f"{tag}_zoom.mp4"
+    if HD:                                                 # Real-ESRGAN + GFPGAN statt Lanczos (braucht die GPU)
+        from video import gesicht_hd
+        t = time.time()
+        _run_with_gpu("zoom", _ZOOM_VRAM_MB, log,
+                      lambda: gesicht_hd.zoom_window(FFMPEG, Path(grey_scene), a, b + 5, x, y, s, ZOOM, seg_vid,
+                                                     FPS, batch=HD_BATCH))
+        log(f"  {tag}: Gesichtsfenster {s} px KI-hochskaliert auf {ZOOM} in {time.time() - t:.0f} s")
+    else:
+        run([FFMPEG, "-y", "-v", "error", "-i", grey_scene, "-vf",
+             f"trim=start_frame={a}:end_frame={b + 5},setpts=PTS-STARTPTS,crop={s}:{s}:{x}:{y},"
+             f"scale={ZOOM}:{ZOOM}:flags=lanczos", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "10",
+             "-pix_fmt", "yuv420p", seg_vid])
+    return seg_vid
+
+
+def prefetch_chunks(todo: list, wav, grey_scene, cache: Path, ident: str, log) -> int:
+    """Schalter NEWS_LIPSYNC_BATCH: rechnet die noch fehlenden LatentSync-Stuecke (todo = [(tag, a, b, box)]) in wenigen
+    Prozessen (je bis LS_BATCH_MAX Stuecke, tools/latentsync_ref_inference.py --jobs) statt je Stueck einen eigenen
+    Prozess mit Modell-Ladezeit; gleiche Einstellungen, gleicher Seed je Stueck -> gleiches Ergebnis. Ergebnisse landen im
+    gemeinsamen Zwischenspeicher, sync_chunk() findet sie danach dort. Was nicht klappt, rechnet sync_chunk wie bisher
+    einzeln (Rueckfall). Liefert die Zahl der fertigen Stuecke."""
+    SHARED_CACHE.mkdir(parents=True, exist_ok=True)
+    missing = []
+    for tag, a, b, box in todo:
+        seg_wav, out = _chunk_key(tag, wav, a, b, box, cache, ident)
+        if not out.exists():
+            missing.append((tag, a, b, box, seg_wav, out))
+    done = 0
+    for i in range(0, len(missing), LS_BATCH_MAX):
+        part = missing[i:i + LS_BATCH_MAX]
+        jobs = []
+        for tag, a, b, box, seg_wav, out in part:
+            seg_vid = _zoom_video(tag, grey_scene, a, b, box, cache, log)
+            jobs.append(dict(video=str(seg_vid), audio=str(seg_wav), out=str(out.with_suffix(".tmp.mp4")),
+                             temp=str(cache / f"{tag}_ls")))
+        jf = cache / f"batch_{part[0][0]}.json"
+        jf.write_text(json.dumps(jobs), encoding="utf-8")
+        lgp = cache / f"batch_{part[0][0]}.log"
+        t = time.time()
+
+        def _once():
+            with open(lgp, "w") as lg:
+                pr = subprocess.Popen([str(LS_PY), str(ROOT / "tools" / "latentsync_ref_inference.py"),
+                                       "--unet_config_path", "configs/unet/stage2_512.yaml",
+                                       "--inference_ckpt_path", "checkpoints/latentsync_unet.pt",
+                                       "--inference_steps", str(STEPS), "--guidance_scale", str(GUIDANCE),
+                                       "--enable_deepcache", "--ref_mode", "closed", "--jobs", str(jf)],
+                                      cwd=str(REPO), stdout=subprocess.DEVNULL, stderr=lg)
+                try:
+                    pr.wait(timeout=LS_TIMEOUT * len(jobs))
+                except subprocess.TimeoutExpired:
+                    subprocess.run(["taskkill", "/PID", str(pr.pid), "/T", "/F"], capture_output=True)
+                    pr.wait()
+
+        _run_with_gpu("latentsync batch", LS_FREE_MB, log, _once)
+        n_ok = lgp.read_text(errors="replace").count("[job] ") if lgp.exists() else 0
+        for (tag, a, b, box, seg_wav, out), j in list(zip(part, jobs))[:n_ok]:   # nur Stuecke, die der Prozess als fertig meldete
+            tmp = Path(j["out"])
+            if tmp.exists() and not out.exists():
+                SHARED_CACHE.mkdir(parents=True, exist_ok=True)
+                tmp.replace(out)
+                done += 1
+        for j in jobs:
+            Path(j["out"]).unlink(missing_ok=True)
+        log(f"  Stapel {i // LS_BATCH_MAX + 1}: {n_ok}/{len(part)} Stuecke in {time.time() - t:.0f} s gerechnet")
+    return done
+
+
 def sync_chunk(tag, wav, grey_scene, a, b, box, cache: Path, ident: str, log) -> list[np.ndarray]:
     """LatentSync auf Bilder [a, b) des Grau-Freistellers im Fenster box; liefert die Fenster in Originalgroesse."""
     import cv2
     x, y, s = box
     n = b - a
-    seg_wav = cache / f"{tag}.wav"
-    run([FFMPEG, "-y", "-v", "error", "-i", wav, "-ss", f"{a / FPS:.3f}", "-to", f"{b / FPS:.3f}", "-ar", "16000",
-         "-ac", "1", seg_wav])
-    h = hashlib.sha1(seg_wav.read_bytes())
-    h.update(json.dumps([ident, a, b, box, ZOOM, STEPS, GUIDANCE, "refclosed"] + (["hd1"] if HD else [])).encode())
-    out = SHARED_CACHE / f"{tag}_{h.hexdigest()[:10]}_synced.mp4"
+    seg_wav, out = _chunk_key(tag, wav, a, b, box, cache, ident)
     SHARED_CACHE.mkdir(parents=True, exist_ok=True)
     if not out.exists():
-        seg_vid = cache / f"{tag}_zoom.mp4"
         # +5 Bilder Reserve wie video/lipsync._cut_master (+0,2 s); LatentSync liefert gelegentlich 1-2 Bilder weniger
-        if HD:                                             # Real-ESRGAN + GFPGAN statt Lanczos (braucht die GPU)
-            from video import gesicht_hd
-            t = time.time()
-            _run_with_gpu("zoom", _ZOOM_VRAM_MB, log,
-                          lambda: gesicht_hd.zoom_window(FFMPEG, Path(grey_scene), a, b + 5, x, y, s, ZOOM, seg_vid,
-                                                         FPS, batch=HD_BATCH))
-            log(f"  {tag}: Gesichtsfenster {s} px KI-hochskaliert auf {ZOOM} in {time.time() - t:.0f} s")
-        else:
-            run([FFMPEG, "-y", "-v", "error", "-i", grey_scene, "-vf",
-                 f"trim=start_frame={a}:end_frame={b + 5},setpts=PTS-STARTPTS,crop={s}:{s}:{x}:{y},"
-                 f"scale={ZOOM}:{ZOOM}:flags=lanczos", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "10",
-                 "-pix_fmt", "yuv420p", seg_vid])
+        seg_vid = _zoom_video(tag, grey_scene, a, b, box, cache, log)
         tmp = out.with_suffix(".tmp.mp4")
         # bis zu 3 Versuche: am 29.09. lief ein Stueck ueber den VRAM, als Jarvis mittendrin seine Stimme neu in die GPU
         # lud (60 s pro Schritt statt 0,5 s) -> nach 15 min abbrechen, wieder auf freie GPU warten, neu versuchen
@@ -448,8 +571,13 @@ def sync_chunk(tag, wav, grey_scene, a, b, box, cache: Path, ident: str, log) ->
 
 
 # ---------------------------------------------------------------- Szene
-def lipsync_freisteller(pose: str, wav: Path, start: float, length: float, work: Path, name: str, log=print) -> tuple[Path, int]:
-    """Schritt 1+2 der Regel: Lipsync auf dem Freisteller, Alpha erhalten -> ProRes 4444 mit Alpha. Liefert (Datei, Bilder)."""
+def lipsync_freisteller(pose: str, wav: Path, start: float, length: float, work: Path, name: str, log=print,
+                        skip_spans: list | None = None) -> tuple[Path, int]:
+    """Schritt 1+2 der Regel: Lipsync auf dem Freisteller, Alpha erhalten -> ProRes 4444 mit Alpha. Liefert (Datei, Bilder).
+    skip_spans: [(start_s, ende_s), ...] relativ zu DIESEM Aufruf (0 = Szenenanfang, wie `length`) - dort setzt
+    tools/weltlage_broll.py nachher einen Vollbild-Clip ein, der Freisteller wird gleich wieder ganz verdeckt. Ein
+    LatentSync-Stueck (quiet_cuts()) wird dort ausgelassen (teuerster Schritt der Pipeline), nur wenn es VOLLSTAENDIG
+    in einer Spanne liegt - sonst normal gerechnet (Marlon 19.10.2026, Task 20261019-182613-44c1)."""
     import cv2
     P = POSEN[pose]
     W0, H0 = P["w"], P["h"]
@@ -457,6 +585,7 @@ def lipsync_freisteller(pose: str, wav: Path, start: float, length: float, work:
     cache = work / "_latentsync"
     cache.mkdir(exist_ok=True)
     f0, n = round(start * FPS), round(length * FPS)
+    skip_frames = [(max(0, round(a * FPS)), min(n, round(b * FPS))) for a, b in (skip_spans or []) if b > a]
     log(f"{name} ({pose}): Freisteller-Bilder {f0}-{f0 + n} ({length:.2f} s), {W0}x{H0}, guidance {GUIDANCE}, {STEPS} Schritte")
     # 1) Freisteller auf neutralem Grau (LatentSync-Eingang), Gesicht verfolgen
     grey = work / f"{name}_freisteller_grau25.mp4"
@@ -481,8 +610,19 @@ def lipsync_freisteller(pose: str, wav: Path, start: float, length: float, work:
     np.save(work / f"{name}_faces.npy", faces)
     # 2) LatentSync pro Stueck im engen Gesichtsfenster
     cuts = quiet_cuts(wav, n)
+    if skip_frames:
+        cuts = _mit_skip_grenzen(cuts, skip_frames, n)
     wins = windows_for(faces, cuts, W0, H0)
     ident = f"{pose}:{P['src'].name}:{int(P['src'].stat().st_mtime)}:{f0}"
+    # Vollbild-Spannen (skip_frames): ein Stueck nur auslassen, wenn es GANZ in einer Spanne liegt (sonst normal
+    # rechnen - lieber ein paar Sekunden unnoetig gesynct als ein sichtbar unsynchronisiertes Stueck am Rand).
+    skip_chunks = {k for k in range(len(cuts) - 1)
+                   if any(sa <= cuts[k] and cuts[k + 1] <= sb for sa, sb in skip_frames)}
+    if skip_chunks:
+        log(f"{name}: {len(skip_chunks)}/{len(cuts) - 1} Lipsync-Stuecke uebersprungen (Vollbild-Clip ueberdeckt sie)")
+    if LS_BATCH:                               # Schalter NEWS_LIPSYNC_BATCH: fehlende Stuecke gebuendelt vorrechnen
+        prefetch_chunks([(f"{name}_{k:02d}", cuts[k], cuts[k + 1], wins[k]) for k in range(len(cuts) - 1)
+                         if k not in skip_chunks], wav, grey, cache, ident, log)
     # 3) Mundpartie in den Freisteller zurueck; Alpha = Original
     fs_out = work / f"{name}_freisteller_lipsync_prores4444.mov"
     pf = subprocess.Popen([FFMPEG, "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgba", "-s", f"{W0}x{H0}",
@@ -493,7 +633,11 @@ def lipsync_freisteller(pose: str, wav: Path, start: float, length: float, work:
     for i, rgba in enumerate(source_frames(pose, f0, n)):
         if k + 1 < len(cuts) - 1 and i >= cuts[k + 1]:
             k += 1
-            chunk = sync_chunk(f"{name}_{k:02d}", wav, grey, cuts[k], cuts[k + 1], wins[k], cache, ident, log)
+            chunk = None if k in skip_chunks else sync_chunk(f"{name}_{k:02d}", wav, grey, cuts[k], cuts[k + 1],
+                                                             wins[k], cache, ident, log)
+        if chunk is None:                      # vollflaechig ueberdeckt - Freisteller unveraendert durchreichen
+            pf.stdin.write(rgba.tobytes())
+            continue
         cx, cy, size = faces[i]
         x, y, s = wins[k]
         fr = chunk[i - cuts[k]]
@@ -503,10 +647,15 @@ def lipsync_freisteller(pose: str, wav: Path, start: float, length: float, work:
         d = np.sqrt(((xx - cx) / (size * 0.46)) ** 2 + ((yy - (cy + size * 0.36)) / (size * 0.40)) ** 2)
         m = np.clip((1.15 - d) / 0.35, 0, 1)
         m = m * m * (3 - 2 * m)
+        # Kinn-Grenze (Task 20261022-114327-3205): Kinn liegt bei ~0.56 (max 0.62) Gesichtsgroessen unter der Haar-Mitte;
+        # darunter (Hals) gibt LatentSync einen dunklen Schatten-Halbmond aus -> dort blendet die Maske zum Original aus
+        v = np.clip((CHIN_ZERO - (yy - cy) / size) / (CHIN_ZERO - CHIN_FULL), 0, 1)
+        m = m * (v * v * (3 - 2 * v))
         al = cv2.erode(np.ascontiguousarray(rgba[y:y + s, x:x + s, 3]), kernel)
         m = (m * (cv2.GaussianBlur(al, (0, 0), 1.5).astype(np.float32) / 255))[..., None]
         out = rgba.copy()
         win = out[y:y + s, x:x + s, :3].astype(np.float32)
+        fr = _kinn_angleichen(win, rgba[y:y + s, x:x + s, 3], fr, (yy - cy) / size, size)
         out[y:y + s, x:x + s, :3] = np.clip(win * (1 - m) + fr.astype(np.float32) * m + 0.5, 0, 255).astype(np.uint8)
         pf.stdin.write(out.tobytes())
         if i in (n // 4, n // 2, 3 * n // 4):
@@ -616,11 +765,12 @@ def composite_studio(pose: str, freisteller: Path, n: int, out: Path, ort: str |
 
 
 def render_scene(pose: str, wav: Path, start: float, length: float, work: Path, name: str, log=print,
-                 ort: str | None = None) -> Path:
+                 ort: str | None = None, skip_spans: list | None = None) -> Path:
     """Ganze Regel fuer eine Sprechszene: Freisteller lipsyncen -> Alpha behalten -> Studio 1920x1080. -> <name>_studio.mp4
-    ort: optional anderer Hintergrund (config/brand/orte), Standard None = bisheriges Studio."""
+    ort: optional anderer Hintergrund (config/brand/orte), Standard None = bisheriges Studio.
+    skip_spans: siehe lipsync_freisteller()."""
     t = time.time()
-    fs, n = lipsync_freisteller(pose, Path(wav), start, length, Path(work), name, log)
+    fs, n = lipsync_freisteller(pose, Path(wav), start, length, Path(work), name, log, skip_spans=skip_spans)
     comp = composite_studio(pose, fs, n, Path(work) / f"{name}_studio.mp4", ort=ort)
     log(f"{name}: fertig in {time.time() - t:.0f} s -> {comp}")
     return comp

@@ -151,6 +151,10 @@ NEWS_LIPSYNC_STUFE = int(os.environ.get("NEWS_LIPSYNC_STUFE", "2"))
 _lipsync_stufe = NEWS_LIPSYNC_STUFEN[NEWS_LIPSYNC_STUFE]
 NEWS_LIPSYNC_STEPS = int(os.environ.get("NEWS_LIPSYNC_STEPS", str(_lipsync_stufe["steps"])))
 NEWS_LIPSYNC_GUIDANCE = float(os.environ.get("NEWS_LIPSYNC_GUIDANCE", str(_lipsync_stufe["guidance"])))
+# Stapelbetrieb (Task c49b, 22.10.2026): video/freisteller_lipsync.py rechnet die fehlenden LatentSync-Stuecke einer Szene in
+# wenigen Prozessen (je bis 8 Stuecke) statt je Stueck einen neuen Prozess mit Modell-Ladezeit (~10-25 s je Stueck). Gleiche
+# Einstellungen und Seeds, Ergebnis je Stueck gleich. "1" = an, Default aus bis zum Probelauf einer Folge.
+NEWS_LIPSYNC_BATCH = os.environ.get("NEWS_LIPSYNC_BATCH", "0") == "1"
 # Preview mode: generated clips (masters/intro/host) at 960x528 and fewer steps, upscaled once with
 # Real-ESRGAN to 1920x1080 (video/upscale.py). Screenshots, cards, captions are native 1080p anyway.
 NEWS_PREVIEW = os.environ.get("NEWS_PREVIEW", "1") == "1"
@@ -227,6 +231,14 @@ NEWS_WELTLAGE_SKRIPT_LAENGE = os.environ.get("NEWS_WELTLAGE_SKRIPT_LAENGE", "fol
 NEWS_WELTLAGE_SKRIPT_LLM = os.environ.get("NEWS_WELTLAGE_SKRIPT_LLM", "claude")
 NEWS_WELTLAGE_SKRIPT_MODELL = os.environ.get("NEWS_WELTLAGE_SKRIPT_MODELL", "opus")
 NEWS_CLAUDE_CLI = os.environ.get("NEWS_CLAUDE_CLI", r"C:\Users\Marlon\projekte\jarvis\bin\claude.exe")
+# Experiment "BREAKING:"-Praefix vor dem Titel (Marlon-Auftrag 19.10.2026, Task 20261019-223623-e943): Befund war,
+# dass Titel oft mit einer abstrakten Zahl/Formulierung statt dem gesuchten Schlagwort (Name/Land/Konflikt)
+# beginnen und darum keinen Suchtraffic bekommen (Beleg: Short 5uC-u5K3QFE "Von 190'000 auf 20'000 geschrumpft..."
+# nur 20 Aufrufe, 0 % YouTube-Suche). Testlauf: alle neuen Titel/Varianten bekommen "BREAKING: " voran, protokolliert
+# in jarvis/tools/kanal_protokoll.py (Art experiment) mit Vorher-Kennzahlen aus analytics_verlauf.json - Auswertung
+# nach 7/28 Tagen entscheidet, ob es bleibt. Abschalten: NEWS_WELTLAGE_TITEL_BREAKING=0.
+NEWS_WELTLAGE_TITEL_BREAKING = os.environ.get("NEWS_WELTLAGE_TITEL_BREAKING", "1") == "1"
+NEWS_WELTLAGE_TITEL_BREAKING_PRAEFIX = os.environ.get("NEWS_WELTLAGE_TITEL_BREAKING_PRAEFIX", "BREAKING: ")
 
 # --- Weltlage Kompakt: Musikbett Cold Open (Standard seit Marlons Entscheid 01.10.2026 16:27, Variante 3 = dunkler
 # Synth-Pad mit Ticken und tiefem Puls, Task 20261001-150542-feaf) - Musik nur unter der ersten Szene (Cold Open),
@@ -254,8 +266,20 @@ NEWS_WELTLAGE_BROLL_ABSTAND = float(os.environ.get("NEWS_WELTLAGE_BROLL_ABSTAND"
 # Marlon es gezielt per Umgebungsvariable wieder einschaltet.
 NEWS_WELTLAGE_BROLL_VARIANTEN = os.environ.get("NEWS_WELTLAGE_BROLL_VARIANTEN", "pip,voll")   # Reihenfolge = Rotation
 NEWS_WELTLAGE_BROLL_QUELLEN = os.environ.get("NEWS_WELTLAGE_BROLL_QUELLEN", "pexels,pixabay,commons,nasa,dvids")
+# "augenzeugen" (tools/weltlage_augenzeugen.py) ist eine fuenfte, mit Erlaubnis freigeschaltete Quelle - bewusst
+# NICHT in der Standardliste, da sie erst etwas liefert, wenn wirklich eine dokumentierte Zusage vorliegt; Marlon
+# schaltet sie je Folge selbst zu (NEWS_WELTLAGE_BROLL_QUELLEN=pexels,pixabay,commons,nasa,dvids,augenzeugen).
 NEWS_WELTLAGE_BROLL_MODELL = os.environ.get("NEWS_WELTLAGE_BROLL_MODELL", "sonnet")   # Suchbegriffe (Claude-CLI)
 NEWS_WELTLAGE_BROLL_MODELL_WAHL = os.environ.get("NEWS_WELTLAGE_BROLL_MODELL_WAHL", "opus")   # strenge Clipwahl
+
+# --- Weltlage Kompakt: Augenzeugen-Erlaubnis-Workflow (tools/weltlage_augenzeugen.py, Marlon 19.10.2026) ---
+# Kostenloser Weg an echte Handyvideos von Leuten vor Ort: Kandidat finden, Urheber hoeflich um Erlaubnis mit
+# Credit-Nennung bitten, Zusage dokumentieren, erst dann verwenden (nie ohne Zusage). Versand ist IMMER im
+# Entwurfsmodus, bis Marlon ausdruecklich "schalt Augenzeugen scharf" sagt. Auch scharf: hartes Tageslimit, nie
+# Massen-DMs (im Code gibt es gar keinen DM-Kanal, nur Reply/Kommentar), nie eine zweite Anfrage an dieselbe
+# Person ohne Antwort. Recherche-Grundlage: jarvis/reports/weltlage_politiker_augenzeugen_quellen.md (19.10.2026).
+NEWS_AUGENZEUGEN_SCHARF = os.environ.get("NEWS_AUGENZEUGEN_SCHARF", "0") == "1"       # Versand an/aus (Standard AUS)
+NEWS_AUGENZEUGEN_TAGESLIMIT = int(os.environ.get("NEWS_AUGENZEUGEN_TAGESLIMIT", "5"))   # max. Anfragen/Kalendertag
 
 # --- Weltlage Kompakt: semantische Einblendungs-Pruefung (video/einblendungen.py, Marlon 04.10.2026) ---
 # Jede visuelle Einblendung (Quellen-Bild-Karte, B-Roll-Clip, kuenftig Text-Karten) bekommt vor dem Versand ein
@@ -280,6 +304,10 @@ NEWS_WELTLAGE_COMPOSITE_FX = os.environ.get("NEWS_WELTLAGE_COMPOSITE_FX", "1") =
 # Vergleichsclip am 01.10.2026 abgenommen: Default an fuer alle Folgen. tools/weltlage_abnahme.py prueft dazu, dass
 # jedes _fenster.json unter <ordner>/_schnitt/_freisteller tatsaechlich mit HD gerechnet wurde.
 NEWS_WELTLAGE_LIPSYNC_HD = os.environ.get("NEWS_WELTLAGE_LIPSYNC_HD", "1") == "1"
+# Real-ESRGAN-Hochskalierung des Gesichtsfensters innerhalb der HD-Stufen. Marlons Entscheid 23.10.2026 (Vergleich Task
+# 20261023-105317-04c3, Variante C): Standard AUS (Lanczos statt Real-ESRGAN, spart ~40 min je Folge, im Mund-Zoom fast
+# gleich scharf); die GFPGAN-Mund-Nachzeichnung (vor und nach LatentSync) bleibt an. "1" = alter Weg (Variante A).
+NEWS_WELTLAGE_LIPSYNC_ESRGAN = os.environ.get("NEWS_WELTLAGE_LIPSYNC_ESRGAN", "0") == "1"
 
 # --- Weltlage Kompakt: Real-ESRGAN/GFPGAN im Gesichtsfenster gebuendelt statt Bild fuer Bild durchs Netz (Task
 # 20261010-081311-ca9f, Laufzeit-Analyse): video/gesicht_hd.py rief esrgan()/gfpgan() bisher einzeln pro Bild auf,
@@ -396,7 +424,10 @@ if NEWS_TTS_PROVIDER == "auto":
 PIPER_MODEL_PATH = BASE_DIR / "models" / "piper" / os.environ.get("NEWS_PIPER_VOICE", "de_DE-ramona-low.onnx")
 # Chatterbox (MIT, multilingual, GPU) lives in its own venv because of its pinned torch;
 # NEWS_TTS_PROVIDER=chatterbox selects it. The host voice = the reference wav below.
-CHATTERBOX_PYTHON = BASE_DIR / ".venv-tts" / "Scripts" / "python.exe"
+# Seit 21.10.2026 (Zeitvorgabe 3 h, Task 20261021-232322-7293): .venv-tts-gpu (torch 2.6.0+cu124) statt .venv-tts
+# (torch 2.6.0+cpu: ~23 min je Szene, 196 min je Folge); Rueckfall auf .venv-tts, falls die GPU-Umgebung fehlt.
+CHATTERBOX_PYTHON = BASE_DIR / (".venv-tts-gpu" if (BASE_DIR / ".venv-tts-gpu" / "Scripts" / "python.exe").exists()
+                                else ".venv-tts") / "Scripts" / "python.exe"
 VOICE_REF_PATH = CONFIG_DIR / "brand" / "voice_ref.wav"
 # --- Weltlage Kompakt: Stimm-Veredelung Variante A (Marlons Wahl 01.10.2026, Task 20261001-165559-5e26/180145-c47f):
 # satzweise natuerliche Pausen + leiser synthetischer Atmer (tts/chatterbox_worker.py), danach Resemble Enhance

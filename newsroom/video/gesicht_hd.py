@@ -25,6 +25,10 @@ ROOT = Path(__file__).resolve().parents[1]
 MODELS = ROOT / "models" / "upscale"
 DET_ROOT = ROOT / "vendor" / "LatentSync" / "checkpoints" / "auxiliary"
 GFP_IN = 0.6      # GFPGAN-Anteil am LatentSync-Eingang (mehr veraendert die Person)
+try:              # Real-ESRGAN im Gesichtsfenster an/aus (Standard aus seit 23.10.2026, Variante C), config/settings.py
+    from config.settings import NEWS_WELTLAGE_LIPSYNC_ESRGAN as ESRGAN
+except Exception:
+    ESRGAN = False
 GFP_OUT = 0.7     # GFPGAN-Anteil auf der LatentSync-Ausgabe
 # FFHQ-Ausrichtung 512 (facexlib): Auge l/r, Nase, Mundwinkel l/r
 FFHQ_512 = np.array([[192.98138, 239.94708], [318.90277, 240.1936], [256.63416, 314.01935],
@@ -106,6 +110,9 @@ _FA = None
 def kps_of(rgb: np.ndarray):
     """5 Gesichtspunkte (insightface buffalo_l, CPU) des groessten Gesichts oder None."""
     global _FA
+    from video.lipsync_detektoren import gewaehlt
+    if gewaehlt() != "insightface":
+        return _kps_mediapipe(rgb)           # kommerziell frei (Apache 2.0), siehe video/lipsync_detektoren.py
     if _FA is None:
         from insightface.app import FaceAnalysis
         _FA = FaceAnalysis(allowed_modules=["detection"], root=str(DET_ROOT), providers=["CPUExecutionProvider"])
@@ -119,6 +126,32 @@ def kps_of(rgb: np.ndarray):
         return None
     f = max(fs, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
     return f.kps.astype(np.float32) - pad
+
+
+_MP = None
+_MP_EYE_L, _MP_EYE_R = [33, 133, 159, 145], [362, 263, 386, 374]
+
+
+def _kps_mediapipe(rgb: np.ndarray):
+    """Wie kps_of(), aber mit MediaPipe Face Mesh statt InsightFace buffalo_l (nur nicht-kommerziell erlaubt)."""
+    global _MP
+    if _MP is None:
+        import mediapipe as mp
+        _MP = mp.solutions.face_mesh.FaceMesh(static_image_mode=True, max_num_faces=2, min_detection_confidence=0.5)
+    pad = max(rgb.shape[:2]) // 2
+    big = cv2.copyMakeBorder(np.ascontiguousarray(rgb), pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=(128, 128, 128))
+    h, w = big.shape[:2]
+    res = _MP.process(big)
+    if not res.multi_face_landmarks:
+        return None
+    best, area = None, -1
+    for fl in res.multi_face_landmarks:
+        pts = np.array([(p.x * w, p.y * h) for p in fl.landmark], np.float32)
+        a = float(np.ptp(pts[:, 0]) * np.ptp(pts[:, 1]))
+        if a > area:
+            best, area = pts, a
+    k = np.stack([best[_MP_EYE_L].mean(0), best[_MP_EYE_R].mean(0), best[1], best[61], best[291]])
+    return k.astype(np.float32) - pad
 
 
 def smooth_kps(seq: list) -> list:
@@ -209,7 +242,11 @@ def zoom_window(ffmpeg: str, src: Path, a: int, b: int, x: int, y: int, s: int, 
                         "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True, check=True)
     frames = np.frombuffer(p.stdout, np.uint8).reshape(-1, s, s, 3)
     sc = 4 if s * 2 < size else 2
-    ups = [cv2.resize(f, (size, size), interpolation=cv2.INTER_AREA) for f in esrgan_many(list(frames), sc, batch=batch)]
+    if ESRGAN:
+        grossed = esrgan_many(list(frames), sc, batch=batch)
+    else:                                       # Variante C: Lanczos statt Real-ESRGAN, GFPGAN danach wie gehabt
+        grossed = [cv2.resize(f, (f.shape[1] * sc, f.shape[0] * sc), interpolation=cv2.INTER_LANCZOS4) for f in frames]
+    ups = [cv2.resize(f, (size, size), interpolation=cv2.INTER_AREA) for f in grossed]
     ups = restore(ups, GFP_IN, batch=batch)
     free()
     # preset veryfast statt dem x264-Standard "medium": nur ein Zwischenstueck fuer LatentSync (wird sofort wieder
