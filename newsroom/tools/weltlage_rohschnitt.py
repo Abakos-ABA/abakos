@@ -458,6 +458,40 @@ def apply_coldopen_musikbett(a1: Path, L1: float, work: Path):
     gemischt.replace(a1)
 
 
+def bild_segmente(shots: list[dict], L: float) -> list[tuple]:
+    """Raster einer Meldung mit Schnittbildern: Host HOST_LEAD, dann Bild/Host abwechselnd, Rest Host - reine
+    Platzierungslogik, unabhaengig vom eigentlichen Rendern. Einmal berechnet, zweimal verwendet (Marlon
+    19.10.2026, Ergaenzung zu Task 20261019-182613-44c1): vor dem Lipsync fuer die Vollbild-Spannen der
+    Quellen-Screenshot-Karten (source_plate() deckt den Freisteller vollstaendig und hart ab, kein Ueberblenden -
+    anders als ein B-Roll-Vollbild-Clip braucht die Spanne hier keine FADE-Verkuerzung am Rand), danach beim
+    eigentlichen Zusammensetzen. Pure Funktion."""
+    segs, pos, k = [], 0.0, 0
+    segs.append(("host", min(HOST_LEAD, L))); pos += segs[-1][1]
+    while shots and pos + CUT_LEN + 1.5 <= L:
+        shot = shots[k % len(shots)]
+        segs.append(("bild", CUT_LEN, shot))
+        pos += CUT_LEN; k += 1
+        back = min(HOST_BACK, L - pos)
+        if L - pos - back < CUT_LEN + 1.5:
+            back = L - pos
+        segs.append(("host", back)); pos += back
+    if pos < L - 0.01:
+        segs.append(("host", L - pos))
+    return segs
+
+
+def bild_spannen(segs: list[tuple]) -> list[tuple[float, float]]:
+    """(start, ende)-Zeitspannen aller "bild"-Segmente (Quellen-Screenshot-Karte, deckt den Freisteller
+    vollstaendig ab) in `segs`, lokale Sekunden ab Meldungsbeginn - wie weltlage_broll.voll_spannen() fuer
+    B-Roll-Vollbild-Clips. Pure Funktion."""
+    out, pos = [], 0.0
+    for sg in segs:
+        if sg[0] == "bild":
+            out.append((pos, pos + sg[1]))
+        pos += sg[1]
+    return out
+
+
 def main():
     t_all = time.time()
     # absolute Pfade: LatentSync laeuft mit cwd=vendor/LatentSync, relative Ordner fuehrten dort ins Leere (30.09.2026)
@@ -477,9 +511,11 @@ def main():
     # vorhandenes <name>_studio.mp4 wiederverwenden, statt sie mit neuen Lipsync-Einstellungen neu zu rechnen.
     skip_szenen = {s.strip() for s in os.environ.get("NEWS_WELTLAGE_SKIP_SZENEN", "").split(",") if s.strip()}
 
-    def host_scene(pose, voice, start, length, name, ort=None):
+    def host_scene(pose, voice, start, length, name, ort=None, skip_spans=None):
         """Sprechszene nach der Freisteller-Regel; Ton wie add() ihn polstert (0,25 s Vorlauf, auf Szenenlaenge).
-        ort: optional anderer Hintergrund (texte.json Feld "ort", config/brand/orte); None = bisheriges Studio."""
+        ort: optional anderer Hintergrund (texte.json Feld "ort", config/brand/orte); None = bisheriges Studio.
+        skip_spans: Vollbild-Zeitspannen dieser Szene (weltlage_broll.voll_spannen()) - dort laesst der Lipsync
+        den teuren Mundabgleich aus, siehe video/freisteller_lipsync.lipsync_freisteller()."""
         fwork.mkdir(exist_ok=True)
         fertig = fwork / f"{name}_studio.mp4"
         if name in skip_szenen and fertig.exists():
@@ -503,7 +539,8 @@ def main():
         else:
             pad_wav(voice, 0.25, length, wav, ch=1)
         t = time.time()
-        comp = fl.render_scene(pose, wav, start, length, fwork, name, log=lambda m: print(m, flush=True), ort=ort)
+        comp = fl.render_scene(pose, wav, start, length, fwork, name, log=lambda m: print(m, flush=True), ort=ort,
+                               skip_spans=skip_spans)
         zeiten[name] = round(time.time() - t, 1)
         return comp
     _texte_roh = json.loads((test / "texte.json").read_text(encoding="utf-8"))
@@ -700,10 +737,44 @@ def main():
                     vor_ort[t["id"]] = o
                 else:
                     print(f"WARNUNG: Meldung {t['id']} ({L:.1f} s) zu lang fuer Ort {o!r}, bleibt im Studio", flush=True)
+    # B-Roll-Planung lesen (Marlon 19.10.2026, Task 20261019-182613-44c1): tools/weltlage_tageslauf.py ruft Stufe 1
+    # von weltlage_broll.py (Einsatzstellen, Darstellungsart, Clips) seither schon VOR diesem Schritt auf, damit hier
+    # bekannt ist, welche Zeitspannen nachher vollflaechig ueberdeckt werden (Variante "voll") - dort braucht der
+    # Lipsync unten keinen Mundabgleich. Fehlt der Plan (B-Roll aus, Planung noch nicht fertig/fehlgeschlagen), bleibt
+    # voll_je_meldung leer und der Lipsync rechnet wie bisher ueberall normal; nie ein Abbruchgrund fuer das Grundvideo.
+    voll_je_meldung = {}
+    if freisteller:
+        try:
+            import weltlage_broll
+            voll_je_meldung = weltlage_broll.voll_spannen(test)
+            if voll_je_meldung:
+                n_spannen = sum(len(v) for v in voll_je_meldung.values())
+                print(f"B-Roll-Plan vorab gefunden: {n_spannen} Vollbild-Spanne(n) in {len(voll_je_meldung)} "
+                      "Meldung(en) - Lipsync laesst sie aus", flush=True)
+        except Exception as e:                            # noqa: BLE001
+            print(f"WARNUNG: B-Roll-Plan nicht lesbar, Lipsync rechnet ueberall normal: {e}", flush=True)
+    # Schnittbild-Raster je Meldung vorab bestimmen (Marlon 19.10.2026, Ergaenzung zu Task 20261019-182613-44c1):
+    # dieselbe Platzierung wie bisher, nur jetzt VOR der Sitz-Spur berechnet, damit auch die Quellen-Screenshot-
+    # Spannen (Vollbild, deckt den Freisteller komplett ab) in den Lipsync-Spannen-Ueberspringer einfliessen - nicht
+    # nur die B-Roll-"voll"-Spannen aus weltlage_broll.py.
+    segs_je_meldung = {}
+    for t in meldungen:
+        L_t = dur(aud[t["id"]]) + 0.25 + GAP
+        shots_t = [s for s in bilder.get(str(t["bild"]), [])
+                   if not wanted.get(str(t["bild"])) or Path(s["png"]).name in wanted[str(t["bild"])]]
+        segs_je_meldung[t["id"]] = bild_segmente(shots_t, L_t)
     if freisteller:                                  # eine durchgehende Sitz-Spur ueber die Meldungen (+0,2 s Reserve)
         s5 = [(aud[t["id"]], dur(aud[t["id"]]) + 0.25 + GAP) for t in meldungen if t["id"] not in vor_ort]
         if s5:
-            sitz = host_scene("sitz", s5, 0.0, sum(L for _, L in s5) + 0.2, "s5")
+            skip, acc = [], 0.0
+            for t in meldungen:
+                if t["id"] in vor_ort:
+                    continue
+                L = dur(aud[t["id"]]) + 0.25 + GAP
+                for a0, b0 in voll_je_meldung.get(t["id"], []) + bild_spannen(segs_je_meldung[t["id"]]):
+                    skip.append((acc + a0, acc + b0))
+                acc += L
+            sitz = host_scene("sitz", s5, 0.0, sum(L for _, L in s5) + 0.2, "s5", skip_spans=skip)
     sitz_t = 0.0
     sitz_len = dur(sitz)
     bild_platzierungen_roh = []       # fuer bilder_platzierung.json (video/einblendungen.py, Abnahme 7.)
@@ -714,24 +785,15 @@ def main():
         ort_clip, ort_t = None, 0.0
         if t["id"] in vor_ort:                       # Sprechszene vor Ort, eigene Spur (Lipsync auf dem Freisteller)
             start_o = max([r for r in V6_RUHEPUNKTE if r + L <= dur(V6) - 0.1] or [0.0])
-            ort_clip = host_scene("stehend", a, start_o, L, f"s5_{t['id']}_{vor_ort[t['id']]}", ort=vor_ort[t["id"]])
-        shots = [s for s in bilder.get(str(t["bild"]), [])
-                 if not wanted.get(str(t["bild"])) or Path(s["png"]).name in wanted[str(t["bild"])]]
-        # Raster: Host HOST_LEAD, dann Bild/Host abwechselnd, Rest Host
-        segs, pos, k = [], 0.0, 0
-        segs.append(("host", min(HOST_LEAD, L))); pos += segs[-1][1]
-        while shots and pos + CUT_LEN + 1.5 <= L:
-            shot = shots[k % len(shots)]
-            segs.append(("bild", CUT_LEN, shot))
-            bild_platzierungen_roh.append({"meldung": t["id"], "shot": shot, "start_in_meldung": pos,
-                                           "dauer": CUT_LEN, "text": t["text"], "narration_dauer": dw})
-            pos += CUT_LEN; k += 1
-            back = min(HOST_BACK, L - pos)
-            if L - pos - back < CUT_LEN + 1.5:
-                back = L - pos
-            segs.append(("host", back)); pos += back
-        if pos < L - 0.01:
-            segs.append(("host", L - pos))
+            ort_clip = host_scene("stehend", a, start_o, L, f"s5_{t['id']}_{vor_ort[t['id']]}", ort=vor_ort[t["id"]],
+                                  skip_spans=voll_je_meldung.get(t["id"], []) + bild_spannen(segs_je_meldung[t["id"]]))
+        segs = segs_je_meldung[t["id"]]
+        pos = 0.0
+        for sg in segs:
+            if sg[0] == "bild":
+                bild_platzierungen_roh.append({"meldung": t["id"], "shot": sg[2], "start_in_meldung": pos,
+                                               "dauer": sg[1], "text": t["text"], "narration_dauer": dw})
+            pos += sg[1]
         seg_files = []
         for j, sg in enumerate(segs):
             out = work / f"s5_{t['id']}_{j}.mp4"

@@ -68,6 +68,10 @@ try:                          # LatentSync-Stuecke einer Szene gebuendelt in EIN
     from config.settings import NEWS_LIPSYNC_BATCH as LS_BATCH
 except Exception:
     LS_BATCH = False
+try:
+    from config.settings import NEWS_LIPSYNC_NUR_SICHTBAR as LS_NUR_SICHTBAR, NEWS_LIPSYNC_SICHTBAR_PUFFER as LS_PUFFER
+except Exception:
+    LS_NUR_SICHTBAR, LS_PUFFER = True, 0.3
 LS_BATCH_MAX = 8              # Stuecke je Prozess/GPU-Platz (Platz wird nicht ueber die ganze Szene gehalten)
 GREY = 128
 try:                          # Gesichtsfenster KI-hochskaliert statt Lanczos (video/gesicht_hd.py), Default aus
@@ -342,18 +346,25 @@ MIN_CHUNK = round(1.0 * FPS)      # kein LatentSync-Stueck kuerzer als 1 s
 
 
 def _mit_skip_grenzen(cuts: list[int], skip_frames: list[tuple[int, int]], n: int) -> list[int]:
-    """Fuegt an jeder Vollbild-Spannen-Grenze einen zusaetzlichen Schnittpunkt ein: eine geplante Vollbild-Stelle
-    (hoechstens VOLL_MAX=4 s) ist immer kuerzer als CHUNK=7 s - ohne eigene Grenze laege dort nie ein GANZES
-    LatentSync-Stueck vollstaendig in der Spanne, das Ueberspringen in lipsync_freisteller() griffe also praktisch
-    nie. Eine Grenze zu dicht an einem vorhandenen Schnittpunkt (< MIN_CHUNK) wird ausgelassen (kein Mini-Stueck);
-    dann bleibt der nahe vorhandene Punkt die wirksame Kante - im Zweifel also ein Stueck mehr normal gerechnet statt
-    ein zu kurzes LatentSync-Stueck erzwungen (Marlon 19.10.2026)."""
-    pts = set(cuts)
+    """Setzt an jede Verdeck-Spannen-Grenze (Vollbild-B-Roll, Quellen-Karte) einen Schnittpunkt, damit ein GANZES
+    LatentSync-Stueck in der Spanne liegt und das Ueberspringen in lipsync_freisteller() greift. Ein vorhandener
+    Schnittpunkt naeher als MIN_CHUNK an der Grenze wird auf die Grenze VERSCHOBEN (statt sie wie frueher
+    auszulassen - das liess bei ~3-s-Stuecken fast keine Spanne ganz abdecken, Messung 23.10.2026: 2 % statt ~50 %);
+    die Kante liegt durch den Puffer (sichtbar_skip) ohnehin im verdeckten Bereich. Nie ein Stueck kuerzer als
+    MIN_CHUNK oder laenger als CHUNK + 1 s."""
+    pts = sorted(set(cuts))
+    max_len = round((CHUNK + 1.0) * FPS)
     for a, b in skip_frames:
         for p in (a, b):
-            if 0 < p < n and all(abs(p - c) >= MIN_CHUNK for c in pts):
-                pts.add(p)
-    return sorted(pts)
+            if not 0 < p < n or p in pts:
+                continue
+            rest = [c for c in pts if abs(c - p) >= MIN_CHUNK or c in (0, n)]
+            neu = sorted(set(rest + [p]))
+            k = neu.index(p)
+            links, rechts = neu[k - 1], neu[k + 1]       # 0 und n bleiben immer erhalten
+            if p - links >= MIN_CHUNK and rechts - p >= MIN_CHUNK and p - links <= max_len and rechts - p <= max_len:
+                pts = neu
+    return pts
 
 
 def windows_for(faces: np.ndarray, cuts: list[int], w: int, h: int) -> list[tuple[int, int, int]]:
@@ -571,6 +582,17 @@ def sync_chunk(tag, wav, grey_scene, a, b, box, cache: Path, ident: str, log) ->
 
 
 # ---------------------------------------------------------------- Szene
+def sichtbar_skip(skip_spans, nur_sichtbar: bool | None = None, puffer: float | None = None) -> list:
+    """Verdeckt-Spannen -> tatsaechlich auszulassende Spannen. Schalter NEWS_LIPSYNC_NUR_SICHTBAR aus = keine (ueberall
+    lipsyncen). Jede Spanne schrumpft an beiden Kanten um `puffer` s (NEWS_LIPSYNC_SICHTBAR_PUFFER): eine Bildabweichung
+    am Schnitt zeigt dann nie den ungesyncten Mund; Spannen unter 0,5 s danach entfallen. Pure Funktion."""
+    if not (LS_NUR_SICHTBAR if nur_sichtbar is None else nur_sichtbar):
+        return []
+    pf = LS_PUFFER if puffer is None else puffer
+    out = [(a + pf, b - pf) for a, b in (skip_spans or [])]
+    return [(round(a, 3), round(b, 3)) for a, b in out if b - a >= 0.5]
+
+
 def lipsync_freisteller(pose: str, wav: Path, start: float, length: float, work: Path, name: str, log=print,
                         skip_spans: list | None = None) -> tuple[Path, int]:
     """Schritt 1+2 der Regel: Lipsync auf dem Freisteller, Alpha erhalten -> ProRes 4444 mit Alpha. Liefert (Datei, Bilder).
@@ -585,7 +607,7 @@ def lipsync_freisteller(pose: str, wav: Path, start: float, length: float, work:
     cache = work / "_latentsync"
     cache.mkdir(exist_ok=True)
     f0, n = round(start * FPS), round(length * FPS)
-    skip_frames = [(max(0, round(a * FPS)), min(n, round(b * FPS))) for a, b in (skip_spans or []) if b > a]
+    skip_frames = [(max(0, round(a * FPS)), min(n, round(b * FPS))) for a, b in sichtbar_skip(skip_spans) if b > a]
     log(f"{name} ({pose}): Freisteller-Bilder {f0}-{f0 + n} ({length:.2f} s), {W0}x{H0}, guidance {GUIDANCE}, {STEPS} Schritte")
     # 1) Freisteller auf neutralem Grau (LatentSync-Eingang), Gesicht verfolgen
     grey = work / f"{name}_freisteller_grau25.mp4"

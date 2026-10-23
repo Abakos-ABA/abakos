@@ -155,6 +155,12 @@ NEWS_LIPSYNC_GUIDANCE = float(os.environ.get("NEWS_LIPSYNC_GUIDANCE", str(_lipsy
 # wenigen Prozessen (je bis 8 Stuecke) statt je Stueck einen neuen Prozess mit Modell-Ladezeit (~10-25 s je Stueck). Gleiche
 # Einstellungen und Seeds, Ergebnis je Stueck gleich. "1" = an, Default aus bis zum Probelauf einer Folge.
 NEWS_LIPSYNC_BATCH = os.environ.get("NEWS_LIPSYNC_BATCH", "0") == "1"
+# Lipsync nur wo Latara im fertigen Schnitt sichtbar ist (Marlon 23.10.2026): Vollbild-B-Roll und Quellen-Screenshot-
+# Karten verdecken sie komplett, dort rechnet video/freisteller_lipsync.py keinen Mundabgleich (Freisteller bleibt
+# unveraendert, ist ohnehin verdeckt). PUFFER = Sekunden, um die jede Verdeck-Spanne an BEIDEN Kanten schrumpft, damit
+# eine Bildabweichung am Schnitt nie einen ungesyncten Mund zeigt. "0" = ueberall lipsyncen wie frueher.
+NEWS_LIPSYNC_NUR_SICHTBAR = os.environ.get("NEWS_LIPSYNC_NUR_SICHTBAR", "1") == "1"
+NEWS_LIPSYNC_SICHTBAR_PUFFER = float(os.environ.get("NEWS_LIPSYNC_SICHTBAR_PUFFER", "0.3"))
 # Preview mode: generated clips (masters/intro/host) at 960x528 and fewer steps, upscaled once with
 # Real-ESRGAN to 1920x1080 (video/upscale.py). Screenshots, cards, captions are native 1080p anyway.
 NEWS_PREVIEW = os.environ.get("NEWS_PREVIEW", "1") == "1"
