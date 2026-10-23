@@ -22,6 +22,7 @@ nachtraeglichen Setzen auf bereits veroeffentlichte Shorts. Reine Pillow-Bildver
 """
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -168,6 +169,19 @@ def fuer_short(meta: dict, out: Path, ordner: Path | None = None, merken: bool =
         except Exception:   # noqa: BLE001 - Branding-Schlagwort ist Zusatznutzen, kein Pflichtschritt
             pass
     stimmungstext = " ".join(str(s) for s in stimmungsteile if s)
+    try:   # seit 21.10.2026 Eilmeldungs-Vorlage im Hochformat, alte Vorlage bleibt Rueckfall
+        from video import weltlage_thumbnail_eil as eil
+        szene = Path(out).stem.removesuffix("_thumb")
+        nr = re.match(r"short_(\d+)", szene)
+        w = titel.split()
+        mitte = max(1, (len(w) + 1) // 2)
+        return eil.baue({"zeile1": " ".join(w[:mitte]), "zeile2": " ".join(w[mitte:]), "banderole": banderole,
+                         "stimmungstext": stimmungstext, "titel": titel, "szene": szene,
+                         "short_nr": int(nr.group(1)) if nr else 1}, Path(out), short=True, ordner=ordner,
+                        frisch=bool(ordner is not None and (Path(ordner) / "breaking.flag").exists()))
+    except Exception as e:   # noqa: BLE001
+        print(f"WARNUNG Eilmeldungs-Short-Thumbnail fehlgeschlagen ({type(e).__name__}: {e}) - alte Vorlage",
+              file=sys.stderr)
     return render(titel, banderole, Path(out), stimmungstext=stimmungstext, merken=merken)
 
 
