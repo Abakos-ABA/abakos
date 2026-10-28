@@ -1,11 +1,11 @@
 # Weltlage Kompakt – verbindlicher Szenenplan Langformat
 
-Festgelegt von Marlon in der Nacht auf den 29.09.2026. Moderatorin: **Anastasia Latara**.
-Dieser Plan ist die Referenz für jede Folge. Abweichungen nur nach Marlons OK.
+Festgelegt von rexemre in der Nacht auf den 29.09.2026. Moderatorin: **Anastasia Latara**.
+Dieser Plan ist die Referenz für jede Folge. Abweichungen nur nach rexemres OK.
 Ergänzt [SHOW-CONCEPT.md](SHOW-CONCEPT.md) und die Regel «Szene einfrieren, nur geänderte Szenen neu rendern»
 (Memory «Weltlage Szenen-Workflow»).
 
-**Struktur-Update 30.09.2026 (Marlon):** die alte Szene 1 «Cold Open» und die alte Szene 4 «Themenüberblick»
+**Struktur-Update 30.09.2026 (rexemre):** die alte Szene 1 «Cold Open» und die alte Szene 4 «Themenüberblick»
 entfallen. An ihre Stelle treten zwei neue, klar getrennte Szenen zwischen Reinlaufen und Meldungen:
 **Begrüssung** (fest eingefroren, allgemein, in jeder Folge identisch, nie neu gerendert) und **Themen**
 (pro Folge neu, zählt die heutigen Schlagzeilen auf). Grund: die alte Cold-Open-Szene musste pro Folge neu
@@ -14,21 +14,21 @@ jeder Folge unnötig GPU-Zeit. Details zu Bau und Pipeline unten bei den jeweili
 
 Zielformat (wie bisheriges Langformat, z.B. `data/video/wkls01.mp4`): **1920x1080, 24 fps, H.264 + AAC, Deutsch**,
 Stimme = Chatterbox mit `config/brand/voice_ref.wav` (Ramona-Referenz, exaggeration 0.4 / cfg 0.4, Text vorher durch
-`tts/normalize_de.py`). **Gilt wieder seit 30.09.2026 (Marlons Entscheid nach Hörprobe Nr. 2):** die Piper-Umstellung
+`tts/normalize_de.py`). **Gilt wieder seit 30.09.2026 (rexemres Entscheid nach Hörprobe Nr. 2):** die Piper-Umstellung
 vom 29.09. (`de_DE-ramona-low`) ist zurückgenommen; `tools/weltlage_tts.py` spricht nur noch mit diesem Chatterbox-Klon
 und schreibt pro Datei einen Engine-Nachweis (`audio/<id>.tts.json`), siehe README «Stimme der Moderatorin».
 
-**Update 30.09.2026 abends (Marlon):** der **Cold Open ist wieder die erste Szene**, vor Bumper und Intro
+**Update 30.09.2026 abends (rexemre):** der **Cold Open ist wieder die erste Szene**, vor Bumper und Intro
 («es fehlt das Cold-Dings als erste Szene»). Er wird pro Folge neu gebaut (Text `s_coldopen` in `texte.json`,
 Anriss der Top-Meldungen, fehlt er, erzeugt `tools/weltlage_update_themen.py` einen aus den ersten drei Meldungen),
 mit Stimme 2 vertont und wie alle Sprechszenen auf dem Freisteller gelipsynct. Begrüssung und Themen bleiben.
 
-## Titel beim Veröffentlichen (Regel von Marlon, 01.10.2026)
+## Titel beim Veröffentlichen (Regel von rexemre, 01.10.2026)
 
 Der YouTube-Titel jeder Folge ist **überspitzt und clickbaity**, oft als Frage formuliert, und zielt auf den
 **stärksten Aufhänger der Folge** – passend zum gewählten Thumbnail. Erlaubt: Zuspitzung, Dramatik, Fragezeichen,
 maximal ein Wort in CAPS/Emoji. **Nie erlaubt:** falsche Behauptungen oder erfundene Ereignisse – der Inhalt der
-Folge muss die Frage/Aussage tragen. Beispiel-Niveau (Marlons eigene Vorgabe): «Nordkorea: Steht der Krieg kurz
+Folge muss die Frage/Aussage tragen. Beispiel-Niveau (rexemres eigene Vorgabe): «Nordkorea: Steht der Krieg kurz
 bevor?» statt eines nüchternen «Spannungen an der koreanischen Grenze». Es werden immer drei Titel-Varianten
 entworfen (max. ca. 70 Zeichen), die stärkste wird gesetzt, die anderen zwei bleiben im Veröffentlichungsbericht
 dokumentiert. Die Weltlage-Folgen haben kein eigenes Titel-Baustein-Skript (anders als die Shorts-Pipeline mit
@@ -37,9 +37,9 @@ dokumentiert. Die Weltlage-Folgen haben kein eigenes Titel-Baustein-Skript (ande
 (`set_metadata`/`set_thumbnail` für bereits veröffentlichte Videos, `run` für den Erst-Upload). Die Beschreibung
 beginnt mit dem Themen-Teaser der Folge, dessen erster Satz denselben zugespitzten Aufhänger wie der Titel trägt.
 
-## Zweimal täglich vollautomatisch: Themenwahl + Freigabe (seit 03.10.2026, Marlons dauerhafte Freigabe 02.10. 23:03)
+## Zweimal täglich vollautomatisch: Themenwahl + Freigabe (seit 03.10.2026, rexemres dauerhafte Freigabe 02.10. 23:03)
 
-Marlon hat am 02.10.2026 um 23:03 dauerhaft freigegeben: Weltlage Kompakt läuft vollautomatisch inklusive
+rexemre hat am 02.10.2026 um 23:03 dauerhaft freigegeben: Weltlage Kompakt läuft vollautomatisch inklusive
 Veröffentlichung auf YouTube, wenn er nicht innerhalb einer Stunde reagiert. Ersetzt den 07:00-Lauf unten (Task fa4b).
 
 - **Slots** `NEWS_WELTLAGE_SLOTS=00:00,10:00` (seit 16.10.2026 PRODUKTIONSSTART-Zeiten, vorher Veröffentlichungszeit
@@ -56,14 +56,14 @@ Veröffentlichung auf YouTube, wenn er nicht innerhalb einer Stunde reagiert. Er
   `ist_wiederholung()` vergleichen jede Storyline inhaltlich (Wort-Überlappung Titel+Inhalt) gegen Folgen der
   letzten `NEWS_WELTLAGE_THEMEN_WIEDERHOLUNG_TAGE` Tage (Default 14); zu ähnliche Vorschläge werden verworfen, das
   Modell bekommt die verbotenen Themen gleich im Prompt genannt. Themenpool `state/weltlage_themenpool.json`
-  (Storylines, die Marlon zusätzlich will) wird bevorzugt angeboten und nach der Wahl entfernt. Rückfrage per
+  (Storylines, die rexemre zusätzlich will) wird bevorzugt angeboten und nach der Wahl entfernt. Rückfrage per
   `tools/weltlage_entscheid.py` an Telegram (Knöpfe A/B/C, Antwort «B, Hinweis …») und Beta-App (Mitteilung + Push;
   Antwort im App-Chat «Weltlage B»). 60 min ohne Antwort → Empfehlung. Freitext-Hinweis geht als `vorgabe.txt` ins
   Skript (`weltlage_skript.py --vorgabe`). Vorab gewählte Storyline: im Zustand `"vorgabe": {"titel", "inhalt"}` →
-  keine Rückfrage, auch kein Wiederholungs-Check (Marlon hat das Thema bewusst selbst bestimmt).
+  keine Rückfrage, auch kein Wiederholungs-Check (rexemre hat das Thema bewusst selbst bestimmt).
   Aktualitäts-Check (seit 07.10.2026): kurz vor der Veröffentlichung ruft die Weltlage-Wache
   `weltlage_themen.py aktualitaet-pruefen <ordner>` auf - gibt es zum gewählten Thema seit der Recherche neue
-  Meldungen (mögliche neue Entwicklung seit der Vortagswahl), warnt sie Marlon per Telegram/Beta-App, statt das
+  Meldungen (mögliche neue Entwicklung seit der Vortagswahl), warnt sie rexemre per Telegram/Beta-App, statt das
   fertige Video automatisch neu zu rendern.
 - **Produktion** wie unten (Skript → Aussprache → Bilder → Stimme → Rohschnitt → B-Roll nur echte freie Clips
   `NEWS_WELTLAGE_BROLL_OHNE_KI=1` → Abnahme → Thumbnail → Metadaten). Abnahme durchgefallen = nie veröffentlichen.
@@ -80,7 +80,7 @@ Veröffentlichung auf YouTube, wenn er nicht innerhalb einer Stunde reagiert. Er
   zu fragen. Neue Läufe starten nur, solange sie bis Slot + 5 h fertig werden können. HuggingFace läuft in den
   Unterprozessen offline (`HF_HUB_OFFLINE=1`, Vorfall 02.10.: TTS hing an einer CDN-Verbindung).
 
-## (bis 02.10.2026) Täglich zu fixer Zeit: Tageslauf (seit 01.10.2026, Marlons Ja zur Vorbild-Analyse)
+## (bis 02.10.2026) Täglich zu fixer Zeit: Tageslauf (seit 01.10.2026, rexemres Ja zur Vorbild-Analyse)
 
 Grundlage: `reports/vorbild_vermietertagebuch_20261001/Bericht_Vorbild_Vermietertagebuch_20261001.md` (nur
 Struktur-Prinzipien übernommen, keine Texte/Bilder/Thumbnails). Umgesetzt in Task 20261001-152131-dffa.
@@ -92,7 +92,7 @@ Struktur-Prinzipien übernommen, keine Texte/Bilder/Thumbnails). Umgesetzt in Ta
   ruft jeden Tick `tools/weltlage_tageslauf.py: pruefen_und_starten()` auf (unabhängig von der Shorts-Pause) und
   startet pro Slot einen losgelösten Lauf ohne Fenster: Skript → Bilder → Stimme → Rohschnitt/Lipsync → B-Roll →
   Abnahme → Thumbnail → Metadaten → Warten bis Slot → Upload öffentlich → Telegram-Meldung. Fällt ein Pflichtschritt
-  durch (Skript-Prüfung, Stimmen-/Abnahme-Prüfung), wird **nicht** veröffentlicht und Marlon bekommt eine Meldung.
+  durch (Skript-Prüfung, Stimmen-/Abnahme-Prüfung), wird **nicht** veröffentlicht und rexemre bekommt eine Meldung.
 - Zustand `state/weltlage_tageslauf.json`, Log `<folge>/tageslauf.log`, Upload-Protokoll `<folge>/upload.log` +
   Bildschirmfotos `<folge>/upload_shots/`. Pause: Datei `state/weltlage_tageslauf.pause` anlegen.
   Stand ansehen: `.venv\Scripts\python.exe tools\weltlage_tageslauf.py status`.
@@ -128,7 +128,7 @@ Im Prompt `config/prompts/weltlage_analyse.md` und hart geprüft in `tools/weltl
 
 ## Skript der Folge (Standard seit 01.10.2026: Analyse-Konzept)
 
-Marlon hat am 01.10.2026 das Redaktions-/Analyse-Konzept geschickt (Redakteur, Analyst und Skriptautor: eine
+rexemre hat am 01.10.2026 das Redaktions-/Analyse-Konzept geschickt (Redakteur, Analyst und Skriptautor: eine
 Storyline statt Meldungsliste, Meldungen verbinden «A + B ergeben ein grösseres Bild», Gegenargument/alternative
 Erklärung, keine Falschbehauptungen, Bild-Marker). Es liegt wörtlich in `config/prompts/weltlage_analyse.md`,
 ergänzt um die Kopplung an `texte.json`. Erzeugt wird das Skript mit `tools/weltlage_skript.py`:
@@ -149,7 +149,7 @@ die Screenshots der Meldung aus `bilder.json`. Probelauf: `reports/skript_probel
 
 ### Personen-/Dialogformat (seit 01.10.2026 nachmittags, Teil des Prompts `analyse`)
 
-Marlons Auftrag (Diktat 01.10.): Personen in den Mittelpunkt (Präsidenten, Kanzler, Minister, Zentralbankchefs …),
+rexemres Auftrag (Diktat 01.10.): Personen in den Mittelpunkt (Präsidenten, Kanzler, Minister, Zentralbankchefs …),
 Reaktionsketten «X hat A gesagt, Y hat mit B reagiert, jetzt passiert C», echte Zitate mit Quelle und Datum,
 Handlungen (Reisen, Gipfel, Telefonate, Unterschriften, Entlassungen …), dazwischen markierte Einordnung (Rolle
 `einordnung`: wer hat welches Interesse, was kommt als Nächstes). Länderneutral, kein Pflichtbezug zu einem Land.
@@ -196,9 +196,9 @@ Handlungen (Reisen, Gipfel, Telefonate, Unterschriften, Entlassungen …), dazwi
 | # | Szene | Bild | Ton | Status |
 |---|-------|------|-----|--------|
 | 1 | Cold Open | Latara **stehend am Pult** (v6-Freisteller, Lipsync) | Anriss der Top-Meldungen, endet mit «Das alles gleich in Weltlage Kompakt.» | **pro Folge neu** (30.09. abends wieder eingebaut), 0,3 s Überblendung in den Bumper |
-| 1b | Welt-Bumper | Montage A2 (Weltbilder, digitale Übergänge), 4,8 s | eigener Sting | **fest eingebaut** (Marlon 29.09.) |
+| 1b | Welt-Bumper | Montage A2 (Weltbilder, digitale Übergänge), 4,8 s | eigener Sting | **fest eingebaut** (rexemre 29.09.) |
 | 2 | Intro | bestehender Intro-Sting | Intro-Musik | vorhanden |
-| 3 | Reinlaufen/Auftritt | Latara **läuft ins Bild**; ihr letzter Frame = erster Frame der stehenden v6-Pose | kein Text, nur leiser Raumton | **fest eingebaut** (29.09.), unverändert (Marlon 30.09.: «ist gut so») |
+| 3 | Reinlaufen/Auftritt | Latara **läuft ins Bild**; ihr letzter Frame = erster Frame der stehenden v6-Pose | kein Text, nur leiser Raumton | **fest eingebaut** (29.09.), unverändert (rexemre 30.09.: «ist gut so») |
 | Begr. | Begrüssung | **stehend am Pult**, gleicher Hintergrund/Platzierung wie v6 | «Willkommen bei Weltlage Kompakt, ich bin Latara. Heute kommen die folgenden Themen.» – zeitlos, kein Datum, keine Themen | **fest eingefroren** (30.09.2026, `config/brand/begruessung/`), in jeder Folge identisch, nie neu gerendert |
 | Wisch | Logo-Wisch | WK-Logo + diagonaler Lichtwisch auf dunklem Studioblau, Stil von Bumper/Intro | kurzer Ton-Swoosh (aus dem aktiven Bumper) | **fest eingefroren** (30.09.2026, `config/brand/uebergang/`), ersetzt den harten Schnitt Begrüssung→Themen, in jeder Folge identisch |
 | Themen | Themen | **stehend am Pult**, Fortsetzung des gleichen v6-Materials | Aufzählung der heutigen Schlagzeilen, automatisch aus den Meldungen gebaut | **pro Folge neu**, Lipsync automatisch |
@@ -222,7 +222,7 @@ weiterhin verwendet, jetzt aber von Begrüssung/Themen/Verabschiedung geteilt st
 
 ## Szene Begrüssung (fest eingefroren, stehend)
 
-- Struktur vom 30.09.2026 (Marlon): Latara begrüsst das Publikum ganz allgemein, **ohne Datum und ohne die
+- Struktur vom 30.09.2026 (rexemre): Latara begrüsst das Publikum ganz allgemein, **ohne Datum und ohne die
   heutigen Themen**, damit der Clip zeitlos bleibt und in jeder Folge unverändert wiederverwendet werden kann
   (gleiches Prinzip wie Szene 3 «Auftritt»).
 - Text (fest, siehe `tools/weltlage_begruessung.py`): «Willkommen bei Weltlage Kompakt, ich bin Latara. Heute
@@ -236,14 +236,14 @@ weiterhin verwendet, jetzt aber von Begrüssung/Themen/Verabschiedung geteilt st
 - Gebaut und eingefroren am 30.09.2026 (Task 20260930-010440-2467): `config/brand/begruessung/begruessung_v1.mp4`
   (aktiv laut `config/brand/begruessung/aktiv.json`), 5,9 s, 1920x1080, 24 fps, H.264 + AAC.
 - Werkzeug: `tools/weltlage_begruessung.py` (`build` → `_work/begruessung/begruessung_v1.mp4`, `freeze` → kopiert
-  nach `config/brand/begruessung/` und schreibt `aktiv.json`). **Einmalig, nie neu rendern**, ausser Marlon ändert
+  nach `config/brand/begruessung/` und schreibt `aktiv.json`). **Einmalig, nie neu rendern**, ausser rexemre ändert
   Text oder Platzierung – dann Neubau wie bei Szene 3.
 - Eingehängt in `tools/weltlage_rohschnitt.py` (Abschnitt «Begruessung»): läuft direkt nach Szene 3, vor der
   Themen-Szene.
 
 ## Szene Logo-Wisch (fest eingefroren, zwischen Begrüssung und Themen)
 
-- Entscheid Marlon, 30.09.2026: zwischen Begrüssung und Themen ersetzt ein kurzer Logo-Wisch (Variante A)
+- Entscheid rexemre, 30.09.2026: zwischen Begrüssung und Themen ersetzt ein kurzer Logo-Wisch (Variante A)
   den bisherigen harten Schnitt bei Sekunde 11 des Kurztests. Eine bildgenaue Standbild-Vorlage
   (Variante B, Übergang über den identischen letzten/ersten V6-Frame) wurde verworfen – nicht nötig.
 - Eigenständige, immer gleiche Vorlage wie Bumper/Intro, unabhängig vom Folgeninhalt: WK-Logo
@@ -254,10 +254,10 @@ weiterhin verwendet, jetzt aber von Begrüssung/Themen/Verabschiedung geteilt st
   `config/brand/uebergang/aktiv.json`), ca. 1,0 s, 1920x1080, 24 fps, H.264 + AAC.
 - Werkzeug: `tools/weltlage_uebergang.py` (`build` → `_work/uebergang/uebergang_v1.mp4`, `freeze` → kopiert
   nach `config/brand/uebergang/` und schreibt `aktiv.json`). Rein CPU (PIL/numpy + ffmpeg), kein GPU nötig.
-  Einmalig, nie neu rendern, ausser Marlon ändert den Look.
+  Einmalig, nie neu rendern, ausser rexemre ändert den Look.
 - Eingehängt in `tools/weltlage_rohschnitt.py` (Abschnitt «Logo-Wisch»): läuft direkt nach der Begrüssung,
   vor der Themen-Szene – auch im `--kurztest`.
-- **Ton seit v2 (Marlon 30.09.2026):** der Bumper-Hit (auf -14 LUFS, so laut wie die Sprache) war zu aggressiv.
+- **Ton seit v2 (rexemre 30.09.2026):** der Bumper-Hit (auf -14 LUFS, so laut wie die Sprache) war zu aggressiv.
   Jetzt `config/brand/uebergang/uebergang_v2.mp4`: synthetischer weicher Whoosh (`synth_whoosh`, gefiltertes
   Rauschen, Filter wandert mit dem Lichtwisch, Stereo links→rechts), Spitze -17 dBFS, im Schnitt ~13 dB unter der
   Sprache, kein loudnorm. Varianten `A` (luftig, Standard) / `B` (dunkler + leiser Schimmer):
@@ -265,9 +265,9 @@ weiterhin verwendet, jetzt aber von Begrüssung/Themen/Verabschiedung geteilt st
 
 ## Szene Themen (pro Folge neu, stehend)
 
-- Struktur vom 30.09.2026 (Marlon): Latara nennt die heutigen Themen als kurze Aufzählung (Schlagzeilen der
+- Struktur vom 30.09.2026 (rexemre): Latara nennt die heutigen Themen als kurze Aufzählung (Schlagzeilen der
   Meldungen), «Jetzt im Einzelnen» am Ende. Ersetzt die alte Szene 4 «Themenüberblick».
-- **Keine eigene Ansage** (Marlon 30.09.2026): die Begrüssung endet schon mit «Heute kommen die folgenden
+- **Keine eigene Ansage** (rexemre 30.09.2026): die Begrüssung endet schon mit «Heute kommen die folgenden
   Themen.», darum beginnt der Themen-Text direkt mit der ersten Schlagzeile (früher «Das kommt heute: …» = doppelt).
 - Text wird **automatisch** aus den `"kurz"`-Feldern der Meldungen in `texte.json` gebaut:
   `tools/weltlage_text_gen.py` (`build_themen_text`) formuliert den Aufzählungssatz,
@@ -278,7 +278,7 @@ weiterhin verwendet, jetzt aber von Begrüssung/Themen/Verabschiedung geteilt st
   **v6-Ruhepunkt** (`V6_RUHEPUNKTE` in `tools/weltlage_rohschnitt.py`), damit sich die Bewegung nicht mit der
   Begrüssung wiederholt.
 - Ca. 12–20 s, je nach Anzahl Meldungen.
-- **Abo-Hinweis** (festgelegt von Marlon, 29.09.2026, jetzt Teil dieser Szene statt der alten Szene 4): ein
+- **Abo-Hinweis** (festgelegt von rexemre, 29.09.2026, jetzt Teil dieser Szene statt der alten Szene 4): ein
   Halbsatz «Wenn du dranbleiben willst, abonnieren», dazu kurz eingeblendetes Abo-Symbol
   (`config/brand/endscreen/abo_hinweis_icon.mov`, Alpha, ProRes 4444, ~2,5 s, pulsierender Button unten rechts),
   per Alpha-Overlay eingeblendet (`abo_overlay` in `tools/weltlage_rohschnitt.py`). Kein Like/Abo-Aufruf mitten
@@ -287,15 +287,15 @@ weiterhin verwendet, jetzt aber von Begrüssung/Themen/Verabschiedung geteilt st
 
 ## Szene 1b – Welt-Bumper (zwischen Cold Open und Intro)
 
-- Entscheid Marlon 29.09.2026: **Bumper A2** (A1 verworfen, liegt unter `output/bumper_outro/_verworfen/`).
+- Entscheid rexemre 29.09.2026: **Bumper A2** (A1 verworfen, liegt unter `output/bumper_outro/_verworfen/`).
 - Aktiv laut `config/brand/bumper/aktiv.json` → `config/brand/bumper/bumper_A2.mp4` (Kopie von
   `output/bumper_outro/bumper_A2.mp4`, Ton auf -14 LUFS / -2 dBTP an das Intro angeglichen). Wechseln = Dateiname
   in der json ändern, `null` = kein Bumper.
-- **Ton-Update 02.10.2026** (Marlon fand den Ton seit 30.09. immer noch schlecht): vier neue, druckvollere
+- **Ton-Update 02.10.2026** (rexemre fand den Ton seit 30.09. immer noch schlecht): vier neue, druckvollere
   ACE-Step-Varianten erzeugt (`_work/bumper_opener_20261002/`, Prompt-Familien `brass_impact`/`hybrid_drive`/
   `minimal_power`/`digital_crisp`, je Familie das beste 4,7917-s-Fenster wie zuvor bei `bumper_sanft`). Automatisch
   nach Punch/Transient-Position bester Kandidat war Kandidat 1 (`hybrid_drive`), zunaechst als Zwischenstand
-  eingebaut. **Marlon hat die vier Varianten angehoert und Kandidat 3 (`brass_impact`, Seed 701, klassische
+  eingebaut. **rexemre hat die vier Varianten angehoert und Kandidat 3 (`brass_impact`, Seed 701, klassische
   Blechblaeser-Fanfare mit Impact-Hit) gewaehlt** – das ist seit 02.10.2026 20:19 der Standard, auf
   Produktionsstandard (-14 LUFS / -2 dBTP) gemastert und in `bumper_A2_lizenzfrei.mp4` eingebaut
   (`_work/bumper_opener_20261002/install_standard.py`, `WAHL = "3"`). Fallback bleibt die urspruengliche ruhige
@@ -314,7 +314,7 @@ weiterhin verwendet, jetzt aber von Begrüssung/Themen/Verabschiedung geteilt st
 
 ## Szene 3 – Auftritt (fester Clip, in jeder Folge identisch)
 
-- Gebaut 29.09.2026 (Task 20260929-202639-7cb6), Auftrag Marlon: einmal endgültig, **kein Text, kein Lipsync, kein Sprechton**.
+- Gebaut 29.09.2026 (Task 20260929-202639-7cb6), Auftrag rexemre: einmal endgültig, **kein Text, kein Lipsync, kein Sprechton**.
 - Clip: `config/brand/szene3_auftritt/szene3_auftritt_v1.mp4` (aktiv laut `config/brand/szene3_auftritt/aktiv.json`),
   5,08 s, 1920x1080, 24 fps, H.264 + AAC (nur sehr leiser Raumton, Musik gibt es nach Konzept nur in Bumper/Intro/Outro).
   Daneben: Freisteller-Lauf mit Alpha `szene3_freisteller_lauf_v1_prores4444.mov` (1344x896, 16 fps, Ausschnitt x 0–1344,
@@ -356,7 +356,7 @@ weiterhin verwendet, jetzt aber von Begrüssung/Themen/Verabschiedung geteilt st
   fehlt oder die Folge einen eigenen Ort für `s6_outro` setzt, läuft automatisch der alte Pro-Folge-Weg weiter.
   **Noch nicht gebaut** (Stand 02.10.2026 nachmittags) – der erste Bau braucht GPU-Zeit (TTS + ~2 LatentSync-Stücke)
   und sollte erst laufen, wenn kein Folgen-Render die Karte braucht.
-- Frühere Fassung (**fest eingebaut**, 29.09.2026, Marlon, vor der Einfrierung): Verabschiedung lief nach derselben
+- Frühere Fassung (**fest eingebaut**, 29.09.2026, rexemre, vor der Einfrierung): Verabschiedung lief nach derselben
   Freisteller-Regel wie Cold Open/Szene 4 – **stehende** Latara, gleicher Idle-Master
   `config/brand/szene1_stehend_animation/stehend_v6_alpha_prores4444.mov`, gleiches Studiobild/Placement wie
   Szene 1/4. Umgesetzt in `tools/weltlage_rohschnitt.py` (`host_scene("stehend", s6, ...)`, Ausschnitt aus der
@@ -378,7 +378,7 @@ weiterhin verwendet, jetzt aber von Begrüssung/Themen/Verabschiedung geteilt st
   (Erde im All, End-Card ab 1,4 s), neue Musik (MusicGen, 6 Kandidaten analysiert, Sieger «bright_s11», -14 LUFS,
   Ausklang auf dem Tonika-Akkord). Render: `tools/render_bumper_outro.py outro --audio <wav>`.
   Danach folgt nahtlos der Endscreen (siehe unten).
-- **Abo-Hinweis** (festgelegt von Marlon, 29.09.2026): im Outro-Text auf das nächste Video hinweisen
+- **Abo-Hinweis** (festgelegt von rexemre, 29.09.2026): im Outro-Text auf das nächste Video hinweisen
   («… morgen wieder hier» o.ä.) + Abo-Aufruf. Siehe Abschnitt „Call-to-Action & Endscreen" unten für den
   technischen Teil (Endscreen-Führung, Positionen).
 - Welt-Bumper/Outro-Bildmaterial (Montage-Stil) entsteht in Task 20260929-021843-3ee7,
@@ -387,7 +387,7 @@ weiterhin verwendet, jetzt aber von Begrüssung/Themen/Verabschiedung geteilt st
 
 ## Call-to-Action & Endscreen
 
-Ergänzt von Marlon, 29.09.2026 – technischer Teil umgesetzt in Task 20260929-022135-5814, Details in
+Ergänzt von rexemre, 29.09.2026 – technischer Teil umgesetzt in Task 20260929-022135-5814, Details in
 [endscreen.md](endscreen.md).
 
 - **Zwei Abo-Stellen, sonst keine:**
@@ -398,7 +398,7 @@ Ergänzt von Marlon, 29.09.2026 – technischer Teil umgesetzt in Task 20260929-
   Endscreen-Elemente (2 empfohlene Videos + Abo-Button, Standardpositionen der Vorlage) selbst als Overlay
   darüber – das bleibt pro Video ein manueller Klick im Studio, die YouTube Data API hat dafür keinen
   Endpunkt (geprüft, siehe endscreen.md).
-- Endscreen-Design «edel» (29.09.2026, ersetzt die pulsierenden Goldrahmen, die Marlon nicht gefielen):
+- Endscreen-Design «edel» (29.09.2026, ersetzt die pulsierenden Goldrahmen, die rexemre nicht gefielen):
   ruhige Kamerafahrt auf dem Outro-Globus, Wortmarke oben links, zwei dunkle Glasflächen mit feiner Gold-Haarlinie
   und Label («NÄCHSTES VIDEO», «AUCH SEHENSWERT») genau auf den Studio-Positionen, Abo-Kreis unten links mit
   «ABONNIEREN». Startet exakt auf dem letzten Outro-Frame. Werkzeug `tools/endscreen_design.py`, Layout aus
@@ -407,7 +407,7 @@ Ergänzt von Marlon, 29.09.2026 – technischer Teil umgesetzt in Task 20260929-
   `output/bumper_outro/_verworfen/`.
 - Anleitung fürs Platzieren im Studio + alle Details/offenen Punkte: [endscreen.md](endscreen.md).
 
-## Feste Regel Lipsync: immer auf dem Freisteller (Marlon, 29.09.2026)
+## Feste Regel Lipsync: immer auf dem Freisteller (rexemre, 29.09.2026)
 
 Gilt für **alle** Weltlage-Videos, stehend **und** sitzend:
 
@@ -443,22 +443,22 @@ Umkehrpunkten (`SITZ_PINGPONG` in `video/freisteller_lipsync.py`), an jedem Umke
 wieder angefahren (Zwischenbilder geblendet), Ende = Anfang. Beliebig lange Meldungen loopen diesen Master nahtlos
 (Loop-Sprung gemessen 0,2 statt 17). Fehlt die Datei, baut `_ensure_source` sie automatisch neu.
 
-## Offen (laut Marlon, 29.09./30.09.2026)
+## Offen (laut rexemre, 29.09./30.09.2026)
 
 1. **Lipsync für alle Sprechszenen** (Begrüssung, Themen, 5, 6): laufen seit 30.09. automatisch nach der
    Freisteller-Regel oben; Szene 3 «Reinlaufen» hat bewusst kein Sprechvideo (kein Text, kein Lipsync).
 2. **Gesamtschnitt** als automatisierter Baustein der Pipeline (heute: Rohschnitt-Skript `tools/weltlage_rohschnitt.py`,
    Struktur inkl. Begrüssung/Themen seit 30.09. eingebaut).
-3. ~~Szene 3 (Auftritt)~~ gebaut 29.09. (fester Clip, siehe oben), wartet auf Marlons Ja.
-4. ~~Endscreen final rendern~~ erledigt 29.09. (`tools/endscreen_design.py`). Marlon: Positionen einmal live im
+3. ~~Szene 3 (Auftritt)~~ gebaut 29.09. (fester Clip, siehe oben), wartet auf rexemres Ja.
+4. ~~Endscreen final rendern~~ erledigt 29.09. (`tools/endscreen_design.py`). rexemre: Positionen einmal live im
    Studio gegenprüfen.
 5. ~~Begrüssungs-Vorlage bauen~~ erledigt 30.09.2026 (Task 20260930-010440-2467), siehe Szene Begrüssung oben.
-   Marlon: Testclip unten ansehen und Begrüssungstext/Bild freigeben.
+   rexemre: Testclip unten ansehen und Begrüssungstext/Bild freigeben.
 6. **Volle Folge mit der neuen Struktur** (Bumper–Intro–Reinlaufen–Begrüssung–Logo-Wisch–Themen–Meldungen–
    Verabschiedung–Outro) noch nicht komplett gerendert, nur der Kurztest der ersten fünf Teile (siehe Testläufe).
 7. ~~Logo-Wisch statt hartem Schnitt Begrüssung→Themen~~ erledigt 30.09.2026 (Variante A, siehe Szene
    Logo-Wisch oben). Vorheriger Versuch mit bildgenauer Standbild-Vorlage (Variante B, Task
-   20260930-105141-3694) wurde abgebrochen und verworfen. Marlon: neuen Kurztest unten ansehen und Wisch freigeben.
+   20260930-105141-3694) wurde abgebrochen und verworfen. rexemre: neuen Kurztest unten ansehen und Wisch freigeben.
 
 ## Testläufe
 
@@ -469,14 +469,14 @@ wieder angefahren (Zwischenbilder geblendet), Ende = Anfang. Beliebig lange Meld
 - 30.09.2026 (Task 20260930-010440-2467): Kurztest der neuen Struktur, `data/weltlage_test_20260929/weltlage_rohschnitt_20260929_lipsync_kurztest.mp4`,
   58,6 s, 1920x1080, mit Lipsync: Reinlaufen (5,1 s) – Begrüssung (5,9 s, feste Vorlage) – Themen (17,1 s, automatisch
   aus den Schlagzeilen der Testfassung) – Anfang der Sitz-Szene (erste Meldung Fairford, 30,5 s). Kein Bumper/Intro/
-  Verabschiedung/Outro (per `--kurztest` ausgelassen). Marlon muss den Clip noch ansehen und Struktur/Begrüssungstext
+  Verabschiedung/Outro (per `--kurztest` ausgelassen). rexemre muss den Clip noch ansehen und Struktur/Begrüssungstext
   freigeben.
 - 30.09.2026 (Task 20260930-111810-d281): Kurztest mit dem neuen Logo-Wisch (siehe Szene Logo-Wisch oben),
   `data/weltlage_test_20260929/weltlage_rohschnitt_20260930_wisch_kurztest.mp4`, 59,5 s, 1920x1080: Reinlaufen
   (5,1 s) – Begrüssung (5,8 s) – **Logo-Wisch (1,0 s, neu)** – Themen (17,1 s) – Anfang der Sitz-Szene (30,5 s).
   Ersetzt den harten Schnitt bei Sekunde 11 des vorherigen Kurztests; der Wisch sitzt jetzt bei 00:10,88–00:11,88.
-  4-Sekunden-Ausschnitt um den Übergang zur Kontrolle: `C:\Users\Marlon\projekte\jarvis\reports\weltlage_uebergang_ausschnitt_20260930.mp4`
-  (Sekunde 9,0–13,0 des Kurztests). Marlon muss den Wisch ansehen und freigeben.
+  4-Sekunden-Ausschnitt um den Übergang zur Kontrolle: `C:\Users\USER\projekte\jarvis\reports\weltlage_uebergang_ausschnitt_20260930.mp4`
+  (Sekunde 9,0–13,0 des Kurztests). rexemre muss den Wisch ansehen und freigeben.
 
 ## Orte pro Szene (01.10.2026)
 

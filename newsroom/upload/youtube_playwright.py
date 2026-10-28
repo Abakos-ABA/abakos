@@ -303,7 +303,7 @@ def _trotzdem_knopf(page):
 
 def _warte_auf_pruefung(page, log, max_min: float = PRUEF_WARTEN_MIN) -> str:
     """Vor dem Klick auf Veroeffentlichen: Studios Vorabpruefung abwarten (sonst kommt der Zwischendialog, Vorfall
-    06.10.2026). Nach max_min wird trotzdem veroeffentlicht (Marlons Dauerfreigabe), der Dialog wird dann bestaetigt."""
+    06.10.2026). Nach max_min wird trotzdem veroeffentlicht (rexemres Dauerfreigabe), der Dialog wird dann bestaetigt."""
     ende, letzt_log, text = time.time() + max_min * 60, 0.0, ""
     while time.time() < ende:
         try:

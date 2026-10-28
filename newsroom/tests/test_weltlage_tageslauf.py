@@ -330,9 +330,9 @@ class Freigabe(Basis):
         self.assertEqual(runden, [1, 2], "nach Feedback neue Runde mit neuem Video verschickt")
 
     def test_freigabe_warnt_bei_ueberholtem_thema(self):
-        """13.10.2026 (Marlons Kritik: Themen zu frueh gewaehlt, bis zur Veroeffentlichung nicht mehr aktuell):
+        """13.10.2026 (rexemres Kritik: Themen zu frueh gewaehlt, bis zur Veroeffentlichung nicht mehr aktuell):
         der Aktualitaets-Check laeuft jetzt schon in der Freigabe-Nachricht selbst, nicht erst ueber die spaetere,
-        separate Nachpruefung der Weltlage-Wache - Marlon sieht neue Meldungen sofort bei seiner Freigabe-Entscheidung
+        separate Nachpruefung der Weltlage-Wache - rexemre sieht neue Meldungen sofort bei seiner Freigabe-Entscheidung
         und kann mit Feedback/Stopp reagieren, statt dass die Folge unbemerkt veroeffentlicht wird."""
         ordner, master = self._folge()
         alt = th.aktualitaet_pruefen
@@ -369,7 +369,7 @@ class Freigabe(Basis):
     def test_aktualitaet_automatisch_ergaenzt_wenn_zeit_reicht(self):
         """16.10.2026 (Rueckfall: die blosse Warnung vom 13.10. aenderte nichts, wenn niemand reagierte - der
         Normalfall war automatisch veroeffentlichen). Bleibt genug Zeit bis zum Slot, ergaenzt der Tageslauf jetzt
-        selbst einen kurzen, aktuellen Satz ueber dieselbe Feedback-Maschine, OHNE auf Marlon zu warten."""
+        selbst einen kurzen, aktuellen Satz ueber dieselbe Feedback-Maschine, OHNE auf rexemre zu warten."""
         ordner, master = self._folge()
         (ordner / "texte.json").write_text(json.dumps(_texte()), encoding="utf-8")
         self._aktualitaet_mocken({"s5_a2": "Meldung zwei, laut Agentur inzwischen neu entwickelt."})
@@ -465,12 +465,12 @@ class Puenktlichkeit(Basis):
 
 
 class Sofort(Basis):
-    """Marlons «sofort veröffentlichen» pro Lauf (10.10.2026, Task 3ba8)."""
+    """rexemres «sofort veröffentlichen» pro Lauf (10.10.2026, Task 3ba8)."""
 
     def test_schalter_nur_fuer_den_einen_lauf(self):
         self.assertFalse(tl.sofort_aktiv("2026-10-10_19:00"))
-        e = tl.sofort_setzen("2026-10-10_19:00", "Marlon per Telegram")
-        self.assertTrue(e["sofort"] and e["sofort_grund"] == "Marlon per Telegram" and e["sofort_seit"])
+        e = tl.sofort_setzen("2026-10-10_19:00", "rexemre per Telegram")
+        self.assertTrue(e["sofort"] and e["sofort_grund"] == "rexemre per Telegram" and e["sofort_seit"])
         self.assertTrue(tl.sofort_aktiv("2026-10-10_19:00"))
         self.assertFalse(tl.sofort_aktiv("2026-10-10_11:00"), "anderer Lauf bleibt beim normalen Ablauf")
         self.assertTrue(tl.sofort_aktiv("2026-10-10_19:00"), "mehrfach lesbar, bleibt gesetzt")

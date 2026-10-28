@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Weltlage Kompakt: eigenes, komponiertes Vorschaubild fuer Shorts (1080x1920, Marlons Auftrag 15.10.2026).
+"""Weltlage Kompakt: eigenes, komponiertes Vorschaubild fuer Shorts (1080x1920, rexemres Auftrag 15.10.2026).
 
 Vorher: upload_datei() lud Shorts immer mit thumb_path=None hoch, Studio waehlte selbst einen Zufalls-Frame
 (spaeter ersetzt durch einen rohen ffmpeg-Standbild-Grab aus der Titelkarten-Phase, _thumbnail_aus_titelkarte in
@@ -112,7 +112,7 @@ def render(titel: str, banderole: str, out: Path, farbe: str = FESTE_FARBE, foto
           stimmungstext: str | None = None, merken: bool = True) -> Path:
     """Baut das komponierte Shorts-Thumbnail. titel ist der themenbezogene Text (Frage/Hook des einzelnen
     Shorts), banderole das Thema-Schlagwort der Folge (z.B. 'KRISE'), farbe der Farbcode wie bei der
-    Folgen-Vorlage (FESTE_FARBE = immer 'konflikt', Marlons Entscheid 02.10.2026)."""
+    Folgen-Vorlage (FESTE_FARBE = immer 'konflikt', rexemres Entscheid 02.10.2026)."""
     fc = FARBEN.get(farbe, FARBEN["politik"])
     bild = _hintergrund(fc).convert("RGBA")
     d = ImageDraw.Draw(bild)

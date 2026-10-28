@@ -7,7 +7,7 @@ from a reference wav - the channel's host voice is a fixed reference file so eve
 like the same person. Long texts are synthesised sentence by sentence and concatenated (the model
 is happiest with < ~300 characters at a time).
 
---veredeln (Stimm-Veredelung Variante A, Marlons Wahl 01.10.2026, Task 20261001-165559-5e26/180145-c47f):
+--veredeln (Stimm-Veredelung Variante A, rexemres Wahl 01.10.2026, Task 20261001-165559-5e26/180145-c47f):
 erzwingt echte Satz-fuer-Satz-Erzeugung (ignoriert --max-chars) und ersetzt die feste 0,25-s-Stille zwischen den
 Saetzen durch eine leicht zufaellige Pause (0,30-0,42 s) mit einem leisen synthetischen Einatmer. Das holt die
 Hoehen noch nicht zurueck - das macht tts/veredelung.py danach mit Resemble Enhance in .venv-enhance.

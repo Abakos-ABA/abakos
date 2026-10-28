@@ -1,6 +1,6 @@
 """Freisteller-Lipsync fuer die Weltlage-Moderatorin Latara (stehend und sitzend).
 
-FESTE REGEL (Marlon, 29.09.2026), gilt fuer alle Weltlage-Videos:
+FESTE REGEL (rexemre, 29.09.2026), gilt fuer alle Weltlage-Videos:
   1. Lipsync IMMER auf dem Freisteller-Quellvideo der Moderatorin (ohne Studio, volle Quellaufloesung, Gesicht gross),
      nie auf dem fertig komponierten Studiobild (dort ist das Gesicht 40-60 px und der Mund kaum sichtbar).
   2. Matte/Alpha bleibt die des Freistellers (stehend: BiRefNet-Alpha der ProRes-4444-Fassung, sitzend: Differenz-Key
@@ -48,11 +48,11 @@ FPS = 25                      # LatentSync arbeitet mit 25 fps; der Schnitt setz
 CHUNK = 7.0                   # laengere Stuecke liefen am 29.09. ueber den VRAM
 ZOOM = 768                    # Kantenlaenge des hochskalierten Gesichtsfensters
 WIN = 2.2                     # Fensterkante in Gesichtsgroessen (eng: Gesicht fuellt den LatentSync-Eingang)
-STEPS = 8                      # 8 statt 12 (Marlons Auftrag 14.10., Task 20261014-192918-98bb: Produktion auf ~2 h
+STEPS = 8                      # 8 statt 12 (rexemres Auftrag 14.10., Task 20261014-192918-98bb: Produktion auf ~2 h
                                 # straffen; Vergleich 12 vs. 8 x Batch 1/4 in tools/lipsync_steps_vergleich.py,
                                 # Bericht reports/lipsync_steps_vergleich_20261014/ergebnis.json: SyncNet-Konfidenz
                                 # und Mundbewegungs-Kennzahl bei 8 Schritten unveraendert ggue. 12, kein Versatz,
-                                # ~20-25 % schnelleres LatentSync pro Stueck). Davor 12 statt 20 (Marlon 07.10.,
+                                # ~20-25 % schnelleres LatentSync pro Stueck). Davor 12 statt 20 (rexemre 07.10.,
                                 # Vergleich 20/15/12 in Task 20261007-183020-9417: kein sichtbarer Unterschied) -
                                 # Feld "steps" in pipeline_signatur(), damit eingefrorene Szenen die Aenderung nicht
                                 # stillschweigend ignorieren
@@ -97,7 +97,7 @@ POSEN = {
     "stehend": dict(
         src=SZ / "stehend_v6_alpha_prores4444.mov", w=832, h=1248, loop=False, key=False,
         face=(60, 160, 0.25),
-        bg=Path(r"C:\Users\Marlon\Documents\WK\latara_in_studio_stehend_neben_pult_breitbild_hintergund.png"),
+        bg=Path(r"C:\Users\USER\Documents\WK\latara_in_studio_stehend_neben_pult_breitbild_hintergund.png"),
         bg_still=True, bg_size=(1672, 941),
         placement=SZ / "host_placement_v6_neuer_hintergrund.json", default=dict(x=842, y=386, scale=0.3798),
         desk=None),

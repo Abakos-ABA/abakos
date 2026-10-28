@@ -2,12 +2,12 @@
 # Local iterative build of abakosd (with EVM) in WSL. Syncs chain + chain-sdk to
 # a native ext4 dir (fast go cache) and builds cmd/akash.
 set -uo pipefail
-export PATH=/home/marlon/sdk/go/bin:/home/marlon/go/bin:/usr/local/go/bin:/usr/bin:/bin
+export PATH=/home/USER/sdk/go/bin:/home/USER/go/bin:/usr/local/go/bin:/usr/bin:/bin
 export GOTOOLCHAIN=auto
 export CGO_ENABLED=1
 
-SRC=/mnt/c/Users/Marlon/abakos
-DST=/home/marlon/abakos-build
+SRC=/mnt/c/Users/USER/abakos
+DST=/home/USER/abakos-build
 mkdir -p "$DST"
 
 echo "[sync] chain + chain-sdk + cosmos-sdk -> $DST"

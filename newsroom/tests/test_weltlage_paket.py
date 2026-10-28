@@ -197,7 +197,7 @@ class MetadatenUndThumbnail(unittest.TestCase):
             from video.weltlage_thumbnail import fuer_folge
             from video import latara_foto as lf
             from PIL import Image
-            # Foto-Auswahl von Marlons echtem Ordner/Verlauf isolieren (Task 20261002-220950-b2d6):
+            # Foto-Auswahl von rexemres echtem Ordner/Verlauf isolieren (Task 20261002-220950-b2d6):
             # dieser Test soll nicht in die echte Wiederholungs-Historie schreiben.
             alt = (lf.ORDNER, lf.INDEX, lf.VERLAUF)
             lf.ORDNER = d / "kein_foto_ordner"

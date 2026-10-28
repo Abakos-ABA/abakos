@@ -318,7 +318,7 @@ class ThumbnailNachtragTest(unittest.TestCase):
 
 
 class ThumbnailSetzenVersucht(unittest.TestCase):
-    """15.10.2026 (Marlons Auftrag, analog zum Jarvis-KI-Kanal-Fund): das eigene, komponierte Thumbnail aus
+    """15.10.2026 (rexemres Auftrag, analog zum Jarvis-KI-Kanal-Fund): das eigene, komponierte Thumbnail aus
     meta['thumbnail'] hat Vorrang vor dem alten ffmpeg-Standbild-Grab."""
 
     def _mit_set_thumbnail(self, fake_set):

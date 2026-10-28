@@ -1,32 +1,32 @@
-"""Weltlage Kompakt - Rohschnitt Langformat nach docs/weltlage_szenenplan.md (Struktur vom 30.09.2026, Marlon).
+"""Weltlage Kompakt - Rohschnitt Langformat nach docs/weltlage_szenenplan.md (Struktur vom 30.09.2026, rexemre).
 
 Liest aus einem Folgenordner (Default data/weltlage_test_20260929):
   texte.json   Sprechtexte pro Szene/Meldung (id, szene, bild, bei Meldungen "kurz" fuer die Themen-Szene;
                "s_coldopen" = Cold Open, fehlt er, erzeugt tools/weltlage_update_themen.py ihn; optional "ort" =
                Hintergrund aus config/brand/orte/orte.json, z.B. "bruessel": Latara steht dann dort (video/orte.py,
                Werte aus tools/orte_platzieren.py); ohne "ort" oder "studio" bleibt alles wie bisher)
-  audio/<id>.wav  Lataras Stimme = Chatterbox-Klon Ramona pro Eintrag (tools/weltlage_tts.py, Marlons Entscheid
+  audio/<id>.wav  Lataras Stimme = Chatterbox-Klon Ramona pro Eintrag (tools/weltlage_tts.py, rexemres Entscheid
                   30.09.2026; s_themen zuvor mit tools/weltlage_update_themen.py aus den "kurz"-Feldern generieren).
                   Der Rohschnitt bricht ab, wenn eine gesprochene Datei nicht nachweislich Chatterbox ist
                   (24 kHz mono + Engine-Nachweis audio/<id>.tts.json mit passendem Hash; Piper = 16 kHz).
   bilder.json  Screenshots pro Meldung (bilder_holen.py, video/sources.capture)
 und baut 1920x1080 / 24 fps / H.264 + AAC in dieser Reihenfolge:
-  Cold Open (v6 stehend, pro Folge neu: Anriss der Top-Meldungen, Marlon 30.09.2026 abends wieder als ERSTE Szene,
+  Cold Open (v6 stehend, pro Folge neu: Anriss der Top-Meldungen, rexemre 30.09.2026 abends wieder als ERSTE Szene,
   weiche Ueberblendung in den Bumper) - Welt-Bumper (bumper/aktiv.json) - Intro (intro/aktiv.json) - Reinlaufen/Auftritt (fester Clip
   szene3_auftritt/aktiv.json, unveraendert) - Begruessung (fest eingefroren, begruessung/aktiv.json,
   tools/weltlage_begruessung.py, in jeder Folge identisch) - Logo-Wisch (kurzer Marken-Uebergang,
   uebergang/aktiv.json, tools/weltlage_uebergang.py, ersetzt den harten Schnitt) - Themen (v6 stehend,
   pro Folge neu, Text automatisch aus den Meldungs-Schlagzeilen) - Logo-Wisch (zweite Einblendung derselben
-  Vorlage, Marlon 04.10.2026: ersetzt den harten Schnitt beim Wechsel von der stehenden Themen-Szene in die
+  Vorlage, rexemre 04.10.2026: ersetzt den harten Schnitt beim Wechsel von der stehenden Themen-Szene in die
   sitzende Meldungen-Szene) - Meldungen sitzend mit Schnittbildern - Verabschiedung (v6 stehend, seit 02.10.2026
   ebenfalls fest eingefroren, verabschiedung/aktiv.json, tools/weltlage_verabschiedung.py - gleicher Text in
   jeder Folge) - Abschluss (v6 stehend, fest eingefroren, abschluss/aktiv.json, tools/weltlage_abschluss.py,
-  Marlon 04.10.2026: kurzer Kanal-Abschluss mit Latara, WK-Logo und animiertem Abo-Hinweis, ersetzt die alte
+  rexemre 04.10.2026: kurzer Kanal-Abschluss mit Latara, WK-Logo und animiertem Abo-Hinweis, ersetzt die alte
   Outro-Grafik ohne Latara).
 Die alte Szene "Themenüberblick" entfaellt seit 30.09.2026 (ersetzt durch Begruessung + Themen). Der Cold Open war
-am 30.09. mittags ebenfalls gestrichen und ist seit dem Abend auf Marlons Wunsch wieder die erste Szene.
+am 30.09. mittags ebenfalls gestrichen und ist seit dem Abend auf rexemres Wunsch wieder die erste Szene.
 
-Stimmen-Nachweis (Marlon 30.09.2026): vor dem Schnitt muss jede gesprochene Datei (Cold Open, Begruessung, Themen,
+Stimmen-Nachweis (rexemre 30.09.2026): vor dem Schnitt muss jede gesprochene Datei (Cold Open, Begruessung, Themen,
 Meldungen, Verabschiedung) nachweislich der Chatterbox-Klon sein (tools/weltlage_tts.pruefe_stimme), sonst Abbruch.
 Nach dem Schnitt gleicht tools/weltlage_stimmpruefung.py jede Sprechszene im fertigen Video gegen genau diese Datei
 ab (<video>_stimmen.json); faellt eine durch, wird das Video in *_UNGUELTIG.mp4 umbenannt und der Lauf bricht ab.
@@ -69,11 +69,11 @@ _bumper = json.loads(_BUMPER_CFG.read_text(encoding="utf-8")).get("landscape") i
 BUMPER = BRAND / "bumper" / _bumper if _bumper else None   # Welt-Bumper A2 eroeffnet die Folge (Struktur 30.09.: kein Cold Open mehr davor)
 # Szene «Reinlaufen/Auftritt»: Latara laeuft von links ins Studio, letzter Frame = erster Frame der stehenden
 # v6-Pose (Frame 0 im Studio). In jeder Folge identisch, einmal gebaut und eingefroren (tools/szene3_auftritt.py,
-# 29.09.2026); kein Text, kein Sprechton. Marlon 30.09.2026: "ist gut so, unveraendert lassen".
+# 29.09.2026); kein Text, kein Sprechton. rexemre 30.09.2026: "ist gut so, unveraendert lassen".
 _S3_CFG = BRAND / "szene3_auftritt" / "aktiv.json"
 _s3 = json.loads(_S3_CFG.read_text(encoding="utf-8")).get("landscape") if _S3_CFG.exists() else None
 SZENE3 = BRAND / "szene3_auftritt" / _s3 if _s3 else None
-# Begruessungs-Vorlage (Struktur 30.09.2026, Marlon): Latara begruesst das Publikum allgemein, ohne Datum/Themen -
+# Begruessungs-Vorlage (Struktur 30.09.2026, rexemre): Latara begruesst das Publikum allgemein, ohne Datum/Themen -
 # in jeder Folge identisch, einmal gebaut und eingefroren (tools/weltlage_begruessung.py), nie neu gerendert.
 _BEGR_CFG = BRAND / "begruessung" / "aktiv.json"
 _begr_meta = json.loads(_BEGR_CFG.read_text(encoding="utf-8")) if _BEGR_CFG.exists() else {}
@@ -88,7 +88,7 @@ _VERAB_CFG = BRAND / "verabschiedung" / "aktiv.json"
 _verab_meta = json.loads(_VERAB_CFG.read_text(encoding="utf-8")) if _VERAB_CFG.exists() else {}
 VERABSCHIEDUNG = BRAND / "verabschiedung" / _verab_meta["landscape"] if _verab_meta.get("landscape") else None
 VERABSCHIEDUNG_STIMME = BRAND / "verabschiedung" / _verab_meta["stimme_wav"] if _verab_meta.get("stimme_wav") else None
-# Abschluss-Vorlage (fest eingefroren, Marlon 04.10.2026, tools/weltlage_abschluss.py): kurzer, eigenstaendiger
+# Abschluss-Vorlage (fest eingefroren, rexemre 04.10.2026, tools/weltlage_abschluss.py): kurzer, eigenstaendiger
 # Kanal-Abschluss mit Latara (zeitloser Ausblick-Satz, kein Folgeninhalt) + WK-Logo + animiertem Abo-Hinweis -
 # ersetzt die alte Outro-Grafik (output/outro_v3, nur Musik/Logo, keine Latara, kein Abo-Hinweis-Text) als letzte
 # Szene der Folge. Analoges Muster zu Begruessung/Verabschiedung.
@@ -96,14 +96,14 @@ _ABSCHL_CFG = BRAND / "abschluss" / "aktiv.json"
 _abschl_meta = json.loads(_ABSCHL_CFG.read_text(encoding="utf-8")) if _ABSCHL_CFG.exists() else {}
 ABSCHLUSS = BRAND / "abschluss" / _abschl_meta["landscape"] if _abschl_meta.get("landscape") else None
 ABSCHLUSS_STIMME = BRAND / "abschluss" / _abschl_meta["stimme_wav"] if _abschl_meta.get("stimme_wav") else None
-# Logo-Wisch (Variante A, Marlon 30.09.2026): kurzer Marken-Uebergang zwischen Begruessung und Themen,
+# Logo-Wisch (Variante A, rexemre 30.09.2026): kurzer Marken-Uebergang zwischen Begruessung und Themen,
 # ersetzt den harten Schnitt - eigenstaendige Vorlage wie Bumper/Intro, unabhaengig vom Folgeninhalt,
 # kein bildgenaues Standbild-Scharnier (tools/weltlage_uebergang.py).
 _UEB_CFG = BRAND / "uebergang" / "aktiv.json"
 _ueb_meta = json.loads(_UEB_CFG.read_text(encoding="utf-8")) if _UEB_CFG.exists() else {}
 UEBERGANG = BRAND / "uebergang" / _ueb_meta["landscape"] if _ueb_meta.get("landscape") else None
 # V6-Zeitposition, an der die eingefrorene Begruessung endet (aus tools/weltlage_begruessung.py freeze()).
-# Bildgenauer Anschluss (Marlon 30.09.2026): die Themen-Szene startet exakt hier im selben V6-Material, letzter
+# Bildgenauer Anschluss (rexemre 30.09.2026): die Themen-Szene startet exakt hier im selben V6-Material, letzter
 # Frame Begruessung = erster Frame Themen - keine neue Bewegung, direkte Fortsetzung derselben Performance.
 BEGRUESSUNG_ENDE = _begr_meta.get("laenge_s")
 # v6-Bilder (16 fps), die praktisch dem Frame 0 entsprechen (Segmentgrenzen der First-Last-Frame-Segmente, mittlere
@@ -196,7 +196,7 @@ def _in_box_einpassen(img: Image.Image, max_w: int, max_h: int) -> Image.Image:
     GANZE Bild in max_w x max_h passt - je nachdem, welche Seite der Engpass ist. Vorher wurde immer auf eine
     feste Hoehe skaliert (die Breite blieb unbegruenzt); bei einem besonders hohen Screenshot lief dessen Breite
     dadurch ueber den Rahmen hinaus und PIL.paste schnitt den Ueberstand kommentarlos ab - im Ergebnis wieder ein
-    Ausschnitt statt des ganzen Bilds. Marlon 08.10.2026: eine gemeinsame Regel fuer jeden Screenshot in der
+    Ausschnitt statt des ganzen Bilds. rexemre 08.10.2026: eine gemeinsame Regel fuer jeden Screenshot in der
     Szene, nicht nur den ersten. Pure Funktion."""
     scale = min(max_w / img.width, max_h / img.height, 1.0)
     neu = (max(1, round(img.width * scale)), max(1, round(img.height * scale)))
@@ -217,7 +217,7 @@ def source_plate(shot: dict, out: Path):
     d.rectangle([x - 6, y - 6, x + s.width + 6, y + s.height + 6], fill=(255, 255, 255, 60))
     bg.paste(s, (x, y))
     # Quellenzeile direkt unter dem tatsaechlichen Bildende (nicht der Box-Hoehe) - sonst wandert sie bei einem
-    # schmaleren/kuerzeren Bild (echtes fit statt feste Hoehe, s.o.) unnoetig weit nach unten (Marlon 08.10.2026)
+    # schmaleren/kuerzeren Bild (echtes fit statt feste Hoehe, s.o.) unnoetig weit nach unten (rexemre 08.10.2026)
     leiste_y = min(y + s.height + 24, H - 170)
     d.rectangle([x, leiste_y, x + s.width, leiste_y + 72], fill=(8, 20, 45, 235))
     d.rectangle([x, leiste_y, x + 12, leiste_y + 72], fill=(200, 30, 40, 255))
@@ -295,7 +295,7 @@ def marke_angleichen(wav: Path, sprache_lufs: float, out: Path) -> float:
 
 def szene_stimme_angleichen(wav: Path, ziel_lufs: float, out: Path) -> float:
     """Gleicht die Stimm-wav einer eingefrorenen Sprechszene (Begruessung/Verabschiedung) linear auf die mittlere
-    TTS-Lautheit DIESER Folge an (02.10.2026, Marlon: Folge ging mit zwei Lautstaerkespruengen an den Szenen-
+    TTS-Lautheit DIESER Folge an (02.10.2026, rexemre: Folge ging mit zwei Lautstaerkespruengen an den Szenen-
     uebergaengen raus). Ursache: diese Dateien sind einmal gebaut und eingefroren (tools/weltlage_begruessung.py /
     weltlage_verabschiedung.py), ihre Tonspur stammt aus einem aelteren Stand der Mischung und weicht darum von der
     aktuellen Chatterbox-/Veredelungs-Kette ab. Anders als marke_angleichen (Toleranzband fuer Musik) gleicht diese
@@ -309,7 +309,7 @@ def szene_stimme_angleichen(wav: Path, ziel_lufs: float, out: Path) -> float:
 
 
 def master_ton(wav: Path, video: Path, out: Path) -> dict:
-    """Lautheit GENAU EINMAL, im Master, linear (Task 20260930-210208-ed2c, Marlon: Stimme im Video «verdrueckt»).
+    """Lautheit GENAU EINMAL, im Master, linear (Task 20260930-210208-ed2c, rexemre: Stimme im Video «verdrueckt»).
 
     Frueher: loudnorm=I=-14:TP=-2:LRA=11 in einem Durchgang = dynamischer Modus: Verstaerkung schwankte innerhalb
     einer Meldung um 3,2 dB (p5-p95), Crest -2,1 dB, Spitzen auf -4,9 dBTP gedrueckt. Jetzt: Programm messen, eine
@@ -402,7 +402,7 @@ def _arg(name):
 
 def _musik_fuer_laenge(musik_datei: Path, L1: float, work: Path) -> Path:
     """Verlaengert das Musikbett per Crossfade-Loop, falls die Cold-Open-Szene laenger ist als die Rohdatei
-    (Marlon 01.10.2026: Musik muss bei jeder Cold-Open-Laenge passen, Loop ohne hoerbaren Schnitt). Haengt die
+    (rexemre 01.10.2026: Musik muss bei jeder Cold-Open-Laenge passen, Loop ohne hoerbaren Schnitt). Haengt die
     Rohdatei so oft mit kurzer Ueberblendung an sich selbst, bis sie mindestens L1 Sekunden lang ist; acrossfade_join
     ist derselbe Weichuebergang, der auch zwei Szenen aneinanderhaengt, also kein harter Klick am Loop-Punkt."""
     roh = dur(musik_datei)
@@ -420,7 +420,7 @@ def _musik_fuer_laenge(musik_datei: Path, L1: float, work: Path) -> Path:
 def apply_coldopen_musikbett(a1: Path, L1: float, work: Path):
     """Mischt das Musikbett (config/brand/coldopen_musik/aktiv.json) unter die Cold-Open-Stimme a1, ersetzt a1 in
     place. Nur aufgerufen, wenn NEWS_WELTLAGE_COLDOPEN_MUSIKBETT aktiv ist (config/settings.py, Standard seit
-    Marlons Entscheid 01.10.2026 16:27, Variante 3). Pegel relativ zur gerade gemessenen Sprachlautheit von a1
+    rexemres Entscheid 01.10.2026 16:27, Variante 3). Pegel relativ zur gerade gemessenen Sprachlautheit von a1
     (-19 dB unter der Stimme, Fade-in 1s, Fade-out 1,5s endet exakt beim Schnitt in den Bumper); sanftes
     Sidechain-Ducking zusaetzlich, damit die Musik bei Sprache weiter runtergeht und in Pausen leicht hochkommt.
     Ist die Szene laenger als die Rohdatei, wird vorher per Crossfade-Loop verlaengert (_musik_fuer_laenge). Kein
@@ -471,7 +471,7 @@ def main():
         sys.exit(subprocess.call([str(fl.LS_PY), str(Path(__file__).resolve()), *sys.argv[1:]]))
     fwork = work / "_freisteller"
     zeiten = {}
-    # Marlon 01.10.2026 (Zeitdruck Deadline): einzelne, schon fertig gerechnete Szenen ueberspringen und ihr
+    # rexemre 01.10.2026 (Zeitdruck Deadline): einzelne, schon fertig gerechnete Szenen ueberspringen und ihr
     # vorhandenes <name>_studio.mp4 wiederverwenden, statt sie mit neuen Lipsync-Einstellungen neu zu rechnen.
     skip_szenen = {s.strip() for s in os.environ.get("NEWS_WELTLAGE_SKIP_SZENEN", "").split(",") if s.strip()}
 
@@ -512,7 +512,7 @@ def main():
     bilder = json.loads((test / "bilder.json").read_text(encoding="utf-8"))
     wanted = json.loads((test / "bildwahl.json").read_text(encoding="utf-8")) if (test / "bildwahl.json").exists() else {}
     aud = {t["id"]: test / "audio" / f"{t['id']}.wav" for t in texte}
-    # Stimmen-Pruefung (Marlon 30.09.2026): jede gesprochene Datei muss nachweislich der Chatterbox-Klon Ramona
+    # Stimmen-Pruefung (rexemre 30.09.2026): jede gesprochene Datei muss nachweislich der Chatterbox-Klon Ramona
     # sein (24 kHz mono + Engine-Nachweis mit Hash; tools/weltlage_tts.py erzeugt beides). Piper ist abgewaehlt.
     from weltlage_tts import pruefe_stimme
     if not kurztest and "s_coldopen" not in aud:
@@ -555,13 +555,13 @@ def main():
             pad_wav(audio_src, pre, length, a)
         parts.append((video, a, length, label))
 
-    # Struktur vom 30.09.2026 (Marlon, docs/weltlage_szenenplan.md): Bumper - Intro - Reinlaufen (unveraendert) -
+    # Struktur vom 30.09.2026 (rexemre, docs/weltlage_szenenplan.md): Bumper - Intro - Reinlaufen (unveraendert) -
     # Begruessung (neu, fest eingefroren) - Logo-Wisch (neu, fest eingefroren) - Themen (neu, pro Folge) -
     # Meldungen - Verabschiedung - Outro.
     # --kurztest baut nur Reinlaufen + Begruessung + Logo-Wisch + Themen + Anfang der Sitz-Szene (ohne
     # Bumper/Intro/Verabschiedung/Outro).
     if not kurztest:
-        # Cold Open (erste Szene, Marlon 30.09.2026): Latara stehend reisst die Top-Meldungen an, pro Folge neu.
+        # Cold Open (erste Szene, rexemre 30.09.2026): Latara stehend reisst die Top-Meldungen an, pro Folge neu.
         # Ausschnitt ab einem spaeten v6-Ruhepunkt, damit sich die Bewegung nicht mit der Begruessung (ab Frame 0)
         # wiederholt; danach kurze Bild-/Ton-Ueberblendung in den Bumper (kein Klick, wie am 29.09. geloest).
         s_co = aud["s_coldopen"]
@@ -637,9 +637,9 @@ def main():
         stimm_szenen["Szene Begrüssung"] = (BEGRUESSUNG_STIMME, _begr_meta.get("stimme_vorlauf_s", 0.25), Lbg)
     else:
         Lbg = 0.0
-    # Logo-Wisch (Variante A, Marlon 30.09.2026): kurzer Marken-Uebergang statt hartem Schnitt
+    # Logo-Wisch (Variante A, rexemre 30.09.2026): kurzer Marken-Uebergang statt hartem Schnitt
     # (config/brand/uebergang/aktiv.json, tools/weltlage_uebergang.py). Seit 04.10.2026 zweimal eingesetzt:
-    # Begruessung->Themen (wie bisher) und Themen->Meldungen (Marlon: harter Schnitt beim Steh-Sitz-Wechsel).
+    # Begruessung->Themen (wie bisher) und Themen->Meldungen (rexemre: harter Schnitt beim Steh-Sitz-Wechsel).
     def logo_wisch(suffix):
         if not (UEBERGANG and UEBERGANG.exists()):
             return
@@ -759,7 +759,7 @@ def main():
                 add(v, ("extract", VERABSCHIEDUNG), L6, "Szene Verabschiedung")
             stimm_szenen["Szene Verabschiedung"] = (VERABSCHIEDUNG_STIMME, vorlauf, L6)
         else:
-            # Alter Pro-Folge-Weg: gleicher stehender Freisteller wie Reinlaufen/Begruessung/Themen (Marlon
+            # Alter Pro-Folge-Weg: gleicher stehender Freisteller wie Reinlaufen/Begruessung/Themen (rexemre
             # 29.09.), Ausschnitt aus der Taktmitte, damit sich die Bewegung nicht mit Begruessung/Themen wiederholt
             s6 = aud["s6_outro"]
             L6 = dur(s6) + 0.25 + (0.6 if (ABSCHLUSS and ABSCHLUSS.exists()) else 1.8)
@@ -773,7 +773,7 @@ def main():
             stimm_szenen["Szene Verabschiedung"] = (s6, 0.25, L6)
         # Abschluss: wie Begruessung/Verabschiedung fest eingefroren (config/brand/abschluss/aktiv.json,
         # tools/weltlage_abschluss.py) - kurzer, zeitloser Kanal-Abschluss mit Latara, WK-Logo und dem
-        # animierten Abo-Hinweis (ABO_ICON), ersetzt die alte reine Musik-/Logo-Outro-Grafik (Marlon 04.10.2026:
+        # animierten Abo-Hinweis (ABO_ICON), ersetzt die alte reine Musik-/Logo-Outro-Grafik (rexemre 04.10.2026:
         # "ein klarer, eigener Abschluss mit Latara und einem deutlichen Abo-Hinweis, keine leeren Felder").
         if ABSCHLUSS and ABSCHLUSS.exists():
             La = round(dur(ABSCHLUSS) * FPS) / FPS

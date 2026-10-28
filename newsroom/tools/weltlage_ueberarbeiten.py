@@ -1,6 +1,6 @@
-"""Weltlage Kompakt - Marlons Feedback zu einer fertigen Folge umsetzen (Freigabe-Schleife, Marlon 02.10.2026).
+"""Weltlage Kompakt - rexemres Feedback zu einer fertigen Folge umsetzen (Freigabe-Schleife, rexemre 02.10.2026).
 
-Teil des Zweimal-taeglich-Ablaufs (tools/weltlage_tageslauf.py, Schritt freigabe): Marlon drueckt unter dem Video
+Teil des Zweimal-taeglich-Ablaufs (tools/weltlage_tageslauf.py, Schritt freigabe): rexemre drueckt unter dem Video
 «Feedback» und schreibt, was anders sein soll. Das Modell (gleiches wie tools/weltlage_skript.py, Claude-CLI im Abo)
 bekommt die Szenentexte, Titel und Thumbnail-Text der Folge plus das Feedback und gibt NUR die geaenderten Teile
 zurueck. Danach:
@@ -35,7 +35,7 @@ THUMB_FELDER = ("banderole", "zeile1", "zeile2", "farbe")
 def _prompt(texte: dict, feedback: str, max_wachstum_prozent: int = 20) -> str:
     szenen = [{"id": s["id"], "text": s["text"]} for s in texte["szenen"] if s["id"] not in FEST]
     return f"""Du bist Redakteur des deutschsprachigen YouTube-Analysekanals «Weltlage Kompakt» (Moderatorin Latara).
-Die Folge unten ist fertig produziert. Marlon (Kanalchef) hat sie angesehen und will Aenderungen:
+Die Folge unten ist fertig produziert. rexemre (Kanalchef) hat sie angesehen und will Aenderungen:
 
 FEEDBACK VON MARLON:
 {feedback.strip()}
@@ -49,7 +49,7 @@ Schweizer Schreibweise (ss statt sz). Titel: zugespitzte Frage, hoechstens 70 Ze
 
 Antworte NUR mit JSON:
 {{"szenen": {{"<id>": "<neuer vollstaendiger Text>"}}, "titel": null, "thumbnail": null,
- "zusammenfassung": "ein Satz fuer Marlon, was geaendert wurde"}}
+ "zusammenfassung": "ein Satz fuer rexemre, was geaendert wurde"}}
 ("titel" nur setzen, wenn er sich aendern soll; "thumbnail" nur als Objekt mit banderole/zeile1/zeile2/farbe.)
 
 TITEL: {texte.get('titel')}

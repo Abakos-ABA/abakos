@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-"""Weltlage Kompakt: fester 6-Stunden-Takt fuer Shorts-Uploads (Marlon 13.10.2026, Telegram-Auftrag nach dem
+"""Weltlage Kompakt: fester 6-Stunden-Takt fuer Shorts-Uploads (rexemre 13.10.2026, Telegram-Auftrag nach dem
 ersten echten Short: ~400 Views/8 Likes/4 Abos in 48 h, deutlich besser als frueherer Inhalt).
 
 Vorher (seit 11.10.) schnitt der Tageslauf Shorts direkt nach jeder Folge und fragte JEDE Short einzeln per
 Telegram frei (shorts_erzeugen_und_freigeben in weltlage_tageslauf.py) - das kam unregelmaessig (an die
-Folgen-Slots gekoppelt) und brauchte eine Reaktion. Marlons neuer Auftrag: taeglich GENAU 4 Shorts, alle 6
+Folgen-Slots gekoppelt) und brauchte eine Reaktion. rexemres neuer Auftrag: taeglich GENAU 4 Shorts, alle 6
 Stunden, vollautomatisch OEFFENTLICH, keine Einzelfreigabe mehr (dauerhafte Freigabe).
 
 Architektur (erweitert statt neu gebaut): das Schneiden bleibt dort, wo es ist (tools/weltlage_shorts.py,
@@ -64,7 +64,7 @@ def _thumbnail_aus_titelkarte(mp4: Path, log=print) -> Path | None:
 def _thumbnail_setzen_versucht(video_id: str, mp4: Path, meta: dict | None = None, log=print) -> bool:
     """Bevorzugt das eigene, komponierte Thumbnail (Text+Branding in der Safe-Zone, von
     weltlage_shorts_thumbnail.fuer_short() beim Schneiden des Shorts gebaut und in meta['thumbnail']
-    hinterlegt, Marlons Auftrag 15.10.2026 - Problem vorher: kein eigenes Vorschaubild, Studio/ffmpeg-Grab
+    hinterlegt, rexemres Auftrag 15.10.2026 - Problem vorher: kein eigenes Vorschaubild, Studio/ffmpeg-Grab
     zeigte nur einen rohen Videoframe, die Kachelansicht schnitt oben/unten je rund ein Viertel ab). Fehlt
     das Komposit (altes meta ohne 'thumbnail'-Feld, oder Bild zwischenzeitlich geloescht), faellt es auf den
     alten ffmpeg-Standbild-Grab zurueck, statt ganz ohne Thumbnail hochzuladen."""
@@ -258,7 +258,7 @@ THUMBNAIL_STUDIO_WIEDERHOLEN_MIN = 60   # Mindestabstand zwischen zwei Studio-Up
 def _thumbnail_live_sichtbar(video_id: str, log=print) -> bool | None:
     """Objektive Pruefung OHNE Playwright/Studio, ob das komponierte Thumbnail (Banderole + Headline + Latara-
     Foto, siehe tools/weltlage_shorts_thumbnail.render) auf YouTube wirklich sichtbar ist. Befund 16.10.2026
-    (dieser Task, Marlon-Meldung 'nur die zwei neusten Shorts mit neuem Bild haben viele Aufrufe'): Studios
+    (dieser Task, rexemre-Meldung 'nur die zwei neusten Shorts mit neuem Bild haben viele Aufrufe'): Studios
     Speichern-Button meldet bei set_thumbnail() praktisch IMMER Erfolg (kein Playwright-Fehler) - Stichprobe per
     oEmbed/hqdefault.jpg zeigte aber bei 4 von 6 schon veroeffentlichten Shorts Stunden spaeter immer noch den
     alten, zufaelligen Studio-Frame, bei zwei baugleichen Shorts AUS DEMSELBEN Upload-Lauf (g-JkGWZ5dJ4 vs.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
-BIN=/home/marlon/abakos-build/abakosd
-H=/home/marlon/abktest
+BIN=/home/USER/abakos-build/abakosd
+H=/home/USER/abktest
 "$BIN" start --home "$H" --minimum-gas-prices 0uaba > /tmp/node.log 2>&1 &
 NPID=$!
 sleep 9

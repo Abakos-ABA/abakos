@@ -1,10 +1,10 @@
-"""Weltlage Kompakt - feste Thumbnail-Vorlage pro Folge (Marlons Ja zur Vorbild-Analyse, 01.10.2026).
-STANDARD seit Marlons Entscheid 01.10.2026 nachmittags (neues Thumbnail = diese Vorlage; Tageslauf Schritt «thumbnail»).
+"""Weltlage Kompakt - feste Thumbnail-Vorlage pro Folge (rexemres Ja zur Vorbild-Analyse, 01.10.2026).
+STANDARD seit rexemres Entscheid 01.10.2026 nachmittags (neues Thumbnail = diese Vorlage; Tageslauf Schritt «thumbnail»).
 Foto-Auswahl erweitert 02.10.2026 (Task bbd8): das Foto der Moderatorin wird automatisch zur Farbe der Folge
 passend gewaehlt (echte Freisteller aus Documents/WK, kein KI-Kitsch).
-Marlons Entscheid 02.10.2026 (Variante B der 3 Muster): feste Vorlage fuer jede Folge ist jetzt immer die
+rexemres Entscheid 02.10.2026 (Variante B der 3 Muster): feste Vorlage fuer jede Folge ist jetzt immer die
 B-Variante - rot (konflikt) - unabhaengig vom Farbcode-Feld des Skripts, siehe FESTE_FARBE.
-Foto-Auswahl nach Stimmung (Task 20261002-220950-b2d6, 02.10.2026): Marlons Foto-Pool (Documents/WK/Latara
+Foto-Auswahl nach Stimmung (Task 20261002-220950-b2d6, 02.10.2026): rexemres Foto-Pool (Documents/WK/Latara
 Thumbnails) zeigt inzwischen mehrere Ausdruecke (geschockt, nachdenklich, mit Papier, ...). video/latara_foto.py
 waehlt daraus automatisch das Bild, das zur Stimmung des Skripttexts passt, und wiederholt keines der letzten
 paar Folgen. Ist der Ordner nicht da (Platte nicht eingebunden) oder liefert er nichts Passendes, faellt die
@@ -15,7 +15,7 @@ sichtbare Silhouette ragt um PERSON_BLEED Pixel ueber den Rand hinaus - gleich v
 von dessen eigenen Transparenzraendern) und reicht nie in die Textzone links davon. Ist die sichtbare Person
 (Alpha-Maske) breiter als MAX_PERSON_BREITE (z.B. wehendes Haar oder ausgestreckte Arme bei querformatigen
 Fotos), wird links so viel abgeschnitten, dass sie unter der Grenze bleibt - sie bleibt dabei rechts verankert.
-_platzierung_x() kapselt die Rechnung, test_weltlage_thumbnail.py prueft sie gegen alle Fotos in Marlons Ordner.
+_platzierung_x() kapselt die Rechnung, test_weltlage_thumbnail.py prueft sie gegen alle Fotos in rexemres Ordner.
 
 Eigenes, festes Layout des Kanals (1280x720 JPG), automatisch aus dem Skript der Folge:
   - Hintergrund: das eigene Studio (config/brand/thumbnail/studio.png), weichgezeichnet, abgedunkelt und mit dem
@@ -47,7 +47,7 @@ W, H = 1280, 720
 FARBEN = {"konflikt": (214, 32, 42), "wirtschaft": (0, 168, 96), "politik": (36, 112, 230), "krise": (245, 124, 0)}
 FOTO_FUER_FARBE = {"konflikt": "latara_schock.png", "krise": "latara_schock.png",
                    "wirtschaft": "latara.png", "politik": "latara.png"}
-FESTE_FARBE = "konflikt"   # Marlons Entscheid 02.10.: jede Folge bekommt die B-Vorlage (rot, Schock-Pose)
+FESTE_FARBE = "konflikt"   # rexemres Entscheid 02.10.: jede Folge bekommt die B-Vorlage (rot, Schock-Pose)
 GELB, WEISS, SCHWARZ = (255, 204, 0), (255, 255, 255), (0, 0, 0)
 FONTS = Path(r"C:\Windows\Fonts")
 TEXT_BREITE = 700          # Schlagwoerter bleiben links von Latara
@@ -86,7 +86,7 @@ def _foto_datei(farbe: str, foto: str | None = None) -> Path:
 
 
 def _foto_pfad(farbe: str, foto: str | None, stimmungstext: str | None, merken: bool = True) -> Path:
-    """Welches Foto gezeigt wird: explizite Angabe (CLI-Test) > Stimme-passendes Foto aus Marlons Pool >
+    """Welches Foto gezeigt wird: explizite Angabe (CLI-Test) > Stimme-passendes Foto aus rexemres Pool >
     alte feste Fotos je Farbe (FOTO_FUER_FARBE). merken=False fuer Probe-Thumbnails, die nicht in den
     Wiederholungs-Verlauf einer echten Folge gehoeren."""
     if foto:

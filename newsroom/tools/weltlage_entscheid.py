@@ -1,4 +1,4 @@
-"""Weltlage Kompakt - Rueckfragen an Marlon mit Frist (Themenwahl A/B/C, Freigabe/Feedback/Stopp), Marlon 02.10.2026.
+"""Weltlage Kompakt - Rueckfragen an rexemre mit Frist (Themenwahl A/B/C, Freigabe/Feedback/Stopp), rexemre 02.10.2026.
 
 Ein Entscheid pro Lauf (Schluessel "<datum>_<slot>", ID = 12 Hex-Zeichen daraus), Zustand nur in Dateien, damit ein
 Neustart nichts verliert: state/weltlage_entscheid/<id>.json, Index der offenen Fragen state/weltlage_entscheid/
@@ -35,7 +35,7 @@ from config.settings import STATE_DIR, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID  # n
 DIR = STATE_DIR / "weltlage_entscheid"
 OFFEN = DIR / "offen.json"
 ANTWORTEN = DIR / "antworten"
-BETA = Path(r"C:\Users\Marlon\projekte\galadriel")
+BETA = Path(r"C:\Users\USER\projekte\galadriel")
 BETA_PY = BETA / ".venv" / "Scripts" / "python.exe"
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 FEEDBACK_NACHFRIST_MIN = 30

@@ -1,4 +1,4 @@
-"""Weltlage Kompakt - Stimmen-Nachweis im FERTIGEN Video (Marlon 30.09.2026, nach zwei Folgen, die angeblich
+"""Weltlage Kompakt - Stimmen-Nachweis im FERTIGEN Video (rexemre 30.09.2026, nach zwei Folgen, die angeblich
 umgestellt waren und doch «die alte Stimme» hatten).
 
 Die Eingangspruefung (tools/weltlage_tts.pruefe_stimme) belegt nur, dass die audio/<id>.wav vom Chatterbox-Klon

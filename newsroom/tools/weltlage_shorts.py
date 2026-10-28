@@ -13,7 +13,7 @@ bereits fertigen 16:9-Folge die staerkste Aussage heraus:
 - Untertitel/Geometrie nutzen dieselben Bausteine wie die bestehende Shorts-Pipeline: video/layout.py
   (9:16-Groessen) und tts/align_captions.py (Whisper-Worttiming -> ASS, Skript-Rechtschreibung).
 
-Aufbau pro Short (Marlon 13.10.2026, Feedback nach dem ersten echten Short: "momentan ist der ganze Clip
+Aufbau pro Short (rexemre 13.10.2026, Feedback nach dem ersten echten Short: "momentan ist der ganze Clip
 nur ein Aufhaenger. Es soll auch Informationen liefern"): vorher war ein Short genau EINE Szene, und wenn
 das zufaellig der Cold Open war (der geschriebene Hook der Folge), lieferte die Short gar keine eigene
 Information. Jetzt ist jeder Short immer dreiteilig, alle drei Teile aus der bereits fertigen Folge
@@ -225,7 +225,7 @@ def _titelkarte(text: str, ziel_png: Path):
 
 
 def _outro_karte(ziel_png: Path):
-    """Vollbild-Verweis auf die ausfuehrliche Folge (Marlon 13.10.2026: jeder Short soll am Schluss kurz
+    """Vollbild-Verweis auf die ausfuehrliche Folge (rexemre 13.10.2026: jeder Short soll am Schluss kurz
     zurueck auf die lange Fassung zeigen, zusaetzlich zum Link in der Beschreibung)."""
     from PIL import Image, ImageDraw, ImageFont
     from video import layout as L

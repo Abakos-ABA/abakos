@@ -1,6 +1,6 @@
 """Tests fuer tools/weltlage_kanalmanager.py: Uploads-Befund (folgen_24h/shorts_24h), Kennzahlen-Regex
 (kennzahlen_aus_text), Strategie (strategie_ableiten) und das Ein-Experiment-Gatter. Komplett offline: kein
-Playwright, kein Netz, Zustand in einem Temp-Ordner (Marlon 13.10.2026, Task 20261013-164355-df82).
+Playwright, kein Netz, Zustand in einem Temp-Ordner (rexemre 13.10.2026, Task 20261013-164355-df82).
 
     .venv\\Scripts\\python -m unittest tests.test_weltlage_kanalmanager
 """

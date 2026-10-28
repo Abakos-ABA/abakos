@@ -1,6 +1,6 @@
 """Weltlage Kompakt - Sprachspur pro Szene/Meldung mit Lataras fester Stimme: Chatterbox-Klon «Ramona»
 (Chatterbox Multilingual, Referenz config/brand/voice_ref.wav, exaggeration 0.4, cfg 0.4, 24 kHz mono).
-Marlons Entscheid 30.09.2026 (Hoerprobe Nr. 2 aus Task 20260930-125950-d8b3, reports/stimmen_ramona_20260930/
+rexemres Entscheid 30.09.2026 (Hoerprobe Nr. 2 aus Task 20260930-125950-d8b3, reports/stimmen_ramona_20260930/
 2_ramona_chatterbox_alt.wav): klarer und verstaendlicher als Piper. Die Piper-Umstellung vom 29.09.2026
 (de_DE-ramona-low) ist fuer die Moderatorin zurueckgenommen.
 
@@ -25,7 +25,7 @@ Nachweis wird abgelehnt, weltlage_rohschnitt.py bricht dann ab.
 Chatterbox haengt gelegentlich einen Kauderwelsch-Nachsatz an (Testlauf 29.09.): jede Datei wird darum mit
 faster-whisper (CPU, keine GPU) abgeschrieben und bei zu vielen Zusatzwoertern bis zu zweimal neu gesprochen.
 
-Seed pro Versuch (13.10.2026, Marlons Auftrag "Eigennamen wie Trump oft, aber nicht immer falsch"):
+Seed pro Versuch (13.10.2026, rexemres Auftrag "Eigennamen wie Trump oft, aber nicht immer falsch"):
 alle Stimm-Profile haben seed=null, Chatterbox sampelte also mit unkontrolliertem RNG-Stand - derselbe
 Lexikon-Eintrag (z.B. Trump -> Tramp) klang von Rendern zu Rendern unterschiedlich deutlich. _versuch_seed()
 leitet jetzt aus Text+Versuchsnummer einen festen Seed ab: reproduzierbar fuer Diagnose, aber ein neuer
@@ -52,7 +52,7 @@ _P = _profil()
 REF_SHA256 = _P["ref_sha256"]
 EXAGGERATION = _P["exaggeration"]
 CFG = _P["cfg"]
-TEMPO = float(_P.get("tempo", 1.0))   # Sprechtempo (atempo nach Chatterbox, tts_client._tempo), Marlon 30.09.2026: 1.15 endgueltig (1.2 zu schnell, 1.1 zu langsam)
+TEMPO = float(_P.get("tempo", 1.0))   # Sprechtempo (atempo nach Chatterbox, tts_client._tempo), rexemre 30.09.2026: 1.15 endgueltig (1.2 zu schnell, 1.1 zu langsam)
 
 
 def sha256(path: Path) -> str:
@@ -161,7 +161,7 @@ def _kontrolle(text: str, wav: Path) -> dict:
 
 
 def _versuch_seed(text: str, versuch: int) -> int:
-    """Fester, aus Text+Versuch abgeleiteter Seed (Marlons Auftrag 13.10.2026: Eigennamen wie "Tramp"
+    """Fester, aus Text+Versuch abgeleiteter Seed (rexemres Auftrag 13.10.2026: Eigennamen wie "Tramp"
     klangen "oft, aber nicht immer" falsch - Ursache war Chatterbox' unkontrollierter RNG-Stand, da alle
     Stimm-Profile seed=null haben). Gleicher Text+Versuch -> bitidentische, reproduzierbare Ausgabe (fuer
     Diagnose/Hoerproben); ein neuer Versuch nach einer verworfenen Kontrolle bekommt trotzdem einen

@@ -1,6 +1,6 @@
 """Lipsync-Vergleich alt gegen neu, Studio und Bruessel (Tasks 20261001-161926-e447 / 20261001-184254-d71b).
 
-Marlons Rueckmeldung 01.10. 18:42 zum Probeclip Studio + Bruessel: in Bruessel ist Latara viel zu klein, der Mund
+rexemres Rueckmeldung 01.10. 18:42 zum Probeclip Studio + Bruessel: in Bruessel ist Latara viel zu klein, der Mund
 bewegt sich schlecht. Dieser Vergleich zeigt mit demselben Satz (Chatterbox Profil C, ~7 s = ein LatentSync-Stueck):
   alt  = bisheriger Lipsync (Gesichtsfenster mit Lanczos auf 768 px) + alte Bruessel-Platzierung (316 px hoch)
   neu  = Lipsync mit KI-hochskaliertem Gesicht (video/gesicht_hd.py: Real-ESRGAN + GFPGAN rein, GFPGAN auf den Mund
@@ -28,12 +28,12 @@ from video import freisteller_lipsync as fl  # noqa: E402
 from video import gesicht_hd  # noqa: E402
 from video import orte as om  # noqa: E402
 
-WK = Path(r"C:\Users\Marlon\Documents\WK")
+WK = Path(r"C:\Users\USER\Documents\WK")
 STILLS = {"sitz": WK / "latara_front_sitzend.png", "stehend": WK / "latara_front_stehend.png"}
 WORK = ROOT / "data" / "lipsync_upscale_20261001"
-REPORT = Path(r"C:\Users\Marlon\projekte\jarvis\reports\lipsync_upscale_20261001")
+REPORT = Path(r"C:\Users\USER\projekte\jarvis\reports\lipsync_upscale_20261001")
 TASK = os.environ.get("JARVIS_TASK_ID", "20261001-184254-d71b")
-PROGRESS = Path(r"C:\Users\Marlon\projekte\jarvis\tasks") / f"{TASK}.progress.md"
+PROGRESS = Path(r"C:\Users\USER\projekte\jarvis\tasks") / f"{TASK}.progress.md"
 WAV_SRC = ROOT / "data" / "weltlage_20260930d" / "audio" / "s5_m1_flydubai.wav"   # Chatterbox Profil C
 POSE = "stehend"
 BRUESSEL_ALT = dict(x=844, y=620, scale=0.2534)      # Platzierung bis 01.10. abends (geschaetzt, 316 px hoch)
