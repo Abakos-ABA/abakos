@@ -252,5 +252,15 @@ class ExperimentTest(unittest.TestCase):
         self.assertEqual(km.experiment_stand(), {"status": "keins"})
 
 
+class SchweizerZahlTest(unittest.TestCase):
+    def test_tausender_apostroph(self):
+        # Befund 29.10.2026: Studio zeigt "28'657" - vorher wurde nur "28" gelesen
+        t = chr(10).join(["Dein Kanal hat 28.657 Aufrufe erzielt", "Aufrufe", "Aufrufe", "28'657",
+                          "Wiedergabezeit (Stunden)", "133.1", "Abonnenten", "+33"])
+        z = km.kennzahlen_aus_text(t)
+        self.assertEqual((z["aufrufe"], z["wiedergabezeit_std"], z["abonnenten_aenderung_28_tage"]), (28657.0, 133.1, 33.0))
+
+
 if __name__ == "__main__":
     unittest.main()
+

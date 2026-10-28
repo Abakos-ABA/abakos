@@ -160,6 +160,7 @@ def _zahl(text: str, muster: str) -> float | None:
     if not m:
         return None
     z = m.group(1).strip().replace(" ", "").replace(" ", "")
+    z = z.replace("'", "").replace("’", "")
     vorzeichen = ""
     if z and z[0] in "+-":
         vorzeichen, z = z[0], z[1:]
@@ -179,9 +180,11 @@ def _zahl(text: str, muster: str) -> float | None:
 # Veraenderung (+4) direkt danach - der aktuelle Gesamtstand steht hier nicht, darum eigenes Feldlabel.
 # Impressionen/Klickrate stehen auf der Zuschauer-/Reichweite-Unterseite, noch nicht gelesen (siehe Modul-Doku).
 _KENNZAHL_MUSTER = {
-    "aufrufe": r"(?:Aufrufe|Views)\D{0,40}?([\d.,]+)",
-    "wiedergabezeit_std": r"(?:Wiedergabezeit|Watch time)\D{0,40}?([\d.,]+)",
-    "abonnenten_aenderung_28_tage": r"(?:Abonnenten|Subscribers)\D{0,20}?([+-][\d.,]+)",
+    # ' und ’ seit 29.10.2026: Studio zeigt die Kachel-Zahl im Schweizer Format (28'657) - vorher las der Manager
+    # nur "28" und der Verlauf war ab dem Wechsel falsch (Befund Task 20261028-231702-320f).
+    "aufrufe": r"(?:Aufrufe|Views)\D{0,40}?(\d[\d.,'’]*)",
+    "wiedergabezeit_std": r"(?:Wiedergabezeit|Watch time)\D{0,40}?(\d[\d.,'’]*)",
+    "abonnenten_aenderung_28_tage": r"(?:Abonnenten|Subscribers)\D{0,20}?([+-][\d.,'’]+)",
 }
 
 
