@@ -81,6 +81,54 @@ class SpeicherTest(unittest.TestCase):
         for n in ("weltlage_frisch", "weltlage_lauf", "weltlage_fest"):
             self.assertTrue((self.o[n] / "_schnitt" / "_freisteller" / "s5_freisteller_lipsync_prores4444.mov").exists())
 
+    def test_ersetzt_zaehlt_offene_eintraege_schuetzen(self):
+        # Vorfall 28.10.2026: ersetzte Folgen behielten ihre Zwischendateien, der Schnitt brach mit 35.5 GB frei ab
+        alt = (self.jetzt - timedelta(days=4)).isoformat()
+        e = _folge(self.base, "weltlage_ersetzt")
+        n = _folge(self.base, "weltlage_nachgeholt")
+        z = dict(self.zustand)
+        z["e"] = {"status": "ersetzt", "ordner": str(e), "fertig": alt}
+        z["e_ohne_zeit"] = {"status": "ersetzt", "ordner": str(self.o["weltlage_a"])}
+        z["n_alt"] = {"status": "ersetzt", "ordner": str(n), "fertig": alt}
+        z["n_neu"] = {"status": "fehler", "ordner": str(n), "fertig": alt}      # Ordner wird noch gebraucht
+        k = [p.name for p in sp.kandidaten(z, jetzt=self.jetzt, schutz=set())]
+        self.assertIn("weltlage_ersetzt", k)
+        self.assertNotIn("weltlage_nachgeholt", k)
+        self.assertNotIn("weltlage_lauf", k)
+
+    def test_waisen_unter_data_rekursiv(self):
+        data = self.base / "data"
+        w = data / "weltlage_test_x"
+        fw = w / "_schnitt_variante" / "_freisteller"
+        (fw / "_latentsync").mkdir(parents=True)
+        (fw / "s5_freisteller_lipsync_prores4444.mov").write_bytes(b"x" * 1000)
+        (fw / "s5_studio.mp4").write_bytes(b"x")
+        (w / "_lipsync_v2").mkdir()
+        (w / "_lipsync_v2" / "a_freisteller_lipsync_prores4444.mov").write_bytes(b"x" * 10)
+        neu = data / "weltlage_test_neu"
+        neu.mkdir()
+        (neu / "s_freisteller_lipsync_prores4444.mov").write_bytes(b"x")
+        cache = data / "_latentsync_cache"
+        cache.mkdir()
+        (cache / "s_freisteller_lipsync_prores4444.mov").write_bytes(b"x")
+        bekannt = data / "weltlage_lauf2"
+        bekannt.mkdir()
+        z = {"l": {"status": "laeuft", "ordner": str(bekannt)}}
+        import os
+        alt = (self.jetzt - timedelta(days=5)).timestamp()
+        for d in (w, cache, bekannt):
+            os.utime(d, (alt, alt))
+        k = sp.kandidaten(z, jetzt=self.jetzt, schutz=set(), data=data)
+        self.assertEqual([p.name for p in k], ["weltlage_test_x"])     # nicht neu, nicht _cache, nicht im Zustand
+        gb = sp.aufraeumen(ziel_gb=10 ** 9, zustand=z, log=lambda m: None, frei=lambda: 0.0, data=data)
+        self.assertGreater(gb, 0)
+        self.assertFalse((fw / "s5_freisteller_lipsync_prores4444.mov").exists())
+        self.assertFalse((fw / "_latentsync").exists())
+        self.assertFalse((w / "_lipsync_v2" / "a_freisteller_lipsync_prores4444.mov").exists())
+        self.assertTrue((fw / "s5_studio.mp4").exists())
+        self.assertTrue((neu / "s_freisteller_lipsync_prores4444.mov").exists())
+        self.assertTrue((cache / "s_freisteller_lipsync_prores4444.mov").exists())
+
     def test_sichern_genug_platz_tut_nichts(self):
         self.assertEqual(sp.sichern(frei=lambda: 500.0, zustand=self.zustand, log=lambda m: None), 500.0)
         self.assertTrue((self.o["weltlage_a"] / "_schnitt" / "_freisteller" / "_latentsync").exists())
