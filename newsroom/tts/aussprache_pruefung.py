@@ -1,4 +1,4 @@
-"""Aussprache-Pruefschritt vor jeder Vertonung (18.10.2026, Marlons Rueckmeldung "FBI und weitere Woerter schlecht
+"""Aussprache-Pruefschritt vor jeder Vertonung (18.10.2026, rexemres Rueckmeldung "FBI und weitere Woerter schlecht
 ausgesprochen", Task ad90): meldet, was die Stimme vermutlich falsch liest, und loest auf, was sich automatisch
 aufloesen laesst.
 
@@ -44,7 +44,7 @@ _haeufig_cache: set[str] | None = None
 
 
 def _haeufig(min_folgen: int = 3) -> set[str]:
-    """Woerter, die in mindestens `min_folgen` bisherigen Folgen vorkommen: die hat Marlon schon oft gehoert, ohne
+    """Woerter, die in mindestens `min_folgen` bisherigen Folgen vorkommen: die hat rexemre schon oft gehoert, ohne
     dass sie ins Lexikon kamen (Washington, Biden ...) - kein Verdachtsfall mehr. Nur fuers Melden, nicht fuer die
     Sprechform (die bleibt deterministisch)."""
     global _haeufig_cache

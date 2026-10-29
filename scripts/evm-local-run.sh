@@ -2,8 +2,8 @@
 # Local smoke test: bring up a single-validator Abakos node WITH EVM and confirm
 # it produces blocks (i.e. EVM InitGenesis + coin-config sealing succeeded).
 set -uo pipefail
-BIN=/home/marlon/abakos-build/abakosd
-H=/home/marlon/abktest
+BIN=/home/USER/abakos-build/abakosd
+H=/home/USER/abktest
 CHAIN=abakos-localtest-1
 KR="--keyring-backend test --home $H"
 rm -rf "$H"

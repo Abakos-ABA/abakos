@@ -59,16 +59,16 @@ class Platzierung(unittest.TestCase):
 
 
 class PlatzierungMitEchtenFotos(unittest.TestCase):
-    """Task-Vorgabe: mit allen Fotos aus Marlons echtem Pool-Ordner testen. Wird uebersprungen, wenn der
+    """Task-Vorgabe: mit allen Fotos aus rexemres echtem Pool-Ordner testen. Wird uebersprungen, wenn der
     Ordner auf dieser Maschine nicht eingebunden ist."""
 
     def test_keine_ueberlappung_mit_der_textzone(self):
         from video import latara_foto as lf
         if not lf.ORDNER.is_dir():
-            self.skipTest("Marlons Foto-Ordner ist auf dieser Maschine nicht eingebunden")
+            self.skipTest("rexemres Foto-Ordner ist auf dieser Maschine nicht eingebunden")
         fotos = [p for p in lf.ORDNER.iterdir() if p.suffix.lower() in (".png", ".jpg", ".jpeg")]
         if not fotos:
-            self.skipTest("Marlons Foto-Ordner ist leer")
+            self.skipTest("rexemres Foto-Ordner ist leer")
         fc = wt.FARBEN["konflikt"]
         for pfad in fotos:
             with self.subTest(foto=pfad.name):

@@ -1,8 +1,8 @@
 # Add VMware HGFS shared folder for abakos repo (run once, VM should be powered off).
 # Usage: powershell -ExecutionPolicy Bypass -File provider-compute/scripts/configure-vmware-shared.ps1
 $ErrorActionPreference = 'Stop'
-$vmx = "C:\Users\Marlon\Documents\Virtual Machines\Ubuntu 64-bit\Ubuntu 64-bit.vmx"
-$shareHost = "C:\Users\Marlon\abakos"
+$vmx = "C:\Users\USER\Documents\Virtual Machines\Ubuntu 64-bit\Ubuntu 64-bit.vmx"
+$shareHost = "C:\Users\USER\abakos"
 $shareName = "abakos"
 
 if (-not (Test-Path $vmx)) { throw "VMX not found: $vmx" }

@@ -1,4 +1,4 @@
-"""Weltlage Kompakt: Standard-Intro aus dem Unreal-Studio (Marlon 20.10.2026, ersetzt das Globus-Intro vollstaendig).
+"""Weltlage Kompakt: Standard-Intro aus dem Unreal-Studio (rexemre 20.10.2026, ersetzt das Globus-Intro vollstaendig).
 
 Jede Folge bekommt ihr Intro frisch: Unreal-Studio-Szene (Globus/Studio, 12 s) + Boersenticker mit den
 TAGESAKTUELLEN Kursen (SMI, DAX, S&P, Nasdaq, Dow, Gold, Brent, BTC, EUR/CHF, USD/CHF) + Latara spricht das
@@ -31,7 +31,7 @@ INTRO_DIR = ROOT / "config" / "brand" / "intro"
 STANDARD_NAME = "weltlage_intro_unreal_standard.mp4"
 STANDARD = INTRO_DIR / STANDARD_NAME
 AKTIV = INTRO_DIR / "aktiv.json"
-JARVIS = Path(r"C:\Users\Marlon\projekte\jarvis")
+JARVIS = (Path.home() / r"projekte\jarvis")
 JARVIS_PY = JARVIS / ".venv" / "Scripts" / "python.exe"
 STUDIO = JARVIS / "tools" / "unreal_studio" / "studio.py"
 TIMEOUT_S = 4 * 3600                      # Unreal-Neurender (selten) + GPU-Wartezeit; sonst wenige Minuten
@@ -54,7 +54,7 @@ def aktiv_pruefen() -> list[str]:
     fehler = []
     if cfg.get("landscape") != STANDARD_NAME:
         fehler.append(f"intro/aktiv.json zeigt auf {cfg.get('landscape')!r} statt auf das Unreal-Standard-Intro "
-                      f"{STANDARD_NAME} - das alte Globus-Intro ist abgeloest (Marlon 20.10.2026)")
+                      f"{STANDARD_NAME} - das alte Globus-Intro ist abgeloest (rexemre 20.10.2026)")
     if not STANDARD.exists():
         fehler.append(f"{STANDARD_NAME} fehlt - tools/weltlage_intro.py <datum> ausfuehren")
     return fehler

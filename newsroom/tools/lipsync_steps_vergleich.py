@@ -1,13 +1,13 @@
 """Lipsync-Laufzeit-Vergleich: Rechenschritte 12 (bisheriger Standard) gegen 8, je mit und ohne gebuendeltes
 Real-ESRGAN/GFPGAN (config.settings.NEWS_WELTLAGE_GESICHT_HD_BATCH, Task 20261010-081311-ca9f gebaut, nie echt
 gemessen). Guidance bleibt in allen Varianten fest bei config.settings.NEWS_WELTLAGE_LIPSYNC_GUIDANCE (2.0,
-Marlons feste Vorgabe) - nur STEPS und HD_BATCH aendern sich. Marlons Auftrag 14.10.2026 (Telegram): Weltlage-Folgen
+rexemres feste Vorgabe) - nur STEPS und HD_BATCH aendern sich. rexemres Auftrag 14.10.2026 (Telegram): Weltlage-Folgen
 brauchen zu lang (~11 h), Themen sind bei Veroeffentlichung veraltet; Ziel moeglichst nahe an 2 h Gesamtproduktion,
 Hauptposten ist die LatentSync-Rechenzeit.
 
 Nutzt denselben 7-s-Testton (test_wav aus lipsync_upscale_vergleich) wie die bisherigen Lipsync-Vergleiche, stehende
 Pose, HD-Pfad an (Produktionsstandard). Misst je Variante: reine Rechenzeit (lipsync_freisteller), SyncNet-Versatz/
-Konfidenz (tools/lipsync_messung.py) und die Mundbewegungs-Kennzahl (wie Marlons bisherige Lipsync-Vergleiche).
+Konfidenz (tools/lipsync_messung.py) und die Mundbewegungs-Kennzahl (wie rexemres bisherige Lipsync-Vergleiche).
 GPU: ein Platz in der zentralen Warteschlange (Prio 3), derselbe Name wie video/freisteller_lipsync.
 
     .venv-lipsync\\Scripts\\python.exe tools\\lipsync_steps_vergleich.py
@@ -26,9 +26,9 @@ from video import freisteller_lipsync as fl  # noqa: E402
 from lipsync_upscale_vergleich import test_wav, mouth_motion, syncnet  # noqa: E402
 
 WORK = ROOT / "data" / "lipsync_steps_20261014"
-REPORT = Path(r"C:\Users\Marlon\projekte\jarvis\reports\lipsync_steps_vergleich_20261014")
+REPORT = (Path.home() / r"projekte\jarvis\reports\lipsync_steps_vergleich_20261014")
 TASK = os.environ.get("JARVIS_TASK_ID", "20261014-192918-98bb")
-PROGRESS = Path(r"C:\Users\Marlon\projekte\jarvis\tasks") / f"{TASK}.progress.md"
+PROGRESS = (Path.home() / r"projekte\jarvis\tasks") / f"{TASK}.progress.md"
 POSE = "stehend"
 # (Name, Schritte, HD_BATCH)
 VARIANTEN = [("steps12_batch1_basis", 12, 1), ("steps8_batch1", 8, 1), ("steps8_batch4", 8, 4),

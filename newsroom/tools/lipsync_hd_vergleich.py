@@ -21,8 +21,8 @@ from video import freisteller_lipsync as fl  # noqa: E402
 from video import gesicht_hd  # noqa: E402
 
 WORK = ROOT / "data" / "lipsync_hd_vergleich_20261023"
-REPORT = Path(r"C:\Users\Marlon\projekte\jarvis\reports\lipsync_hd_vergleich_20261023")
-PROGRESS = Path(r"C:\Users\Marlon\projekte\jarvis\tasks\20261023-105317-04c3.progress.md")
+REPORT = (Path.home() / r"projekte\jarvis\reports\lipsync_hd_vergleich_20261023")
+PROGRESS = (Path.home() / r"projekte\jarvis\tasks\20261023-105317-04c3.progress.md")
 WAV_SRC = ROOT / "data" / "weltlage_20261023_0000" / "_schnitt" / "_freisteller" / "s5_ton.wav"
 POSE = "sitz"
 START, END = 13.12, 21.0     # Schnittpunkte 328/525 (leise Stellen der Produktion), ~7,9 s Moderation

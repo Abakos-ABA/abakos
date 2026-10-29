@@ -115,7 +115,7 @@ def _synthesize_chatterbox(text: str, out_path, seed: int | None = None):
 
     `seed` ueberschreibt, wenn angegeben, das Stimm-Profil (das selbst meist seed=null hat): Chatterbox
     sampelt sonst mit unkontrolliertem RNG-Stand, darum klingt derselbe Name (z.B. "Tramp" aus dem
-    Aussprache-Lexikon) von Aufruf zu Aufruf unterschiedlich deutlich/undeutlich (Marlons Beobachtung
+    Aussprache-Lexikon) von Aufruf zu Aufruf unterschiedlich deutlich/undeutlich (rexemres Beobachtung
     13.10.2026: Eigennamen "oft, aber nicht immer" falsch betont). weltlage_tts.sprich() setzt hier pro
     Versuch einen aus Text+Versuch abgeleiteten festen Seed: gleicher Text+Versuch -> reproduzierbar,
     ein neuer Versuch bei schlechter Kontrolle bekommt trotzdem einen anderen Seed und damit eine echte
@@ -141,7 +141,7 @@ def _synthesize_chatterbox(text: str, out_path, seed: int | None = None):
     seed = seed if seed is not None else st.get("seed")
     if seed is not None:
         cmd += ["--seed", str(seed)]
-    from config.settings import NEWS_WELTLAGE_STIMME_VEREDELN       # Variante A (Marlon 01.10.2026), Default an
+    from config.settings import NEWS_WELTLAGE_STIMME_VEREDELN       # Variante A (rexemre 01.10.2026), Default an
     if NEWS_WELTLAGE_STIMME_VEREDELN:
         cmd += ["--veredeln"]
     if st.get("prosodie"):                       # Satzmelodie-Plan je Satz (Profil-Schalter, 18.10.2026)
@@ -164,7 +164,7 @@ def _synthesize_chatterbox(text: str, out_path, seed: int | None = None):
 
 
 def _tempo(wav_path, tempo: float):
-    """Sprechtempo aus dem Stimm-Profil ("tempo", z.B. 1.15 = 15 % schneller, Marlon 30.09.2026 endgueltig; 1.2 zu schnell, 1.1 zu langsam). Chatterbox hat
+    """Sprechtempo aus dem Stimm-Profil ("tempo", z.B. 1.15 = 15 % schneller, rexemre 30.09.2026 endgueltig; 1.2 zu schnell, 1.1 zu langsam). Chatterbox hat
     keinen Speed-Parameter, darum danach ffmpeg atempo (tonhoehenneutral, WSOLA) - nie per Resampling. Format bleibt
     24 kHz mono 16 bit (weltlage_tts.pruefe_stimme)."""
     if abs(tempo - 1.0) < 1e-6:

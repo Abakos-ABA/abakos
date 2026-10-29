@@ -43,7 +43,7 @@ def verfuegbar() -> bool:
     return YOUTUBE_CLIENT_SECRET_PATH.exists() and YOUTUBE_TOKEN_PATH.exists()
 
 
-EINRICHTEN_HINWEIS = ("YouTube Data API nicht eingerichtet - einmalig von Marlon: "
+EINRICHTEN_HINWEIS = ("YouTube Data API nicht eingerichtet - einmalig von rexemre: "
                       "`.venv\\Scripts\\python -m upload.youtube_api --einrichten` (siehe docs/youtube-data-api.md)")
 
 
@@ -122,7 +122,7 @@ def status(youtube=None) -> dict:
 
 
 def einrichten() -> dict:
-    """Einmalige Einrichtung durch Marlon (interaktiv): oeffnet den Browser fuer die Google-Zustimmung, speichert das
+    """Einmalige Einrichtung durch rexemre (interaktiv): oeffnet den Browser fuer die Google-Zustimmung, speichert das
     Token (secrets/youtube_token.json) und zeigt, welcher Kanal autorisiert wurde. Beim Zustimmungsdialog den Kanal
     «Weltlage Kompakt» waehlen, falls Google nach dem Konto/Kanal fragt."""
     if YOUTUBE_TOKEN_PATH.exists():

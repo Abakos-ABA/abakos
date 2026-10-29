@@ -1,4 +1,4 @@
-"""Weltlage Kompakt - Themenwahl vor jeder Folge: Recherche, drei Storylines A/B/C, Empfehlung (Marlon 02.10.2026).
+"""Weltlage Kompakt - Themenwahl vor jeder Folge: Recherche, drei Storylines A/B/C, Empfehlung (rexemre 02.10.2026).
 
 Teil des Zweimal-taeglich-Ablaufs (tools/weltlage_tageslauf.py, Slots 11:00 und 19:00). Format wie die
 Materialsammlung aus Task 20261002-221534-c7be: pro Storyline ein zugespitzter Titel als Frage, ein Satz Inhalt,
@@ -11,27 +11,27 @@ tools/weltlage_skript.py, keine GPU) waehlt pro Storyline die passenden Artikeln
 Daraus wird nach der Wahl die news.json der Folge (gleiches Format wie aktuelle_gruppen), die
 tools/weltlage_skript.py --news ... --vorgabe ... verarbeitet.
 
-Themenpool (state/weltlage_themenpool.json): Storylines, die Marlon ausdruecklich auch noch machen will (z.B. B und C
+Themenpool (state/weltlage_themenpool.json): Storylines, die rexemre ausdruecklich auch noch machen will (z.B. B und C
 einer frueheren Wahl). Sie werden bei den naechsten Vorschlaegen bevorzugt angeboten, solange es frische Meldungen
 dazu gibt, und fliegen raus, sobald sie gewaehlt wurden oder ablaufen (Feld "bis").
 
-Wiederholungs-Schutz (Marlon 07.10.2026, Task 20261007-174635-f7ff): seit die Themenwahl fuer die 11-Uhr-Folge schon
+Wiederholungs-Schutz (rexemre 07.10.2026, Task 20261007-174635-f7ff): seit die Themenwahl fuer die 11-Uhr-Folge schon
 am Vortag gegen 16 Uhr laeuft, braucht es einen Abgleich mit frueheren Folgen - vergangene_folgen() liest Titel+Inhalt
 aller Folgen der letzten NEWS_WELTLAGE_THEMEN_WIEDERHOLUNG_TAGE Tage (fertige wie auch schon gewaehlte, noch
 produzierende), aehnlichkeit()/ist_wiederholung() vergleichen inhaltlich (Wort-Ueberlappung Titel+Inhalt, nicht nur
 Titel-String) gegen die Schwelle NEWS_WELTLAGE_THEMEN_AEHNLICHKEIT_SCHWELLE; pruefen() verwirft zu aehnliche
 Storylines, vorschlagen() nennt dem Modell die verbotenen Themen gleich im Prompt.
 aktualitaet_pruefen() laeuft kurz vor der Veroeffentlichung: seit 13.10.2026 schon in tools/weltlage_tageslauf.py
-Schritt freigabe selbst (der Hinweis steht dann gleich in Marlons Freigabe-Nachricht), zusaetzlich weiterhin aus der
+Schritt freigabe selbst (der Hinweis steht dann gleich in rexemres Freigabe-Nachricht), zusaetzlich weiterhin aus der
 spaeteren, separaten Nachpruefung von jarvis/tools/weltlage_wache.py fuer die Zeit zwischen Freigabe und Slot. Gibt es
-zum gewaehlten Thema seit der Recherche neue Meldungen (moegliche neue Entwicklung), warnt sie Marlon per
+zum gewaehlten Thema seit der Recherche neue Meldungen (moegliche neue Entwicklung), warnt sie rexemre per
 Telegram/Beta-App, statt das fertige Video automatisch neu zu rendern. Der Hinweis wird nur einmal geschrieben
 (aktualitaet_hinweis.json), beide Aufrufer teilen sich ihn - kein doppelter Alarm.
 
     python tools/weltlage_themen.py vorschlagen <ordner>          (schreibt storylines.json, druckt den Bericht)
     python tools/weltlage_themen.py pool                          (Themenpool anzeigen)
     python tools/weltlage_themen.py pool-add "<Titel?>" "<Inhalt>" [--tage 4]
-    python tools/weltlage_themen.py aktualitaet-pruefen <ordner>  (warnt Marlon, wenn das Thema ueberholt wirkt)
+    python tools/weltlage_themen.py aktualitaet-pruefen <ordner>  (warnt rexemre, wenn das Thema ueberholt wirkt)
 """
 from __future__ import annotations
 
@@ -138,7 +138,7 @@ def gruene_quellen() -> list[str]:
     return list(dict.fromkeys(n for n in namen if not nein.search(n)))
 
 
-# ------------------------------------------------------------- Wiederholungs-Schutz (Marlon 07.10.2026, Task f7ff)
+# ------------------------------------------------------------- Wiederholungs-Schutz (rexemre 07.10.2026, Task f7ff)
 def _tokens(text: str | None) -> set[str]:
     woerter = re.findall(r"[a-zäöüß]{3,}", (text or "").lower())
     return {w for w in woerter if w not in _STOPWORTE}
@@ -233,7 +233,7 @@ def _prompt(artikel: list[dict], pool: list[dict], feste: dict | None, heute: st
                    "empfiehl eine davon. Bereits gelaufene oder schon gewaehlte Themen der letzten Tage - schlage "
                    "KEIN Thema vor, das inhaltlich dasselbe Ereignis behandelt, auch nicht mit anderem Titel oder "
                    "neuem Blickwinkel:\n" + verboten_txt + "\n\n"
-                   "Themenpool - diese Storylines will Marlon ausdruecklich auch noch machen; "
+                   "Themenpool - diese Storylines will rexemre ausdruecklich auch noch machen; "
                    "biete jede davon an, solange die Liste frische Meldungen dazu enthaelt (Feld pool_id setzen):\n"
                    + pool_txt)
         anzahl = 3
@@ -305,7 +305,7 @@ def _heute() -> str:
 def vorschlagen(ordner: Path, feste: dict | None = None, modell=None, artikel: list[dict] | None = None,
                  vergangene: list[dict] | None = None) -> dict:
     """Recherche + Storylines. feste = {"titel","inhalt"}: Storyline schon gewaehlt (nur Artikel zuordnen), dann
-    kein Wiederholungs-Check (Marlon hat das Thema bewusst selbst bestimmt)."""
+    kein Wiederholungs-Check (rexemre hat das Thema bewusst selbst bestimmt)."""
     modell = modell or _modell
     eigene_abfrage = artikel is None
     artikel = artikel if artikel is not None else artikel_liste()
@@ -334,7 +334,7 @@ def vorschlagen(ordner: Path, feste: dict | None = None, modell=None, artikel: l
     if feste:
         d["storylines"][0].update({"buchstabe": "A", "titel": feste["titel"]})
         d["empfehlung"] = "A"
-        d.setdefault("grund", "Storyline vorab von Marlon gewaehlt")
+        d.setdefault("grund", "Storyline vorab von rexemre gewaehlt")
     pool_ids = {p["id"] for p in pool}
     for s in d["storylines"]:
         if s.get("pool_id") not in pool_ids:
@@ -366,7 +366,7 @@ def vorgabe_text(s: dict, feedback: str | None = None) -> str:
     if s.get("gruene_quellen"):
         z.append("Passende freie Bildquellen: " + ", ".join(s["gruene_quellen"]))
     if feedback:
-        z.append(f"Hinweise von Marlon zur Wahl: {feedback}")
+        z.append(f"Hinweise von rexemre zur Wahl: {feedback}")
     return "\n".join(z)
 
 
@@ -387,13 +387,13 @@ def bericht(d: dict, frist: str | None = None, kopf: str = "") -> str:
     return "\n\n".join(z)
 
 
-# ------------------------------------------------------------- Aktualitaets-Check (Marlon 07.10.2026, Task f7ff)
+# ------------------------------------------------------------- Aktualitaets-Check (rexemre 07.10.2026, Task f7ff)
 def aktualitaet_pruefen(ordner: Path, jetzt: datetime | None = None, stunden_frisch: float = 20,
                          schwelle: float = 0.22) -> dict | None:
     """Kurz vor der Veroeffentlichung (von der Weltlage-Wache aufgerufen, siehe jarvis/tools/weltlage_wache.py):
     gibt es zum am Vortag gewaehlten Thema inzwischen neue Meldungen (seit der Recherche, also eine moegliche neue
     Entwicklung)? Rendert/aendert das Video NICHT automatisch (das waere ein teurer Neurender ohne GPU-Warteschlange
-    kurz vor dem Slot) - schreibt bei Fund einmalig einen Hinweis und warnt Marlon per Telegram/Beta-App, damit er
+    kurz vor dem Slot) - schreibt bei Fund einmalig einen Hinweis und warnt rexemre per Telegram/Beta-App, damit er
     Titel/Beschreibung selbst pruefen oder die Folge stoppen kann. Kein Fund oder schon gemeldet -> None."""
     jetzt = jetzt or datetime.now(timezone.utc)
     hinweis_datei = ordner / "aktualitaet_hinweis.json"

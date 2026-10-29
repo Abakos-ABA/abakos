@@ -1,5 +1,5 @@
 """Weltlage Kompakt - Abwechslung je Folge gegen das Monetarisierungsrisiko «massenproduzierte/vorlagenhafte
-Inhalte» (Marlons Freigabe 28.10.2026 zur Analyse jarvis/reports/youtube-algorithmus-frequenz-20261028.md).
+Inhalte» (rexemres Freigabe 28.10.2026 zur Analyse jarvis/reports/youtube-algorithmus-frequenz-20261028.md).
 
 YouTube monetarisiert seit 15.07.2025 keine Kanaele mehr, deren Videos austauschbar wirken (gleicher Aufbau, gleicher
 Einstieg, reine Nachrichtenwiedergabe mit KI-Stimme). Gleiche Intros/Outros sind erlaubt, der Hauptinhalt muss

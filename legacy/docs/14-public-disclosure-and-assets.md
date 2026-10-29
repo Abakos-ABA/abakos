@@ -8,7 +8,7 @@ Principle: **Your edge is execution + transparency + being first to credibly del
 |---|---|---|
 | Landing page ✅, litepaper ✅, whitepaper ✅ | open-source node code (for testnet) | **pre-seed deck** (`deck/`, share selectively only) |
 | Vision/pitch (high level), "% useful" story | open-source node code (for/around testnet) | **financial/runway assumptions** (`model/`, negotiating leverage) |
-| | public testnet + explorer; make repo public | **`MarlonMoralesServer` repo** (other customers + mail secrets, NEVER public) |
+| | public testnet + explorer; make repo public | **`ServerRepo` repo** (other customers + mail secrets, NEVER public) |
 
 ### Order
 1. **Secure assets** (section B), *before* going loud.
@@ -17,7 +17,7 @@ Principle: **Your edge is execution + transparency + being first to credibly del
 
 ### What deliberately stays private
 - Pitch deck & detailed financial assumptions (investors only).
-- `MarlonMoralesServer` repo (other customer sites + mail server config).
+- `ServerRepo` repo (other customer sites + mail server config).
 - Keep `abakos` repo private until (a) brand secured and (b) code > scaffold.
 
 ## B) Asset security checklist

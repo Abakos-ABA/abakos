@@ -1,4 +1,4 @@
-"""Weltlage Kompakt - Begruessungs-Vorlage (Struktur vom 30.09.2026, Marlon): Latara steht am Pult und
+"""Weltlage Kompakt - Begruessungs-Vorlage (Struktur vom 30.09.2026, rexemre): Latara steht am Pult und
 begruesst das Publikum ganz allgemein, ohne Datum und ohne die heutigen Themen zu nennen, damit der Clip
 zeitlos ist und in jeder Folge unveraendert wiederverwendet werden kann (analog zur eingefrorenen Szene 3
 "Auftritt", siehe tools/szene3_auftritt.py und docs/weltlage_szenenplan.md).
@@ -6,7 +6,7 @@ zeitlos ist und in jeder Folge unveraendert wiederverwendet werden kann (analog 
 Ablauf (einmalig - danach wird nur noch aus config/brand/begruessung/ eingebunden, nie neu gerendert):
   1. TTS mit Lataras Stimme (Chatterbox-Klon Ramona via tools/weltlage_tts.py --probe im Basis-.venv, mit
      Engine-Nachweis begruessung_raw.tts.json) auf den festen Begruessungstext. Seit 30.09.2026 Chatterbox statt
-     Piper (Marlons Entscheid, Piper-Umstellung vom 29.09. zurueckgenommen) -> begruessung_v2.mp4.
+     Piper (rexemres Entscheid, Piper-Umstellung vom 29.09. zurueckgenommen) -> begruessung_v2.mp4.
   2. Freisteller-Lipsync + Studio-Composite auf der stehenden Pose (video/freisteller_lipsync.render_scene),
      Start bei V6-Position 0 - derselbe Frame, auf dem Szene 3 "Reinlaufen" endet.
   3. Ton draufmuxen, nach config/brand/begruessung/<VERSION> kopieren, aktiv.json schreiben.
@@ -31,7 +31,7 @@ from video import freisteller_lipsync as fl
 WORK = ROOT / "_work" / "begruessung"
 FROZEN = ROOT / "config" / "brand" / "begruessung"
 
-# Sinngemaess Marlons Vorgabe (29./30.09.2026): kurz, zeitlos, kein Datum, keine Themen.
+# Sinngemaess rexemres Vorgabe (29./30.09.2026): kurz, zeitlos, kein Datum, keine Themen.
 VERSION = "begruessung_v3.mp4"   # v3 (30.09. spaet) = Kerstin CC0 Profil C, Tempo 1.15; v2 = Ramona-Chatterbox; v1 (30.09. 11:16) = Piper-Stimme, bleibt nur als Backup liegen
 TEXT = "Willkommen bei Weltlage Kompakt, ich bin Latara. Heute kommen die folgenden Themen."
 

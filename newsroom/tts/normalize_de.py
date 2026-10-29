@@ -6,12 +6,12 @@ pronounced as a word (NATO, UNO, NASA), abbreviations are expanded. Only the tex
 is changed - captions keep the script's own spelling (align_captions matches the heard words back
 to the script by sequence alignment, so "achthunderttausend" maps onto "800.000").
 
-Ausbau 18.10.2026 (Marlons Rueckmeldung "FBI und weitere Woerter schlecht ausgesprochen", Task ad90):
+Ausbau 18.10.2026 (rexemres Rueckmeldung "FBI und weitere Woerter schlecht ausgesprochen", Task ad90):
 - Buchstabiert wird mit gedehnter Lautschrift ("Eff Beh Ih" statt "Ef Be I"): Chatterbox las die
   kurzen Einzelbuchstaben "I"/"E"/"Be" oft englisch oder verschluckte sie; gemessen mit Whisper-Rueckhoeren
   (jarvis/reports/stimme_aussprache_20261018/messung_abkuerzungen.json).
 - Zweiter Ausbau 18.10.2026 (Hoerprobe alt/neu, Task ad90 Folgeauftrag): FBI klang mit deutschen Buchstabennamen
-  ("Eff Beh Ih") falsch, Marlon will die im Deutschen uebliche englische Aussprache ("Eff Bi Ai"). SPELL_OUT_EN
+  ("Eff Beh Ih") falsch, rexemre will die im Deutschen uebliche englische Aussprache ("Eff Bi Ai"). SPELL_OUT_EN
   listet die wenigen Kuerzel, die deutsche Sprecher englisch buchstabieren (FBI, CIA, NSA); alles andere in
   SPELL_OUT (AfD, CDU, EU, USA ...) bleibt deutsch buchstabiert. LETTER_EN enthaelt bewusst nur die dafuer
   gemessenen Buchstaben, nicht das ganze Alphabet - bei neuen Eintraegen in SPELL_OUT_EN mit Whisper nachmessen
@@ -63,11 +63,11 @@ LETTER = {"A": "Ah", "B": "Beh", "C": "Zeh", "D": "Deh", "E": "Eh", "F": "Eff", 
 # 18.10.2026 (Whisper medium, 6 Saetze x 2 Seeds): alt "Ef Be I" 27/35 erkannt, "Eff-Beh-Ih" 30/32, "Eff Beh Ih" 31/32 -
 # der Bindestrich zieht Nachbarbuchstaben zu Diphthongen zusammen ("Weh-Hah-Oh" -> "Wehau").
 SPELL_JOIN = " "
-# Kuerzel, die englisch buchstabiert werden (FBI -> "Eff Bi Ai", nicht "Eff Beh Ih"). Regel (Marlon 18./22.10.2026):
+# Kuerzel, die englisch buchstabiert werden (FBI -> "Eff Bi Ai", nicht "Eff Beh Ih"). Regel (rexemre 18./22.10.2026):
 # englische Medien-/Organisationskuerzel englisch, deutsche und EU/UN-Kuerzel deutsch (SPELL_OUT).
 SPELL_OUT_EN_ALT = {"FBI", "CIA", "NSA"}      # Stand bis KUERZEL_EN_AB
 SPELL_OUT_EN = {"FBI", "CIA", "NSA",
-                # 22.10.2026 (Marlon: "CNBC falsch, englische Medien-/Organisationskuerzel englisch"): englischsprachige
+                # 22.10.2026 (rexemre: "CNBC falsch, englische Medien-/Organisationskuerzel englisch"): englischsprachige
                 # Medien, US/UK-Behoerden und Unternehmensbegriffe. Deutsch bleiben EU, UN, USA, US, UK, CDU, AfD ... (SPELL_OUT).
                 "CNBC", "CNN", "BBC", "NBC", "ABC", "CBS", "AP", "NPR", "NYT", "WSJ", "MSNBC", "HBO", "ESPN", "RAC", "AAA",
                 "DOJ", "DHS", "IRS", "TSA", "FAA", "FDA", "CDC", "DEA", "ATF", "NYPD", "LAPD", "GOP", "CEO", "CFO", "COO", "CTO",

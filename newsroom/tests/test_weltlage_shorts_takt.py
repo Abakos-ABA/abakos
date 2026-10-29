@@ -29,7 +29,7 @@ class ThumbnailLiveSichtbarTest(unittest.TestCase):
     ist - der eigentliche Beweis-Schritt, der am 16.10.2026 fehlte (ein fehlerfreier Studio-Speichern-Klick allein
     war keiner, siehe Docstring der Funktion).
 
-    Regressionstest fuer den Befund vom 18.10.2026 (Marlons Meldung ueber den wiederkehrenden Fehler): die erste
+    Regressionstest fuer den Befund vom 18.10.2026 (rexemres Meldung ueber den wiederkehrenden Fehler): die erste
     Fassung tastete nur EINEN festen Punkt (18 % der Bildhoehe) ab und nahm an, die Banderole sitze bei jedem
     Short an derselben Stelle - stimmt nicht, render() zentriert den Block je nach Headline-Laenge unterschiedlich
     hoch. test_banderole_ausserhalb_des_alten_fixpunkts_wird_erkannt baut genau diesen Fall nach (Banderole bei
@@ -476,8 +476,8 @@ class ThumbnailNachtragTest(unittest.TestCase):
         self.assertEqual(erg["versucht"], 0)
 
     def test_erschoepfter_short_wird_als_haengend_gemeldet(self):
-        """Befund 18.10.2026 (Marlons Meldung): bisher blieb ein erschoepfter, weiterhin nicht live sichtbarer
-        Short nur im stillen Log stecken. 'haengt' gibt der Weltlage-Wache jetzt, was sie als Warnung an Marlon
+        """Befund 18.10.2026 (rexemres Meldung): bisher blieb ein erschoepfter, weiterhin nicht live sichtbarer
+        Short nur im stillen Log stecken. 'haengt' gibt der Weltlage-Wache jetzt, was sie als Warnung an rexemre
         melden kann, statt dass der Fehler tagelang unbemerkt bleibt."""
         from datetime import timedelta
         now = NOW
@@ -560,7 +560,7 @@ class ThumbnailNachtragTest(unittest.TestCase):
         self.assertEqual(len(verschoben), 6 - takt_mod.THUMBNAIL_STUDIO_MAX_PRO_LAUF)
 
     def test_regal_ohne_eigenes_bild_wird_gemeldet(self):
-        """Das echte Shorts-Regal der Kanalseite (das, was Marlon sieht) zeigt oar1/oar2/oar3 = automatischer
+        """Das echte Shorts-Regal der Kanalseite (das, was rexemre sieht) zeigt oar1/oar2/oar3 = automatischer
         Videoframe statt sardefault = eigenes Bild -> nach THUMBNAIL_REGAL_WARN_MIN eine Meldung."""
         from datetime import timedelta
         now = NOW

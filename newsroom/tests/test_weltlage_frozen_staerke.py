@@ -4,7 +4,7 @@ Verabschiedung) duerfen nicht unbemerkt mit einer alten Lipsync-Staerke/HD-Stufe
 
 Seit 20.10.2026 (Task 20261020-002406-1486) dazu guidance_einordnung/guidance_hinweise: die Staerke einer
 HOEHEREN Drosselstufe (config.settings.NEWS_LIPSYNC_STUFEN, kleinere Nummer = mehr Staerke/Schritte) ist kein
-Abbruch mehr, nur ein Hinweis - Vorfall 19.10.2026: Marlons Umstellung von Stufe 1 (2,0) auf Stufe 2 (1,5) kam
+Abbruch mehr, nur ein Hinweis - Vorfall 19.10.2026: rexemres Umstellung von Stufe 1 (2,0) auf Stufe 2 (1,5) kam
 in den Code, waehrend der Rohschnitt der 10:00-Folge mit 2,0 lief; die Abnahme liess die 9-h-Folge durchfallen.
 
     .venv\\Scripts\\python -m unittest tests.test_weltlage_frozen_staerke

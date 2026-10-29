@@ -1,9 +1,9 @@
-"""Weltlage Kompakt - zweimal taeglich vollautomatisch mit Themenwahl und Freigabe (Marlon 02.10.2026 23:03).
+"""Weltlage Kompakt - zweimal taeglich vollautomatisch mit Themenwahl und Freigabe (rexemre 02.10.2026 23:03).
 
-Dauerhafte Freigabe von Marlon (02.10.2026 23:03): der Kanal laeuft vollautomatisch inklusive Veroeffentlichung auf
-YouTube, wenn Marlon nicht innerhalb einer Stunde reagiert. Ersetzt den frueheren Lauf um 07:00 (Task dffa).
+Dauerhafte Freigabe von rexemre (02.10.2026 23:03): der Kanal laeuft vollautomatisch inklusive Veroeffentlichung auf
+YouTube, wenn rexemre nicht innerhalb einer Stunde reagiert. Ersetzt den frueheren Lauf um 07:00 (Task dffa).
 
-Seit 16.10.2026 (Marlons Ansage per Telegram): KEINE festen Veroeffentlichungs-Slots mehr. Slots (NEWS_WELTLAGE_SLOTS,
+Seit 16.10.2026 (rexemres Ansage per Telegram): KEINE festen Veroeffentlichungs-Slots mehr. Slots (NEWS_WELTLAGE_SLOTS,
 Standard 00:00,10:00) sind jetzt PRODUKTIONSSTART-Zeiten - die Themenwahl (Schritt 0) beginnt genau zum Slot, frisch,
 nicht Stunden vorher fuer einen spaeteren Termin. Veroeffentlicht wird, sobald die Folge fertig und freigegeben ist,
 egal wie spaet - Dauerregel: nie wegen Verspaetung verwerfen. Laeuft beim naechsten Slot noch eine Produktion, startet
@@ -37,11 +37,11 @@ diese Schritte ab (jeder Schritt wird bei einem Neustart uebersprungen, wenn sei
   6 broll       tools/weltlage_broll.py --video (NEWS_WELTLAGE_BROLL=1; gruene Quellen; Fehler -> ohne Clips weiter;
                 Stufe 1 liegt meist schon aus Schritt 5 vor, baut hier nur noch die Ebenen auf dem fertigen Master)
   7 abnahme     tools/weltlage_abnahme.py (Fehler = nie automatisch veroeffentlichen, nur melden). Fehler "Folge zu
-                kurz" (Mindestlaenge 8:00 Min., Marlons Entscheid 04.10.2026 23:53): einmal automatisch ueber
+                kurz" (Mindestlaenge 8:00 Min., rexemres Entscheid 04.10.2026 23:53): einmal automatisch ueber
                 tools/weltlage_ueberarbeiten.py verlaengern (mehr Tiefe statt Fuellstoff) und die Schritte
                 stimme..metadaten erneut rendern (MAX_LAENGE_RUNDEN); schlaegt das erneut fehl, Abbruch wie jeder
                 andere Abnahme-Fehler.
-  8 thumbnail   video/weltlage_thumbnail.py (Latara-Foto nach Stimmung aus Marlons Ordner, rechts, textfrei)
+  8 thumbnail   video/weltlage_thumbnail.py (Latara-Foto nach Stimmung aus rexemres Ordner, rechts, textfrei)
   9 metadaten   Titel (staerkste Frage-Variante), Beschreibung, Tags -> metadaten.json
  10 warten      seit 16.10.2026 reiner Durchlaufschritt (kein Slot mehr, auf den gewartet wuerde) - sobald die
                 Produktion fertig ist, geht es direkt in die Freigabe, egal wie spaet
@@ -50,16 +50,16 @@ diese Schritte ab (jeder Schritt wird bei einem Neustart uebersprungen, wenn sei
                 tools/weltlage_ueberarbeiten.py setzt die Aenderungen um, nur betroffene Szenen werden neu gerendert
                 (Schritte stimme..metadaten erneut), das Video kommt neu und das Fenster startet von vorn (hoechstens
                 NEWS_WELTLAGE_MAX_FEEDBACK_RUNDEN, danach nur noch Freigeben/Stopp). Keine Reaktion innert
-                NEWS_WELTLAGE_FREIGABE_MINUTEN = automatisch veroeffentlichen. Seit 13.10.2026 (Marlons Kritik: Themen
+                NEWS_WELTLAGE_FREIGABE_MINUTEN = automatisch veroeffentlichen. Seit 13.10.2026 (rexemres Kritik: Themen
                 zu frueh gewaehlt, bei Veroeffentlichung nicht mehr aktuell): th.aktualitaet_pruefen() laeuft schon
                 hier, direkt in dieser Nachricht - nicht erst spaeter ueber die separate Nachpruefung der
                 Weltlage-Wache (jarvis/tools/weltlage_wache.py). Seit 16.10.2026 (derselbe Rueckfall nochmal: die
-                Warnung allein aenderte nichts, wenn Marlon nicht reagierte - der Normalfall war "automatisch
+                Warnung allein aenderte nichts, wenn rexemre nicht reagierte - der Normalfall war "automatisch
                 veroeffentlichen"): findet der Check neue Meldungen, versucht _aktualitaet_aktualisieren() IMMER
-                AUTOMATISCH (ohne auf Marlon zu warten, kein Zeitfenster-Vorbehalt mehr - es gibt keinen Slot, den
+                AUTOMATISCH (ohne auf rexemre zu warten, kein Zeitfenster-Vorbehalt mehr - es gibt keinen Slot, den
                 das noch gefaehrden koennte) ueber dieselbe Feedback-Maschine (tools/weltlage_ueberarbeiten.py) einen
                 kurzen, vorsichtig attribuierten Satz zur neuen Entwicklung zu ergaenzen (nur, wenn das Modell etwas
-                Konkretes findet, sonst bleibt alles wie es ist); danach sieht Marlon in der Freigabe-Nachricht
+                Konkretes findet, sonst bleibt alles wie es ist); danach sieht rexemre in der Freigabe-Nachricht
                 entweder "automatisch aktualisiert" oder (wenn das Modell nichts Konkretes fand) weiterhin die
                 Warnung und kann mit Feedback/Stopp reagieren.
  12 upload      upload/youtube_playwright.upload_datei - direkt in NEWS_WELTLAGE_UPLOAD_VISIBILITY (Standard seit
@@ -71,7 +71,7 @@ diese Schritte ab (jeder Schritt wird bei einem Neustart uebersprungen, wenn sei
                 Status, Entwurf/Sichtbarkeit nachziehen); klappt das nicht, Status «unbestaetigt» -> die
                 Weltlage-Wache (Jarvis) zieht in ihrer Nachpruefung nach
  14 meldung     Link an Telegram + Beta-App bzw. Fehlermeldung mit Schritt
- 15 frage_kommentar  seit 19.10.2026 (Marlon-Auftrag, Task 20261019-115203-a41d): die Kommentarfrage aus
+ 15 frage_kommentar  seit 19.10.2026 (rexemre-Auftrag, Task 20261019-115203-a41d): die Kommentarfrage aus
                 metadaten.json (schon vom Analyse-Prompt erzeugt, bisher nur in der Beschreibung) wird jetzt
                 ZUSAETZLICH als eigener Kommentar gepostet und angeheftet (upload/youtube_kommentar.py) -
                 Diskussion soll direkt unter der eigenen Frage beginnen. Nur wenn oeffentlich bestaetigt;
@@ -84,7 +84,7 @@ regulaeren Folgen beim Rohschnitt den Vortritt (vorrang_fuer). Abnahme-Fehler, d
 (True Peak/Lautheit), heilt der Lauf selbst: nur den Master-Ton neu machen (Sekunden).
 
 Der fruehere Schritt "endscreen" (upload/endscreen_playwright.set_endscreen, YouTube-Studio-Endscreen "2 Video +
-Abo" per Playwright) ist seit 04.10.2026 entfernt (Marlon: die Video-Felder blieben leer, weil Studios eigene
+Abo" per Playwright) ist seit 04.10.2026 entfernt (rexemre: die Video-Felder blieben leer, weil Studios eigene
 Automatik ohne genug Kanalhistorie nichts findet) - ersetzt durch die Szene Abschluss im Video selbst
 (tools/weltlage_abschluss.py: Latara, Logo, animierter Abo-Hinweis, keine Verweise auf andere Videos).
 
@@ -97,8 +97,8 @@ Pause ohne Code-Aenderung: Datei state/weltlage_tageslauf.pause anlegen (loesche
                                             [--nur thema,skript] [--trocken] [--themenwahl-min 2] [--freigabe-min 2]
     python tools/weltlage_tageslauf.py metadaten <folgenordner>
     python tools/weltlage_tageslauf.py master-neu <folgenordner> <master.mp4>   (nur Master-Ton neu, Sekunden)
-    python tools/weltlage_tageslauf.py sofort 2026-10-10_19:00 [--grund "Marlon per Telegram"]
-        (seit 10.10.2026, Task 3ba8: Marlons «sofort veröffentlichen» für EINEN Lauf - Schritt warten überspringt
+    python tools/weltlage_tageslauf.py sofort 2026-10-10_19:00 [--grund "rexemre per Telegram"]
+        (seit 10.10.2026, Task 3ba8: rexemres «sofort veröffentlichen» für EINEN Lauf - Schritt warten überspringt
         Freigabefenster/Slot, freigabe stellt keine Rückfrage, upload geht direkt in NEWS_WELTLAGE_UPLOAD_VISIBILITY
         statt privat vorab. Ein schon laufender Tageslauf liest den Schalter erst beim nächsten Start seines Schritts;
         schläft er bereits im Schritt warten, Langlauf abbrechen und neu starten - fertige Schritte werden übersprungen.)
@@ -397,7 +397,7 @@ def master_neu(ordner: Path, master: Path, log=print) -> dict:
 def faellig(jetzt: datetime, zustand: dict) -> list[tuple[str, str]]:
     """[(datum, slot)] deren Produktionsstart faellig ist (jetzt >= Slot) und fuer die noch kein Lauf existiert, der
     Lauf abgestuerzt ist (PID weg, Status nicht final) oder ein angehaltener Lauf zum Fortsetzen markiert ist
-    ("auto_fortsetzen": true, z.B. der von Hand vorproduzierte erste Lauf). Seit 16.10.2026 (Marlons Ansage: keine
+    ("auto_fortsetzen": true, z.B. der von Hand vorproduzierte erste Lauf). Seit 16.10.2026 (rexemres Ansage: keine
     festen Veroeffentlichungs-Slots mehr): Slot = Produktionsstart direkt, keine Vorlauf-Rueckrechnung und kein
     Verspaetungs-Limit mehr - eine faellige Folge wird nie aufgegeben; laeuft beim naechsten Slot noch eine andere
     Produktion, startet die neue trotzdem (serialisiert sich beim Rohschnitt selbst, siehe schnitt_vorbereiten/
@@ -616,7 +616,7 @@ def feste_szenen_veraltet(metas: dict, guidance: float, hd: bool, pipeline: dict
     derselben Staerke gebaut sein wie die Meldungen, sonst bewegt sich der Mund in der Begruessung anders als im
     Rest der Folge. Fassungen ohne die Felder (vor 02./03.10.2026) gelten wie bisher nur als Warnung der Abnahme,
     nicht als veraltet. Reine Funktion (Dateien kommen vom Aufrufer), offline testbar.
-    Grund (Vorfall 19.10.2026, Task 20261020-002406-1486): Marlons Umstellung auf Drosselstufe 2 (Guidance 2,0 ->
+    Grund (Vorfall 19.10.2026, Task 20261020-002406-1486): rexemres Umstellung auf Drosselstufe 2 (Guidance 2,0 ->
     1,5) kam in den Code, ohne dass jemand Begruessung/Abschluss neu einfror - jede folgende Folge waere an der
     Abnahme («eingefroren mit Guidance 2.0 statt Standard 1.5 - neu bauen») gescheitert, und die Wache kannte dafuer
     keinen Fix. Jetzt baut der Tageslauf sie vor dem Rohschnitt selbst neu (feste_szenen_aktualisieren)."""
@@ -696,25 +696,25 @@ def vorab_upload() -> bool:
 
 
 def sofort_aktiv(key: str) -> bool:
-    """Marlon hat fuer diesen Lauf «sofort veroeffentlichen» gegeben (`weltlage_tageslauf.py sofort <key>`, Zustand
+    """rexemre hat fuer diesen Lauf «sofort veroeffentlichen» gegeben (`weltlage_tageslauf.py sofort <key>`, Zustand
     Feld "sofort", 10.10.2026 Task 3ba8): kein Warten auf das Freigabefenster oder den Slot, keine Freigabe-Frage,
     Upload direkt in der Ziel-Sichtbarkeit statt privat vorab. Gilt nur fuer diesen einen Schluessel."""
     return bool((_laden().get(key) or {}).get("sofort"))
 
 
 def vorab_fuer(key: str) -> bool:
-    """Privat vorab hochladen? Nein, wenn Marlon fuer den Lauf «sofort» gegeben hat."""
+    """Privat vorab hochladen? Nein, wenn rexemre fuer den Lauf «sofort» gegeben hat."""
     return vorab_upload() and not sofort_aktiv(key)
 
 
-def sofort_setzen(key: str, grund: str = "Marlon") -> dict:
+def sofort_setzen(key: str, grund: str = "rexemre") -> dict:
     return _eintrag(key, sofort=True, sofort_seit=datetime.now().astimezone().isoformat(timespec="seconds"),
                     sofort_grund=grund)
 
 
 def laenge_reparatur_noetig(info: dict, runden: int) -> str | None:
     """Prueft, ob eine durchgefallene Abnahme (abnahme.json-Inhalt) am Fehler "Folge zu kurz" lag (Abnahme 4i,
-    Marlons Entscheid 04.10.2026 23:53) und noch ein automatischer Verlaengerungsversuch uebrig ist
+    rexemres Entscheid 04.10.2026 23:53) und noch ein automatischer Verlaengerungsversuch uebrig ist
     (MAX_LAENGE_RUNDEN). Gibt die passende Fehlermeldung zurueck, sonst None (kein Laengenfehler oder Versuche
     aufgebraucht - dann wie jeder andere Abnahme-Fehler abbrechen). Pure Funktion, offline testbar."""
     if runden >= MAX_LAENGE_RUNDEN:
@@ -819,12 +819,12 @@ def metadaten(ordner: Path) -> dict:
     return meta
 
 
-JARVIS_TOOLS = Path(r"C:\Users\Marlon\projekte\jarvis\tools")   # gleiches Muster wie gpu_budget.py: in-process, Fallback bei Fehler
+JARVIS_TOOLS = (Path.home() / r"projekte\jarvis\tools")   # gleiches Muster wie gpu_budget.py: in-process, Fallback bei Fehler
 _ergebnis_mod = None
 
 
 def _ergebnis_zeigen():
-    """tools/ergebnis_zeigen.py aus Jarvis (Marlon-Regel 01.10.: am PC öffnen statt immer Telegram); None = nicht
+    """tools/ergebnis_zeigen.py aus Jarvis (rexemre-Regel 01.10.: am PC öffnen statt immer Telegram); None = nicht
     erreichbar, dann bleibt es beim alten direkten Telegram-Versand."""
     global _ergebnis_mod
     if _ergebnis_mod is None:
@@ -947,7 +947,7 @@ def telegram_fassung(datei: Path, ordner: Path, log) -> Path | None:
 
 
 def shorts_erzeugen_und_einreihen(key: str, slot: str, ordner: Path, log):
-    """Schritt shorts (Marlon 11.10.2026, erweitert 13.10.2026 auf dauerhafte Freigabe + festen 6-h-Takt nach dem
+    """Schritt shorts (rexemre 11.10.2026, erweitert 13.10.2026 auf dauerhafte Freigabe + festen 6-h-Takt nach dem
     ersten echten Short: ~400 Views/8 Likes/4 Abos in 48 h): aus der gerade veroeffentlichten Folge 1-3 vertikale
     Shorts schneiden (tools/weltlage_shorts.py), SHORTS_VERZUG Minuten warten (zeitversetzt, nicht gleichzeitig
     mit der Folge), dann NICHT mehr einzeln per Telegram freigeben lassen, sondern in die Warteschlange legen
@@ -984,8 +984,8 @@ def shorts_erzeugen_und_einreihen(key: str, slot: str, ordner: Path, log):
 
 def _aktualitaet_aktualisieren(key: str, slot: str, ordner: Path, master: Path, log, produktion,
                                aktualitaet: dict) -> str | None:
-    """Automatische Aktualisierung (16.10.2026, Marlons Rueckfall-Beschwerde: die Warnung vom 13.10. aenderte nichts,
-    wenn niemand reagierte). Nutzt dieselbe Feedback-Maschine wie Marlons manuelles Feedback
+    """Automatische Aktualisierung (16.10.2026, rexemres Rueckfall-Beschwerde: die Warnung vom 13.10. aenderte nichts,
+    wenn niemand reagierte). Nutzt dieselbe Feedback-Maschine wie rexemres manuelles Feedback
     (tools/weltlage_ueberarbeiten.py), aber automatisch ausgeloest: bekommt nur Titel+Quelle+Datum der neuen
     Meldungen (keine erfundenen Fakten moeglich) und die Weisung, NUR bei etwas Konkretem einen kurzen, vorsichtig
     attribuierten Satz zu ergaenzen ("Laut <Quelle>...") und sonst nichts zu aendern. Hoechstens ein Versuch pro
@@ -998,7 +998,7 @@ def _aktualitaet_aktualisieren(key: str, slot: str, ordner: Path, master: Path, 
     runde = int(z.get("feedback_runden") or 0) + 1
     zeilen = "\n".join(f"- {a['title']} ({a.get('source')}, {(a.get('published_at') or '')[:16]})"
                        for a in aktualitaet["neue_artikel"][:3])
-    feedback = (f"[Automatisch, nicht von Marlon] Seit der Recherche gibt es moeglicherweise neue Meldungen zum "
+    feedback = (f"[Automatisch, nicht von rexemre] Seit der Recherche gibt es moeglicherweise neue Meldungen zum "
                 f"Hauptthema:\n{zeilen}\n\nFalls das eine konkrete neue Entwicklung ist: ergaenze an der passenden "
                 "Stelle einen kurzen, vorsichtig formulierten Satz, der die neue Meldung attributiv nennt (z.B. "
                 "\"Laut <Quelle> gibt es inzwischen...\"), ohne bestehende Aussagen zu aendern oder neue Fakten/"
@@ -1091,7 +1091,7 @@ def freigabe_einholen(key: str, slot: str, ordner: Path, master: Path, log, minu
         if ant["wahl"] == "freigeben":
             return "freigegeben"
         if ant["wahl"] == "stopp":
-            raise Gestoppt(f"Marlon hat «Stopp» gedrückt ({ant.get('quelle')})")
+            raise Gestoppt(f"rexemre hat «Stopp» gedrückt ({ant.get('quelle')})")
         runde = runden + 1
         _eintrag(key, feedback_runden=runde)
         from weltlage_ueberarbeiten import ueberarbeiten
@@ -1192,7 +1192,7 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
             # Render; ein fertiger Master behaelt seine Fassung, die Abnahme toleriert dort eine staerkere Stufe)
             if not master.exists():
                 feste_szenen_aktualisieren(log)
-            # B-Roll-Planung vorgezogen (Marlon 19.10.2026, Task 20261019-182613-44c1): Stufe 1 von
+            # B-Roll-Planung vorgezogen (rexemre 19.10.2026, Task 20261019-182613-44c1): Stufe 1 von
             # weltlage_broll.py (Einsatzstellen, Darstellungsart, Clips - braucht nur texte.json + audio/*.wav) lief
             # bisher erst im Schritt "broll" NACH dem Rohschnitt; der Lipsync dort rechnete darum auch fuer
             # Zeitspannen, die broll hinterher ohnehin vollflaechig ueberdeckt (Variante "voll"). Jetzt schon hier,
@@ -1306,8 +1306,8 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
                 log(f"Freigabe schon erledigt ({e.get('freigabe')})")
                 return
             if sofort_aktiv(key):
-                log(f"Freigabe: Marlon hat «sofort» gegeben ({e.get('sofort_grund') or 'Marlon'}) - keine Rückfrage")
-                _eintrag(key, freigabe="sofort (Marlon)")
+                log(f"Freigabe: rexemre hat «sofort» gegeben ({e.get('sofort_grund') or 'rexemre'}) - keine Rückfrage")
+                _eintrag(key, freigabe="sofort (rexemre)")
                 return
             ergebnis = freigabe_einholen(key, slot, ordner, master, log, freigabe_min, trocken,
                                          lambda schritte: [schritt_ausfuehren(s) for s in schritte])
@@ -1481,10 +1481,10 @@ def main():
     mn = sub.add_parser("master-neu", help="nur den Master-Ton neu (Pegel-Fehler der Abnahme), B-Roll/Abnahme verwerfen")
     mn.add_argument("ordner", type=Path)
     mn.add_argument("master", type=Path)
-    so = sub.add_parser("sofort", help="Marlons Freigabe «sofort veröffentlichen» für einen Lauf: kein Warten auf "
+    so = sub.add_parser("sofort", help="rexemres Freigabe «sofort veröffentlichen» für einen Lauf: kein Warten auf "
                                        "Freigabefenster/Slot, keine Rückfrage, Upload direkt öffentlich")
     so.add_argument("key", help="z.B. 2026-10-10_19:00")
-    so.add_argument("--grund", default="Marlon")
+    so.add_argument("--grund", default="rexemre")
     a = ap.parse_args()
     if a.cmd == "sofort":
         print(json.dumps(sofort_setzen(a.key, a.grund), indent=1, ensure_ascii=False, default=str))

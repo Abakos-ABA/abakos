@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
-BIN=/home/marlon/abakos-build/abakosd
-H=/home/marlon/abktest
+BIN=/home/USER/abakos-build/abakosd
+H=/home/USER/abktest
 rm -rf "$H"
 echo "[init]"
 "$BIN" genesis init testnode --chain-id abakos-localtest-1 --home "$H" 2>&1 | tail -2 || true

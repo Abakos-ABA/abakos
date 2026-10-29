@@ -1,6 +1,6 @@
 """TESTFASSUNG v2 (nicht in der Pipeline): Lipsync der stehenden Latara auf dem FREISTELLER, dann ins Studio.
 
-Marlons Korrektur vom 29.09.2026: Reihenfolge strikt
+rexemres Korrektur vom 29.09.2026: Reihenfolge strikt
   1. Freisteller (stehend_v6_alpha_prores4444.mov, 832x1248, volle Aufloesung, ohne Studio) nehmen,
   2. darauf lipsyncen (LatentSync 1.6, Gesicht eng zugeschnitten und hochskaliert, 20 Schritte, staerkere guidance),
   3. Matte/Alpha erhalten (Original-Alpha, der Lipsync ersetzt nur die untere Gesichtshaelfte innerhalb der Alpha),

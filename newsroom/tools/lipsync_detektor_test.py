@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT))
 from config.settings import NEWS_LIPSYNC_STEPS, NEWS_LIPSYNC_GUIDANCE  # noqa: E402
 from video import freisteller_lipsync as fl  # noqa: E402
 
-GQ = Path(r"C:\Users\Marlon\projekte\jarvis\tools\gpu_queue.py")
+GQ = (Path.home() / r"projekte\jarvis\tools\gpu_queue.py")
 PY = ROOT / ".venv-lipsync" / "Scripts" / "python.exe"
 LEN = 6.0
 

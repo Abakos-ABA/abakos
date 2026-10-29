@@ -1,7 +1,7 @@
 """Lipsync-Vergleich: alte Mundbewegungs-Staerke (guidance 2,5, Task 1fa2 29.09.) gegen die neue, gesenkte
 (config.settings.NEWS_WELTLAGE_LIPSYNC_GUIDANCE, Standard 2,0, Task 20261001-202910-0180).
 
-Marlons Rueckmeldung 01.10. abends zum Testclip aus Task 98b7: Lipsync wirkt uebertrieben, Mundbewegungen zu stark.
+rexemres Rueckmeldung 01.10. abends zum Testclip aus Task 98b7: Lipsync wirkt uebertrieben, Mundbewegungen zu stark.
 Dieser Vergleich zeigt mit demselben Satz (Chatterbox Profil C, ein LatentSync-Stueck), stehend im Studio, HD-Pfad
 (Real-ESRGAN/GFPGAN) in beiden Varianten unveraendert: alt = guidance 2,5, neu = die aktuell aktive Einstellung.
 Clip 1920x1080: Studio alt | Studio neu untereinander, dazu Nahaufnahme Mund alt|neu nebeneinander. Mund-Bewegungs-
@@ -27,8 +27,8 @@ from lipsync_upscale_vergleich import test_wav, mouth_motion, _reader, label  # 
 from config.settings import NEWS_WELTLAGE_LIPSYNC_GUIDANCE  # noqa: E402
 
 WORK = ROOT / "data" / "lipsync_guidance_20261001"
-REPORT = Path(r"C:\Users\Marlon\projekte\jarvis\reports\lipsync_guidance_vergleich_20261001")
-PROGRESS = Path(r"C:\Users\Marlon\projekte\jarvis\tasks\20261001-202910-0180.progress.md")
+REPORT = (Path.home() / r"projekte\jarvis\reports\lipsync_guidance_vergleich_20261001")
+PROGRESS = (Path.home() / r"projekte\jarvis\tasks\20261001-202910-0180.progress.md")
 POSE = "stehend"
 VARIANTEN = [("alt_2_5", 2.5, "ALT  (guidance 2,5)"), ("neu", NEWS_WELTLAGE_LIPSYNC_GUIDANCE,
              f"NEU  (guidance {NEWS_WELTLAGE_LIPSYNC_GUIDANCE:g}, aktueller Standard)")]

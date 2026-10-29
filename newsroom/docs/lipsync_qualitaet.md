@@ -1,6 +1,6 @@
 # Lipsync-Qualität Latara – Ursachen und Verbesserung (30.09.2026)
 
-Auftrag: Marlon fand die Mundsynchronisation in den Testclips vom 29.09. «nicht immer ganz schön». Bild und Ablauf
+Auftrag: rexemre fand die Mundsynchronisation in den Testclips vom 29.09. «nicht immer ganz schön». Bild und Ablauf
 bleiben unverändert. Gemessen mit SyncNet (`tools/lipsync_messung.py`, CPU, geeicht: Ton +120 ms → 3 Bilder Versatz).
 `offset` > 0 = Mund kommt nach dem Ton. `conf` = SyncNet-Sicherheit (höher = besser).
 
@@ -68,7 +68,7 @@ Neue Bausteine (neue Dateien, nichts Bestehendes geändert):
 2. `tools/weltlage_rohschnitt.py`, Abschnitt «Zusammenfügen», vor `audio.txt`: `parts = align_parts(parts, FPS, SR, work)`.
 3. Danach mit `tools/lipsync_messung.py` den fertigen Schnitt stichprobenweise messen: Versatz muss 0 (±1 Bild) sein.
 
-## Vergleichsclips für Marlon (`data\weltlage_test_20260929\`)
+## Vergleichsclips für rexemre (`data\weltlage_test_20260929\`)
 
 - `vergleich_sitzend_ALT.mp4` / `vergleich_sitzend_NEU.mp4` – 15 s Sitz-Meldung Fairford im Studio. ALT = alter
   Lipsync (`_schnitt_freisteller_TEST\_freisteller\s5_studio.mp4`) mit dem Versatz, den der Voll-Render an dieser Stelle

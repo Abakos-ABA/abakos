@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Weltlage Kompakt: eigenstaendige Shorts (Marlon 29.10.2026, Telegram): Shorts sind NICHT mehr Ausschnitte der
+"""Weltlage Kompakt: eigenstaendige Shorts (rexemre 29.10.2026, Telegram): Shorts sind NICHT mehr Ausschnitte der
 Folgen (tools/weltlage_shorts.py bleibt als Altbestand, NEWS_WELTLAGE_SHORTS=0 schaltet den Schnitt im Tageslauf
 ab), sondern eigene Themen, eigenes Skript, eigene Produktion, 3 bis 5 pro Tag (Soll: jarvis/tools/kanal_takt.py).
 
@@ -141,7 +141,7 @@ def _host_video(ordner: Path, ton: Path, ende: float, seed: int) -> Path:
 
 
 def _tor(titel: str, text: str, meta_tts: dict) -> None:
-    """Qualitaets- und Datenschutzpruefung vor dem Rendern/Einreihen (bleibt Pflicht, Marlon 29.10.2026): Stimm-Nachweis
+    """Qualitaets- und Datenschutzpruefung vor dem Rendern/Einreihen (bleibt Pflicht, rexemre 29.10.2026): Stimm-Nachweis
     (aktives Profil), Whisper-Kontrolle der Vertonung und Text-Datenschutz (IBAN, Adresse, Mail, Telefon, Keys,
     Sperrliste) ueber jarvis/tools/datenschutz_pruefung.py. Ist das Pruefmodul nicht erreichbar, wird nicht veroeffentlicht."""
     import weltlage_tts
@@ -150,7 +150,7 @@ def _tor(titel: str, text: str, meta_tts: dict) -> None:
         fehler.append(f"Vertonung nicht in Ordnung (Kontrolle {(meta_tts.get('kontrolle') or {}).get('quote')})")
     if meta_tts.get("ref_sha256") != weltlage_tts.REF_SHA256:
         fehler.append("Vertonung nicht mit dem aktiven Stimmprofil")
-    jarvis_tools = Path(r"C:\Users\Marlon\projekte\jarvis\tools")
+    jarvis_tools = (Path.home() / r"projekte\jarvis\tools")
     try:
         sys.path.append(str(jarvis_tools))   # hinten: Newsroom-Module haben Vorrang
         import datenschutz_pruefung as dsp

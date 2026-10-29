@@ -1,4 +1,4 @@
-"""Weltlage Kompakt - taeglicher Kanal-Manager (Marlon 13.10.2026, Task 20261013-164355-df82).
+"""Weltlage Kompakt - taeglicher Kanal-Manager (rexemre 13.10.2026, Task 20261013-164355-df82).
 
 Anders als die stuendliche Produktions-Wache (jarvis/tools/weltlage_wache.py, heilt abgebrochene Laeufe) kuemmert
 sich dieses Modul einmal pro Tag um den KANAL selbst, nie um laufende Produktion:
@@ -15,21 +15,21 @@ sich dieses Modul einmal pro Tag um den KANAL selbst, nie um laufende Produktion
      Zeitpunkt/Thumbnail) werden von risikoarm_anwenden() SOFORT umgesetzt (set_metadata/set_thumbnail ueber
      upload.youtube_playwright) - aber nur, wenn eine Regel wirklich etwas Konkretes gefunden hat, nie geraten.
      Groessere Ideen (Aufbau, Stil, Stimme, Studio, Schnitt) werden NIE direkt uebernommen: hoechstens EIN
-     Experiment gleichzeitig (experiment_vorschlagen/experiment_stand/experiment_antwort), Marlon antwortet per
+     Experiment gleichzeitig (experiment_vorschlagen/experiment_stand/experiment_antwort), rexemre antwortet per
      Telegram/Chat mit ja/nein - die Antwort kommt ueber jarvis/tools/weltlage_kanalmanager.py hierher
      (experiment-antwort), nie automatisch uebernommen ohne sein ja. Jede wirklich gesetzte Aenderung
      (risikoarm_anwenden) landet automatisch im Kanal-Aenderungsprotokoll des jarvis-Repos (tools/
      kanal_protokoll.py, Cross-Repo-Import gegen den LIVE-Jarvis-Ordner) - Vorher-Kennzahlen + 7-/28-Tage-
      Nachvergleich, damit sich spaeter erklaeren laesst, warum sich Zahlen veraendert haben.
-  4. run() liefert ein JSON-Ergebnis; der Jarvis-Tagesauftrag baut daraus den kurzen Bericht fuer Marlon. run()
+  4. run() liefert ein JSON-Ergebnis; der Jarvis-Tagesauftrag baut daraus den kurzen Bericht fuer rexemre. run()
      holt dabei auch faellige 7-/28-Tage-Auswertungen aus dem Kanal-Aenderungsprotokoll nach (Feld
      "kanal_protokoll_auswertungen") - der Tagesauftrag nennt ein faelliges Ergebnis kurz im Bericht.
-  5. Top-/Flop-Vergleich + Ideen-Rueckstau (Marlon 19.10.2026, Task 20261019-115559-7e79 im Jarvis-Repo):
+  5. Top-/Flop-Vergleich + Ideen-Rueckstau (rexemre 19.10.2026, Task 20261019-115559-7e79 im Jarvis-Repo):
      tools/weltlage_vergleich.py schreibt reports/weltlage_vergleich/<Datum>.md (Feld "vergleich_bericht").
      Neue, mit Zahlen belegte Ideen gehoeren per `jarvis\\tools\\kanal_backlog.py vorschlagen --kanal weltlage`
      in den Rueckstau (Cross-Repo, wie das Kanal-Aenderungsprotokoll) - NIE selbst umsetzen. Feld "naechste_idee"
      (ueber `_kanal_backlog().naechster("weltlage")`) ist hoechstens EINE Idee als heutige Ja/Nein-Frage, bleibt
-     dieselbe Frage, bis Marlon antwortet (`kanal_backlog.py antwort --id ID --ja|--nein`), und faellt aus, wenn
+     dieselbe Frage, bis rexemre antwortet (`kanal_backlog.py antwort --id ID --ja|--nein`), und faellt aus, wenn
      schon ein Backlog-Experiment laeuft oder das alte experiment.json noch auf Antwort wartet.
 
 CLI:
@@ -58,10 +58,10 @@ TAGESLAUF_PFAD = STATE_DIR / "weltlage_tageslauf.json"
 SHORTS_VERLAUF_PFAD = STATE_DIR / "weltlage_shorts_verlauf.json"
 MIN_MESSPUNKTE_FUER_MUSTER = 5     # unter dieser Anzahl taeglicher Snapshots keine automatische Anpassung
 
-# Kanal-Aenderungsprotokoll (Marlon 15.10.2026, jarvis-Repo tools/kanal_protokoll.py): Cross-Repo-Import wie
+# Kanal-Aenderungsprotokoll (rexemre 15.10.2026, jarvis-Repo tools/kanal_protokoll.py): Cross-Repo-Import wie
 # jarvis/tools/jarvis_kanal_broll.py es umgekehrt tut - immer gegen den LIVE-Jarvis-Ordner, nie ein Worktree.
 # Fehlt das Modul (vor der ersten Uebernahme des jarvis-Zweigs, der es anlegt), bleibt das hier folgenlos.
-_JARVIS_TOOLS = Path(r"C:\Users\Marlon\projekte\jarvis\tools")
+_JARVIS_TOOLS = (Path.home() / r"projekte\jarvis\tools")
 
 
 def _kanal_protokoll():
@@ -72,7 +72,7 @@ def _kanal_protokoll():
 
 
 def _kanal_backlog():
-    """Ideen-Rueckstau (jarvis-Repo tools\\kanal_backlog.py, Marlon 19.10.2026, Task 20261019-115559-7e79):
+    """Ideen-Rueckstau (jarvis-Repo tools\\kanal_backlog.py, rexemre 19.10.2026, Task 20261019-115559-7e79):
     hoechstens EINE Idee als Ja/Nein-Frage, nie mehr - sammelt neue Ideen aus `tools\\weltlage_vergleich.py`
     aber setzt nichts selbst um. Cross-Repo-Import wie `_kanal_protokoll()`."""
     if str(_JARVIS_TOOLS) not in sys.path:
@@ -333,7 +333,7 @@ def experiment_stand() -> dict:
 
 
 def experiment_vorschlagen(idee: str, clip_pfad: str | None = None) -> dict:
-    """Schlaegt EIN Experiment vor (Vorher/Nachher-Clip, Marlon antwortet ja/nein) - liegt schon eins offen, wird
+    """Schlaegt EIN Experiment vor (Vorher/Nachher-Clip, rexemre antwortet ja/nein) - liegt schon eins offen, wird
     kein zweites angelegt (Regel: hoechstens ein Experiment aufs Mal)."""
     stand = experiment_stand()
     if stand.get("status") in ("vorgeschlagen", "wartet_antwort"):
@@ -345,7 +345,7 @@ def experiment_vorschlagen(idee: str, clip_pfad: str | None = None) -> dict:
 
 
 def experiment_antwort(ja: bool) -> dict:
-    """Marlons Antwort auf die eine offene Frage - kommt ueber jarvis/tools/weltlage_kanalmanager.py hierher."""
+    """rexemres Antwort auf die eine offene Frage - kommt ueber jarvis/tools/weltlage_kanalmanager.py hierher."""
     stand = experiment_stand()
     stand["status"] = "angenommen" if ja else "abgelehnt"
     stand["beantwortet_am"] = jetzt().isoformat(timespec="seconds")

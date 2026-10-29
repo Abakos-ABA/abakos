@@ -1,4 +1,4 @@
-"""Tests fuer das komponierte Shorts-Thumbnail (Marlons Auftrag 15.10.2026, analog zum Fund beim Jarvis-KI-
+"""Tests fuer das komponierte Shorts-Thumbnail (rexemres Auftrag 15.10.2026, analog zum Fund beim Jarvis-KI-
 Kanal): Text/Branding muessen sicher innerhalb SAFE_TOP..SAFE_UNTEN bleiben, egal wie lang der Titel ist -
 sonst schneidet die Kachelansicht ihn wieder ab.
 
@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT))
 
 from tools import weltlage_shorts_thumbnail as st  # noqa: E402
 
-# Marlons echte Short-Titel aus state/weltlage_shorts_verlauf.json (15.10.2026) plus Randfaelle.
+# rexemres echte Short-Titel aus state/weltlage_shorts_verlauf.json (15.10.2026) plus Randfaelle.
 ECHTE_TITEL = [
     "Wanze bei OpenAI: Für WEN sollte Alfozan mithören?",
     "Starlink-Brand in Polen: Führt Putin schon Krieg im Hinterland?",

@@ -1,5 +1,5 @@
 """Offline-Tests fuer tools/weltlage_rohschnitt.py: Schnittbild-Raster + Vollbild-Spannen der Quellen-Screenshot-
-Karten (Marlon 19.10.2026, Ergaenzung zu Task 20261019-182613-44c1 - skip_spans fuer den Lipsync).
+Karten (rexemre 19.10.2026, Ergaenzung zu Task 20261019-182613-44c1 - skip_spans fuer den Lipsync).
 
     .venv\\Scripts\\python -m unittest tests.test_weltlage_rohschnitt_raster
 """

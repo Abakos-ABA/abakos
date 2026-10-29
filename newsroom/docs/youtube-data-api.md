@@ -11,7 +11,7 @@ Sobald die Einrichtung da ist, nimmt `tools/weltlage_shorts_takt._thumbnail_setz
 API (`upload.youtube_api.verfuegbar()`), Studio nur noch als Rückfall. Abschalten ohne Dateien zu löschen:
 `NEWS_YOUTUBE_API_THUMBNAIL=0` in `.env`.
 
-## Einmalige Einrichtung (Marlon, ca. 10 Minuten)
+## Einmalige Einrichtung (rexemre, ca. 10 Minuten)
 
 1. <https://console.cloud.google.com/> mit dem Google-Konto des Kanals «Weltlage Kompakt» anmelden, Projekt anlegen
    (z. B. «Weltlage Kompakt Newsroom»).
@@ -23,11 +23,11 @@ API (`upload.youtube_api.verfuegbar()`), Studio nur noch als Rückfall. Abschalt
    «Testen» läuft das Token nach 7 Tagen ab; «In Produktion» ohne Verifizierung zeigt beim Anmelden nur die Warnung
    «Google hat diese App nicht überprüft» (Erweitert → trotzdem fortfahren), das Token bleibt dann dauerhaft gültig.
 4. **APIs & Dienste → Anmeldedaten → Anmeldedaten erstellen → OAuth-Client-ID → Typ «Desktop-App».** JSON
-   herunterladen und als `C:\Users\Marlon\abakos\newsroom\secrets\client_secret.json` speichern (Ordner ist in
+   herunterladen und als `C:\Users\rexemre\abakos\newsroom\secrets\client_secret.json` speichern (Ordner ist in
    `.gitignore`, landet nie in Git).
 5. Am PC im Newsroom-Ordner:
 
-       C:\Users\Marlon\abakos\newsroom\.venv\Scripts\python -m upload.youtube_api --einrichten
+       C:\Users\rexemre\abakos\newsroom\.venv\Scripts\python -m upload.youtube_api --einrichten
 
    Es öffnet sich der Browser: Konto wählen, bei der Kanal-Auswahl **«Weltlage Kompakt»** nehmen (nicht das
    persönliche Konto, nicht «Jarvis KI»), Warnung «nicht überprüft» mit «Erweitert → fortfahren» bestätigen, alle

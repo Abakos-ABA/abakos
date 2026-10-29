@@ -13,7 +13,7 @@ bereits fertigen 16:9-Folge die staerkste Aussage heraus:
 - Untertitel/Geometrie nutzen dieselben Bausteine wie die bestehende Shorts-Pipeline: video/layout.py
   (9:16-Groessen) und tts/align_captions.py (Whisper-Worttiming -> ASS, Skript-Rechtschreibung).
 
-Aufbau pro Short (Marlon 13.10.2026, Feedback nach dem ersten echten Short: "momentan ist der ganze Clip
+Aufbau pro Short (rexemre 13.10.2026, Feedback nach dem ersten echten Short: "momentan ist der ganze Clip
 nur ein Aufhaenger. Es soll auch Informationen liefern"): vorher war ein Short genau EINE Szene, und wenn
 das zufaellig der Cold Open war (der geschriebene Hook der Folge), lieferte die Short gar keine eigene
 Information. Jetzt ist jeder Short immer dreiteilig, alle drei Teile aus der bereits fertigen Folge
@@ -26,7 +26,7 @@ geschnitten (kein neuer Text, keine neue Stimme/Lipsync - das bliebe der Langfol
      Beschreibung).
 Mit --max > 1 bekommt jeder weitere Short dieselbe Hook+Verweis-Rahmung, aber eine andere Fakten-Szene
 (die naechsttextreichste), nie eine zweite Short nur mit dem Hook allein.
-Zwischen Hook und Fakten liegt der Schnitt stehend (Cold Open) -> sitzend (Meldung) - Marlon 19.10.2026,
+Zwischen Hook und Fakten liegt der Schnitt stehend (Cold Open) -> sitzend (Meldung) - rexemre 19.10.2026,
 Telegram: dort statt des harten Schnitts derselbe WK-Logo-Bumper wie im Langschnitt (_bumper_noetig,
 _bumper_rendern, UEBERGANG aus config/brand/uebergang/aktiv.json, kein neues Material, nur auf 9:16
 zugeschnitten).
@@ -53,11 +53,11 @@ MIN_TEXT_ZEICHEN = 150
 AUSGESCHLOSSENE_SZENEN = {"themen", "s_themen"}   # Themen-Vorschau: keine eigenstaendige Aussage ausserhalb der Folge
 AUSGESCHLOSSENE_MUSTER = re.compile(r"outro|verabschied|abschluss", re.I)   # Sign-off, keine eigene Aussage
 FIXE_SZENEN_ERSTE = {"s_coldopen", "coldopen"}
-# WK-Logo-Bumper beim Wechsel stehend<->sitzend (Marlon 19.10.2026, Telegram): exakt derselbe Marken-
+# WK-Logo-Bumper beim Wechsel stehend<->sitzend (rexemre 19.10.2026, Telegram): exakt derselbe Marken-
 # Uebergang wie im Langschnitt zwischen Themen und Meldungen (config/brand/uebergang/aktiv.json,
 # tools/weltlage_uebergang.py) - kein neues Material, nur auf 9:16 zugeschnitten. Der Hook ist immer der
 # Cold Open (stehend), die Fakten-Szene immer eine Meldung (szene 5, sitzend) - der Schnitt dazwischen ist
-# damit immer der holprige Steh-Sitz-Wechsel, den Marlon meint.
+# damit immer der holprige Steh-Sitz-Wechsel, den rexemre meint.
 _UEB_CFG = ROOT / "config" / "brand" / "uebergang" / "aktiv.json"
 _UEB_META = json.loads(_UEB_CFG.read_text(encoding="utf-8")) if _UEB_CFG.exists() else {}
 UEBERGANG = ROOT / "config" / "brand" / "uebergang" / _UEB_META["landscape"] if _UEB_META.get("landscape") else None
@@ -139,12 +139,12 @@ def fakten_kandidaten(ordner: Path, max_anzahl: int = 1) -> list[dict]:
 
 
 def titel_frage(ordner: Path, kandidat: dict, meta: dict | None = None, index: int | None = None) -> str:
-    """Fehlerfund 18.10.2026 (Task 20261018-152136-0684, Marlons Meldung ueber "doppelte" Shorts): kandidat war
+    """Fehlerfund 18.10.2026 (Task 20261018-152136-0684, rexemres Meldung ueber "doppelte" Shorts): kandidat war
     bisher praktisch immer der Hook (_baue_einen rief titel_frage(ordner, hook or fakten, meta) - der Hook ist
     IMMER der Cold Open, also IMMER in FIXE_SZENEN_ERSTE), darum gab diese Funktion fuer JEDEN Short des Tages
     dieselbe meta["title"] (die volle Folgen-Schlagzeile) zurueck - obwohl jeder Short eine andere Fakten-Szene
     zeigt. Zwei Shorts mit identischem Titel sehen auf dem Kanal wie ein Doppel-Upload aus (zwei echte Faelle
-    von Marlon gemeldet, sechs weitere beim Durchsehen der letzten 30 Tage gefunden - bei allen war es exakt
+    von rexemre gemeldet, sechs weitere beim Durchsehen der letzten 30 Tage gefunden - bei allen war es exakt
     dieses Muster). _baue_einen uebergibt jetzt bevorzugt die Fakten-Szene (die sich zwischen den Shorts einer
     Folge unterscheidet); index sorgt zusaetzlich dafuer, dass ein zweiter/weiterer Short NIE denselben Titel
     wie der erste bekommt, selbst wenn auch die Fakten-Szene keine eigene Frage liefert."""
@@ -253,7 +253,7 @@ def _titelkarte(text: str, ziel_png: Path):
 
 
 def _outro_karte(ziel_png: Path):
-    """Vollbild-Verweis auf die ausfuehrliche Folge (Marlon 13.10.2026: jeder Short soll am Schluss kurz
+    """Vollbild-Verweis auf die ausfuehrliche Folge (rexemre 13.10.2026: jeder Short soll am Schluss kurz
     zurueck auf die lange Fassung zeigen, zusaetzlich zum Link in der Beschreibung)."""
     from PIL import Image, ImageDraw, ImageFont
     from video import layout as L

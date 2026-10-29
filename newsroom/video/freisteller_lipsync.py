@@ -1,6 +1,6 @@
 """Freisteller-Lipsync fuer die Weltlage-Moderatorin Latara (stehend und sitzend).
 
-FESTE REGEL (Marlon, 29.09.2026), gilt fuer alle Weltlage-Videos:
+FESTE REGEL (rexemre, 29.09.2026), gilt fuer alle Weltlage-Videos:
   1. Lipsync IMMER auf dem Freisteller-Quellvideo der Moderatorin (ohne Studio, volle Quellaufloesung, Gesicht gross),
      nie auf dem fertig komponierten Studiobild (dort ist das Gesicht 40-60 px und der Mund kaum sichtbar).
   2. Matte/Alpha bleibt die des Freistellers (stehend: BiRefNet-Alpha der ProRes-4444-Fassung, sitzend: Differenz-Key
@@ -47,7 +47,7 @@ OUT_W, OUT_H = 1920, 1080     # Endaufloesung der Weltlage-Videos: Composite dir
 FPS = 25                      # LatentSync arbeitet mit 25 fps; der Schnitt setzt danach auf 24 fps
 CHUNK = 7.0                   # laengere Stuecke liefen am 29.09. ueber den VRAM
 WIN = 2.2                     # Fensterkante in Gesichtsgroessen (eng: Gesicht fuellt den LatentSync-Eingang)
-# STEPS/GUIDANCE/ZOOM: zentral in config.settings.NEWS_LIPSYNC_STUFEN (Drosselstufen 1-4, Marlons Entscheid
+# STEPS/GUIDANCE/ZOOM: zentral in config.settings.NEWS_LIPSYNC_STUFEN (Drosselstufen 1-4, rexemres Entscheid
 # 19.10.2026: Stufe 2 ist der neue Standard, Task 20261019-120910-a2ea), nicht mehr hier hartkodiert - frueherer
 # Verlauf (12/8 Schritte, Guidance 2,5/2,0/1,5) stand vorher einzeln in dieser Datei, siehe deren Git-Historie.
 # Feld "steps"/"guidance" in pipeline_signatur(), damit eingefrorene Szenen eine Aenderung nicht stillschweigend
@@ -117,7 +117,7 @@ POSEN = {
     "stehend": dict(
         src=SZ / "stehend_v6_alpha_prores4444.mov", w=832, h=1248, loop=False, key=False,
         face=(60, 160, 0.25),
-        bg=Path(r"C:\Users\Marlon\Documents\WK\latara_in_studio_stehend_neben_pult_breitbild_hintergund.png"),
+        bg=(Path.home() / r"Documents\WK\latara_in_studio_stehend_neben_pult_breitbild_hintergund.png"),
         bg_still=True, bg_size=(1672, 941),
         placement=SZ / "host_placement_v6_neuer_hintergrund.json", default=dict(x=842, y=386, scale=0.3798),
         desk=None),
@@ -599,7 +599,7 @@ def lipsync_freisteller(pose: str, wav: Path, start: float, length: float, work:
     skip_spans: [(start_s, ende_s), ...] relativ zu DIESEM Aufruf (0 = Szenenanfang, wie `length`) - dort setzt
     tools/weltlage_broll.py nachher einen Vollbild-Clip ein, der Freisteller wird gleich wieder ganz verdeckt. Ein
     LatentSync-Stueck (quiet_cuts()) wird dort ausgelassen (teuerster Schritt der Pipeline), nur wenn es VOLLSTAENDIG
-    in einer Spanne liegt - sonst normal gerechnet (Marlon 19.10.2026, Task 20261019-182613-44c1)."""
+    in einer Spanne liegt - sonst normal gerechnet (rexemre 19.10.2026, Task 20261019-182613-44c1)."""
     import cv2
     P = POSEN[pose]
     W0, H0 = P["w"], P["h"]

@@ -1,4 +1,4 @@
-"""Top-vs-Flop-Vergleich fuer Weltlage Kompakt (Marlon-Auftrag 19.10.2026, Task 20261019-115559-7e79 im
+"""Top-vs-Flop-Vergleich fuer Weltlage Kompakt (rexemre-Auftrag 19.10.2026, Task 20261019-115559-7e79 im
 Jarvis-Repo): dasselbe Ziel wie jarvis/tools/jarvis_kanal_vergleich.py (Top- gegen Flop-Videos nebeneinander,
 Gemeinsamkeiten mit Zahlen belegt) - aber mit DEUTLICH weniger Daten.
 

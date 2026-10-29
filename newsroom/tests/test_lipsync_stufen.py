@@ -1,4 +1,4 @@
-"""Lipsync-Drosselstufen: Stufe 2 ist seit Marlons Entscheid 19.10.2026 der Standard fuer alle
+"""Lipsync-Drosselstufen: Stufe 2 ist seit rexemres Entscheid 19.10.2026 der Standard fuer alle
 Lipsync-Pipelines (Task 20261019-120910-a2ea, Drosselprobe-Werte aus jarvis/reports/
 lipsync_drossel_vergleich_20261019/ergebnis.json). Dieser Test haelt fest, dass die Werte an EINER
 zentralen Stelle (config.settings.NEWS_LIPSYNC_STUFEN) stehen und beide Pipelines (video/

@@ -12,7 +12,7 @@ sys.path.insert(0, str(ROOT))
 from video import freisteller_lipsync as fl  # noqa: E402
 
 WORK = ROOT / "data" / "lipsync_hd_vergleich_20261023"
-REPORT = Path(r"C:\Users\Marlon\projekte\jarvis\reports\lipsync_hd_vergleich_20261023")
+REPORT = (Path.home() / r"projekte\jarvis\reports\lipsync_hd_vergleich_20261023")
 EFF_S = 426.0         # tatsaechlich gelipsyncte Sekunden einer Folge (s5 102/175 Stuecke + Coldopen/Themen/S6)
 REAL_A_MIN = 170.0    # gemessener Lipsync-Anteil der Produktion (Variante A, mit GPU-Konkurrenz)
 LS_BASE = {5: 63.0, 4: 60.0}   # LatentSync-Zeit ohne GPU-Konkurrenz (B/D/F gemessen), A war durch Konkurrenz auf 83 s aufgeblasen

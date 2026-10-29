@@ -1,7 +1,7 @@
 """Weltlage Kompakt - Skript-Generator fuer eine Folge (Langformat), Stand 01.10.2026.
 
 Baut aus aktuellen Meldungen (RSS der Pipeline, gruppiert wie im Collector) oder aus einem Transkript ein Folgen-Skript
-mit dem Standard-Prompt config/prompts/weltlage_analyse.md (Redaktions-/Analyse-Konzept von Marlon, 01.10.2026) bzw.
+mit dem Standard-Prompt config/prompts/weltlage_analyse.md (Redaktions-/Analyse-Konzept von rexemre, 01.10.2026) bzw.
 dem Fallback config/prompts/weltlage_klassisch.md (bisheriges Meldungsformat). Umschalten in .env:
 
     NEWS_WELTLAGE_SKRIPT_PROMPT=analyse|klassisch   (oder pro Lauf --prompt)
@@ -11,7 +11,7 @@ Ausgabe im Folgenordner (Standard data/weltlage_<datum>[_suffix]):
     material.txt       Ausgangsmaterial genau so, wie es das Modell bekam (zum Nachpruefen der Belege)
     news.json          gewaehlte Meldungsgruppen (gleiches Format wie bisher, Grundlage fuer bilder_holen)
     skript.json        Rohantwort des Modells + Pruefergebnis (Titel-Varianten, Thumbnail-Text, These, Belege ...)
-    skript.md          lesbare Fassung mit Bild-Markern fuer Marlon/Telegram
+    skript.md          lesbare Fassung mit Bild-Markern fuer rexemre/Telegram
     texte.entwurf.json Szenen im texte.json-Format (s_coldopen, Meldungs-/Analyse-Abschnitte als Szene 5, s6_outro,
                        s_themen aus den "kurz"-Feldern); Bild-Marker sind aus "text" entfernt und stehen in "marker".
                        Jede Szene hat ein Feld "ort" (config/brand/orte/orte.json, video/orte.py): Cold Open/Themen/
@@ -60,8 +60,8 @@ NEWS_SPRACHE = ["Heute werfen wir einen Blick", "Wie berichtet wurde", "Laut Med
 OUTRO = {"id": "s6_outro", "szene": 6, "abo_at": 4.6,
          "text": "Das war Weltlage Kompakt für heute. Morgen bin ich wieder hier mit der Weltlage. Wenn du nichts "
                  "verpassen willst, abonniere den Kanal. Danke fürs Zuschauen, bis morgen."}
-# Ort pro Szene (Marlon 01.10.2026, Task 20261001-182941-f24c): Latara steht vor einem zum Thema passenden
-# Hintergrund statt immer im Studio (config/brand/orte/orte.json, video/orte.py). Reihenfolge wie von Marlon
+# Ort pro Szene (rexemre 01.10.2026, Task 20261001-182941-f24c): Latara steht vor einem zum Thema passenden
+# Hintergrund statt immer im Studio (config/brand/orte/orte.json, video/orte.py). Reihenfolge wie von rexemre
 # vorgegeben: EU-Thema -> Bruessel, Nahost-Thema -> Nahost, Erklaer-Abschnitt (Rolle "kontext") -> Hoersaal,
 # sonst/Standard -> Studio. Cold Open/Themen/Outro bleiben immer im Studio (mischen mehrere Themen).
 ORT_EU_RE = re.compile(r"\b(EU|Europäische Union|Europäischen Union|Europaparlament|EU-Parlament|EU-Kommission|"
@@ -80,7 +80,7 @@ def ort_fuer_abschnitt(a: dict) -> str:
         return "hoersaal"
     return "studio"
 # Ziellaenge des Sprechtexts ohne Hook (Analyse-Prompt, Platzhalter {{LAENGE}}). "folge" (Standard, seit 04.10.2026
-# Mindestlaenge 8:00 Minuten, Marlons Entscheid 04.10.2026 23:53: YouTube erlaubt Mid-Roll-Werbung erst ab 8 Minuten
+# Mindestlaenge 8:00 Minuten, rexemres Entscheid 04.10.2026 23:53: YouTube erlaubt Mid-Roll-Werbung erst ab 8 Minuten
 # Videolaenge; bis dahin galten 380-520 Woerter fuer rund 4-5 Minuten). Erste Kalibrierung an data/weltlage_20261004_1100
 # (607 Woerter -> 5:22, rund 113 Woerter/Videominute) ergab 850-1080 Woerter als Ziel - zu knapp: zwei echte Folgen
 # (weltlage_20261004_1935) kamen bei 695-808 Woertern nur auf 321-366 s und fielen durch die Abnahme (Vorfall
@@ -182,11 +182,11 @@ def material_aus_news(news: list[dict], volltext: bool) -> str:
 
 
 def vorgabe_block(vorgabe: str) -> str:
-    """Storyline aus der Themenwahl (zweimal taeglich, Marlons Wahl A/B/C + Freitext) als verbindliche Vorgabe."""
+    """Storyline aus der Themenwahl (zweimal taeglich, rexemres Wahl A/B/C + Freitext) als verbindliche Vorgabe."""
     return ("\n\nREDAKTIONELLE VORGABE FUER DIESE FOLGE (verbindlich, hat Vorrang vor deiner eigenen Themenauswahl):\n"
             + vorgabe.strip() + "\n- Die ganze Folge erzaehlt genau diese eine Storyline; andere Meldungen nur, wenn "
             "sie direkt dazugehoeren.\n- Der Titel ist eine zugespitzte Frage im Stil der Vorgabe (nie faktisch "
-            "falsch).\n- Hinweise von Marlon setzt du um, solange sie den Fakten im Material nicht widersprechen.\n")
+            "falsch).\n- Hinweise von rexemre setzt du um, solange sie den Fakten im Material nicht widersprechen.\n")
 
 
 # ------------------------------------------------------------------ LLM
@@ -294,7 +294,7 @@ def pruefen(s: dict, anzahl_meldungen: int, prompt_name: str, laenge: str = "lan
     return hart, hinweis
 
 
-# Paket-Regeln (Marlons Ja zur Vorbild-Analyse, 01.10.2026, Task 20261001-152131-dffa): Hook, Titel, Thumbnail,
+# Paket-Regeln (rexemres Ja zur Vorbild-Analyse, 01.10.2026, Task 20261001-152131-dffa): Hook, Titel, Thumbnail,
 # Ich-Form mit markierter Meinung, genau eine Kommentarfrage. Nur fuer den Prompt «analyse».
 HOOK_SCHLUSS = "Das alles gleich in Weltlage Kompakt."
 TITEL_MAX, TITEL_MIN = 70, 35
@@ -460,7 +460,7 @@ def quellen_bloecke(material: str) -> dict[str, str]:
 
 
 def zitate_pruefen(s: dict, material: str) -> tuple[list[str], list[str], list[dict]]:
-    """Echtheits-Pruefung der Zitate (Marlon 01.10.: nichts erfinden, belegbar, Uebersetzung gekennzeichnet).
+    """Echtheits-Pruefung der Zitate (rexemre 01.10.: nichts erfinden, belegbar, Uebersetzung gekennzeichnet).
     Jedes «original» muss woertlich im Material stehen, die «url» im Material, «deutsch» woertlich im Sprechtext,
     eine Uebersetzung hoerbar markiert. Gibt (hart, hinweis, zitate mit Feld «pruefung») zurueck."""
     hart, hinweis, out = [], [], []
@@ -633,7 +633,7 @@ def main():
                          "fuer YouTube-Werbung), lang = 5-9 Min. Sprechtext, "
                          "doku = 10-20 Min. lange Folge, Sprechtext")
     ap.add_argument("--texte", action="store_true", help="texte.json im Folgenordner schreiben (sonst nur Entwurf)")
-    ap.add_argument("--vorgabe", type=Path, help="Storyline-Vorgabe (Text: Titel-Frage, Inhalt, Marlons Hinweise) aus "
+    ap.add_argument("--vorgabe", type=Path, help="Storyline-Vorgabe (Text: Titel-Frage, Inhalt, rexemres Hinweise) aus "
                                                  "der Themenwahl von tools/weltlage_tageslauf.py; hat Vorrang")
     args = ap.parse_args()
 

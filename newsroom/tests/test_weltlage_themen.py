@@ -1,5 +1,5 @@
 """Tests fuer tools/weltlage_themen.py: Wiederholungs-Schutz (vergangene_folgen/aehnlichkeit/ist_wiederholung,
-pruefen/vorschlagen) und Aktualitaets-Check (aktualitaet_pruefen) der Vortagswahl (Marlon 07.10.2026,
+pruefen/vorschlagen) und Aktualitaets-Check (aktualitaet_pruefen) der Vortagswahl (rexemre 07.10.2026,
 Task 20261007-174635-f7ff). Komplett offline: kein LLM, kein Telegram, keine GPU - Zustand in einem Temp-Ordner.
 
     .venv\\Scripts\\python -m unittest tests.test_weltlage_themen

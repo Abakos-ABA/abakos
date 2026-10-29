@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """Einmal-Werkzeug: setzt das neue komponierte Shorts-Thumbnail (tools/weltlage_shorts_thumbnail.py) auf
-bereits veroeffentlichte Weltlage-Shorts nachtraeglich (Marlons Auftrag 15.10.2026, analog zum Fund beim
+bereits veroeffentlichte Weltlage-Shorts nachtraeglich (rexemres Auftrag 15.10.2026, analog zum Fund beim
 Jarvis-KI-Kanal: kein eigenes Vorschaubild, YouTube/ffmpeg zeigte nur einen rohen Videoframe, die Kachelansicht
 schnitt oben/unten je rund ein Viertel ab).
 
@@ -30,7 +30,7 @@ VERLAUF_PFAD = STATE_DIR / "weltlage_shorts_verlauf.json"
 
 # Kanal-Aenderungsprotokoll (jarvis-Repo tools/kanal_protokoll.py): Cross-Repo-Import gegen den LIVE-Jarvis-
 # Ordner wie tools/weltlage_kanalmanager.py es bereits tut - fehlt das Modul, bleibt der Eintrag folgenlos.
-_JARVIS_TOOLS = Path(r"C:\Users\Marlon\projekte\jarvis\tools")
+_JARVIS_TOOLS = (Path.home() / r"projekte\jarvis\tools")
 
 
 def _kanal_protokoll():

@@ -24,7 +24,7 @@
    "tempo": 1.0
   },
   "C": {
-   "name": "Kerstin CC0 (Hoerprobe 2 aus Task 20260930-220828-0bf6), Marlons Wahl 30.09.2026 22:53; Tempo 1.15 (Marlon 30.09.2026 ~23:08: 1.2 zu schnell, 1.1 besser, endgueltig 1.15, Task 20260930-230829-9c3e)",
+   "name": "Kerstin CC0 (Hoerprobe 2 aus Task 20260930-220828-0bf6), rexemres Wahl 30.09.2026 22:53; Tempo 1.15 (rexemre 30.09.2026 ~23:08: 1.2 zu schnell, 1.1 besser, endgueltig 1.15, Task 20260930-230829-9c3e)",
    "ref": "config/brand/stimme/ref_kerstin.wav",
    "ref_sha256": "fcb182d15d85a4bed92dd29e1cba4653afc7d799efb07a5ec7fa76009a76624c",
    "ref_quelle": "github.com/rhasspy/dataset-voice-kerstin (CC0 1.0 Universal)",

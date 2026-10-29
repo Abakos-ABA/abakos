@@ -137,13 +137,13 @@ NEWS_LIPSYNC = os.environ.get("NEWS_LIPSYNC", "1") == "1"
 # Lipsync-Drosselstufen: EINZIGE Quelle fuer Schritte/Guidance/Fenster, die alle Lipsync-Pipelines (video/
 # freisteller_lipsync.py fuer Weltlage Kompakt + die daraus geschnittenen Shorts, video/lipsync.py fuer die
 # aeltere Master-Clip-Pipeline) verwenden statt jede ihre eigene hartkodierte Zahl zu pflegen. Werte aus der
-# Drosselprobe (Marlons Auftrag, Task 20261019-120910-a2ea; Messung jarvis/reports/lipsync_drossel_vergleich_
+# Drosselprobe (rexemres Auftrag, Task 20261019-120910-a2ea; Messung jarvis/reports/lipsync_drossel_vergleich_
 # 20261019/ergebnis.json, 5-s-Testausschnitt einer echten Folge): Rechenzeit sinkt von Stufe 1 bis 4 von 120,8
-# auf 74,4/68,8/46,8 s pro s Video. Marlons Entscheid 19.10.2026: Stufe 2 ist der neue Standard fuer alle
+# auf 74,4/68,8/46,8 s pro s Video. rexemres Entscheid 19.10.2026: Stufe 2 ist der neue Standard fuer alle
 # Lipsync-Pipelines (Qualitaet bis Stufe 2 ist gut) - ~38 % weniger Rechenzeit als die bisherige Stufe 1.
 NEWS_LIPSYNC_STUFEN = {
     1: dict(steps=8, guidance=2.0, zoom=768),   # bisheriger Standard
-    2: dict(steps=5, guidance=1.5, zoom=768),   # neuer Standard (Marlon 19.10.2026)
+    2: dict(steps=5, guidance=1.5, zoom=768),   # neuer Standard (rexemre 19.10.2026)
     3: dict(steps=4, guidance=1.2, zoom=512),
     4: dict(steps=3, guidance=1.0, zoom=384),
 }
@@ -155,7 +155,7 @@ NEWS_LIPSYNC_GUIDANCE = float(os.environ.get("NEWS_LIPSYNC_GUIDANCE", str(_lipsy
 # wenigen Prozessen (je bis 8 Stuecke) statt je Stueck einen neuen Prozess mit Modell-Ladezeit (~10-25 s je Stueck). Gleiche
 # Einstellungen und Seeds, Ergebnis je Stueck gleich. "1" = an, Default aus bis zum Probelauf einer Folge.
 NEWS_LIPSYNC_BATCH = os.environ.get("NEWS_LIPSYNC_BATCH", "0") == "1"
-# Lipsync nur wo Latara im fertigen Schnitt sichtbar ist (Marlon 23.10.2026): Vollbild-B-Roll und Quellen-Screenshot-
+# Lipsync nur wo Latara im fertigen Schnitt sichtbar ist (rexemre 23.10.2026): Vollbild-B-Roll und Quellen-Screenshot-
 # Karten verdecken sie komplett, dort rechnet video/freisteller_lipsync.py keinen Mundabgleich (Freisteller bleibt
 # unveraendert, ist ohnehin verdeckt). PUFFER = Sekunden, um die jede Verdeck-Spanne an BEIDEN Kanten schrumpft, damit
 # eine Bildabweichung am Schnitt nie einen ungesyncten Mund zeigt. "0" = ueberall lipsyncen wie frueher.
@@ -185,7 +185,7 @@ NEWS_BREAKING_MAX_PER_DAY = int(os.environ.get("NEWS_BREAKING_MAX_PER_DAY", "2")
 # Gleiche Idee, aber fuer eine ZUSAETZLICHE Weltlage-Kompakt-Langformfolge (orchestrator/breaking_weltlage.py):
 # hoehere Schwelle und eigenes, kleineres Tages-Limit, weil eine Sonder-Folge teurer und oeffentlicher ist
 # als ein zusaetzlicher Short. NEWS_BREAKING_WELTLAGE_AUTOSTART=0 (Standard): nur Telegram-Alarm, kein
-# automatischer Produktionsstart, bis Marlon per /breaking_weltlage an scharf schaltet (Entwurfsmodus-Regel).
+# automatischer Produktionsstart, bis rexemre per /breaking_weltlage an scharf schaltet (Entwurfsmodus-Regel).
 NEWS_BREAKING_WELTLAGE_MIN_SOURCES = int(os.environ.get("NEWS_BREAKING_WELTLAGE_MIN_SOURCES", "4"))
 NEWS_BREAKING_WELTLAGE_WINDOW_HOURS = float(os.environ.get("NEWS_BREAKING_WELTLAGE_WINDOW_HOURS", "3"))
 NEWS_BREAKING_WELTLAGE_MIN_SCORE = int(os.environ.get("NEWS_BREAKING_WELTLAGE_MIN_SCORE", "8"))
@@ -229,15 +229,15 @@ NEWS_MODEL_EDITOR = os.environ.get("NEWS_MODEL_EDITOR") or _dm_editor
 # "klassisch" = bisheriges Meldungsformat als Fallback (config/prompts/weltlage_klassisch.md).
 NEWS_WELTLAGE_SKRIPT_PROMPT = os.environ.get("NEWS_WELTLAGE_SKRIPT_PROMPT", "analyse")
 # Laenge des Analyse-Skripts: "folge" = rund 8:30 bis 10:00 Minuten fertige Folge (Standard seit 04.10.2026,
-# Marlons Entscheid 23:53: Mindestlaenge 8:00 fuer YouTube-Mid-Roll-Werbung, siehe tools/weltlage_abnahme.py
+# rexemres Entscheid 23:53: Mindestlaenge 8:00 fuer YouTube-Mid-Roll-Werbung, siehe tools/weltlage_abnahme.py
 # MIN_DAUER_S), "lang" = 5 bis 9 Min. Sprechtext
 NEWS_WELTLAGE_SKRIPT_LAENGE = os.environ.get("NEWS_WELTLAGE_SKRIPT_LAENGE", "folge")
 # LLM: "claude" = Claude-Code-CLI im Abo (headless, ohne Werkzeuge, keine GPU-Last), "ollama" = lokales
 # NEWS_MODEL_SCRIPT (GPU). Modell nur fuer "claude" (Alias wie opus/sonnet oder volle Modell-ID).
 NEWS_WELTLAGE_SKRIPT_LLM = os.environ.get("NEWS_WELTLAGE_SKRIPT_LLM", "claude")
 NEWS_WELTLAGE_SKRIPT_MODELL = os.environ.get("NEWS_WELTLAGE_SKRIPT_MODELL", "opus")
-NEWS_CLAUDE_CLI = os.environ.get("NEWS_CLAUDE_CLI", r"C:\Users\Marlon\projekte\jarvis\bin\claude.exe")
-# Experiment "BREAKING:"-Praefix vor dem Titel (Marlon-Auftrag 19.10.2026, Task 20261019-223623-e943): Befund war,
+NEWS_CLAUDE_CLI = os.environ.get("NEWS_CLAUDE_CLI", str(Path.home() / "projekte" / "jarvis" / "bin" / "claude.exe"))
+# Experiment "BREAKING:"-Praefix vor dem Titel (rexemre-Auftrag 19.10.2026, Task 20261019-223623-e943): Befund war,
 # dass Titel oft mit einer abstrakten Zahl/Formulierung statt dem gesuchten Schlagwort (Name/Land/Konflikt)
 # beginnen und darum keinen Suchtraffic bekommen (Beleg: Short 5uC-u5K3QFE "Von 190'000 auf 20'000 geschrumpft..."
 # nur 20 Aufrufe, 0 % YouTube-Suche). Testlauf: alle neuen Titel/Varianten bekommen "BREAKING: " voran, protokolliert
@@ -246,19 +246,19 @@ NEWS_CLAUDE_CLI = os.environ.get("NEWS_CLAUDE_CLI", r"C:\Users\Marlon\projekte\j
 NEWS_WELTLAGE_TITEL_BREAKING = os.environ.get("NEWS_WELTLAGE_TITEL_BREAKING", "1") == "1"
 NEWS_WELTLAGE_TITEL_BREAKING_PRAEFIX = os.environ.get("NEWS_WELTLAGE_TITEL_BREAKING_PRAEFIX", "BREAKING: ")
 
-# --- Weltlage Kompakt: Musikbett Cold Open (Standard seit Marlons Entscheid 01.10.2026 16:27, Variante 3 = dunkler
+# --- Weltlage Kompakt: Musikbett Cold Open (Standard seit rexemres Entscheid 01.10.2026 16:27, Variante 3 = dunkler
 # Synth-Pad mit Ticken und tiefem Puls, Task 20261001-150542-feaf) - Musik nur unter der ersten Szene (Cold Open),
 # nicht in den Analyse-Passagen. Asset/Rohdatei liegt in config/brand/coldopen_musik/aktiv.json (ACE-Step 1.5, MIT),
 # Pegel/Ducking/Loop-Verlaengerung macht tools/weltlage_rohschnitt.py (apply_coldopen_musikbett).
 NEWS_WELTLAGE_COLDOPEN_MUSIKBETT = os.environ.get("NEWS_WELTLAGE_COLDOPEN_MUSIKBETT", "1") == "1"
 # Pegel relativ zur Sprachlautheit der Cold-Open-Stimme in dB (negativ = leiser). Erster Test 01.10.2026 mit -26 dB
-# war fuer Marlon nicht hoerbar; zweiter Test gleichentags mit -19 dB (Richtwert -18 bis -20) ist der neue Default.
+# war fuer rexemre nicht hoerbar; zweiter Test gleichentags mit -19 dB (Richtwert -18 bis -20) ist der neue Default.
 NEWS_WELTLAGE_COLDOPEN_MUSIKBETT_DB = float(os.environ.get("NEWS_WELTLAGE_COLDOPEN_MUSIKBETT_DB", "-19"))
 # Fade-in/Fade-out der Musik in Sekunden (Fade-out endet exakt beim Schnitt in den Bumper).
 NEWS_WELTLAGE_COLDOPEN_MUSIKBETT_FADE_IN = float(os.environ.get("NEWS_WELTLAGE_COLDOPEN_MUSIKBETT_FADE_IN", "1.0"))
 NEWS_WELTLAGE_COLDOPEN_MUSIKBETT_FADE_OUT = float(os.environ.get("NEWS_WELTLAGE_COLDOPEN_MUSIKBETT_FADE_OUT", "1.5"))
 
-# --- Weltlage Kompakt: B-Roll / Symbolclips (tools/weltlage_broll.py, Marlon 01.10.2026) ---
+# --- Weltlage Kompakt: B-Roll / Symbolclips (tools/weltlage_broll.py, rexemre 01.10.2026) ---
 # Nur frei lizenzierte Clips (Pexels, Pixabay, Wikimedia Commons CC0/PD/CC-BY/CC-BY-SA, NASA, DVIDS), nie Sender,
 # Agenturen, Social Media oder YouTube. Lizenz pro Clip in <folge>/broll_lizenzen.json, Attribution in
 # broll_attribution.txt. Quellen-Ampel (Recherche 02.10.2026, jarvis/reports/quellen_netzwerk_newsroom_20261002.md):
@@ -267,27 +267,27 @@ NEWS_WELTLAGE_COLDOPEN_MUSIKBETT_FADE_OUT = float(os.environ.get("NEWS_WELTLAGE_
 NEWS_WELTLAGE_BROLL = os.environ.get("NEWS_WELTLAGE_BROLL", "1") == "1"                 # an/aus
 NEWS_WELTLAGE_BROLL_OHNE_KI = os.environ.get("NEWS_WELTLAGE_BROLL_OHNE_KI", "1") == "1"   # nie Wan-Ersatzgrafiken
 NEWS_WELTLAGE_BROLL_ABSTAND = float(os.environ.get("NEWS_WELTLAGE_BROLL_ABSTAND", "30"))   # Ziel-Abstand in s (20-40)
-# "wand" (Video auf der Studiowand HINTER Latara) seit 04.10.2026 nicht mehr Standard (Marlon: "neben ihr sah
+# "wand" (Video auf der Studiowand HINTER Latara) seit 04.10.2026 nicht mehr Standard (rexemre: "neben ihr sah
 # gut aus") - nur noch pip (daneben) und voll (Schnittbild). "wand" bleibt als Code/Option erhalten, falls
-# Marlon es gezielt per Umgebungsvariable wieder einschaltet.
+# rexemre es gezielt per Umgebungsvariable wieder einschaltet.
 NEWS_WELTLAGE_BROLL_VARIANTEN = os.environ.get("NEWS_WELTLAGE_BROLL_VARIANTEN", "pip,voll")   # Reihenfolge = Rotation
 NEWS_WELTLAGE_BROLL_QUELLEN = os.environ.get("NEWS_WELTLAGE_BROLL_QUELLEN", "pexels,pixabay,commons,nasa,dvids")
 # "augenzeugen" (tools/weltlage_augenzeugen.py) ist eine fuenfte, mit Erlaubnis freigeschaltete Quelle - bewusst
-# NICHT in der Standardliste, da sie erst etwas liefert, wenn wirklich eine dokumentierte Zusage vorliegt; Marlon
+# NICHT in der Standardliste, da sie erst etwas liefert, wenn wirklich eine dokumentierte Zusage vorliegt; rexemre
 # schaltet sie je Folge selbst zu (NEWS_WELTLAGE_BROLL_QUELLEN=pexels,pixabay,commons,nasa,dvids,augenzeugen).
 NEWS_WELTLAGE_BROLL_MODELL = os.environ.get("NEWS_WELTLAGE_BROLL_MODELL", "sonnet")   # Suchbegriffe (Claude-CLI)
 NEWS_WELTLAGE_BROLL_MODELL_WAHL = os.environ.get("NEWS_WELTLAGE_BROLL_MODELL_WAHL", "opus")   # strenge Clipwahl
 
-# --- Weltlage Kompakt: Augenzeugen-Erlaubnis-Workflow (tools/weltlage_augenzeugen.py, Marlon 19.10.2026) ---
+# --- Weltlage Kompakt: Augenzeugen-Erlaubnis-Workflow (tools/weltlage_augenzeugen.py, rexemre 19.10.2026) ---
 # Kostenloser Weg an echte Handyvideos von Leuten vor Ort: Kandidat finden, Urheber hoeflich um Erlaubnis mit
 # Credit-Nennung bitten, Zusage dokumentieren, erst dann verwenden (nie ohne Zusage). Versand ist IMMER im
-# Entwurfsmodus, bis Marlon ausdruecklich "schalt Augenzeugen scharf" sagt. Auch scharf: hartes Tageslimit, nie
+# Entwurfsmodus, bis rexemre ausdruecklich "schalt Augenzeugen scharf" sagt. Auch scharf: hartes Tageslimit, nie
 # Massen-DMs (im Code gibt es gar keinen DM-Kanal, nur Reply/Kommentar), nie eine zweite Anfrage an dieselbe
 # Person ohne Antwort. Recherche-Grundlage: jarvis/reports/weltlage_politiker_augenzeugen_quellen.md (19.10.2026).
 NEWS_AUGENZEUGEN_SCHARF = os.environ.get("NEWS_AUGENZEUGEN_SCHARF", "0") == "1"       # Versand an/aus (Standard AUS)
 NEWS_AUGENZEUGEN_TAGESLIMIT = int(os.environ.get("NEWS_AUGENZEUGEN_TAGESLIMIT", "5"))   # max. Anfragen/Kalendertag
 
-# --- Weltlage Kompakt: semantische Einblendungs-Pruefung (video/einblendungen.py, Marlon 04.10.2026) ---
+# --- Weltlage Kompakt: semantische Einblendungs-Pruefung (video/einblendungen.py, rexemre 04.10.2026) ---
 # Jede visuelle Einblendung (Quellen-Bild-Karte, B-Roll-Clip, kuenftig Text-Karten) bekommt vor dem Versand ein
 # Vision-Modell vorgelegt: zeigt das Bild zum zeitgleich gesprochenen Satz etwas Sinnvolles (kein Zufallsfoto,
 # keine Seitenteile/Werbung/Cookie-Banner)? "passt nicht" blockiert die Abnahme (tools/weltlage_abnahme.py, 7.).
@@ -298,7 +298,7 @@ NEWS_WELTLAGE_EINBLENDUNG_PRUEFUNG = os.environ.get("NEWS_WELTLAGE_EINBLENDUNG_P
 NEWS_WELTLAGE_EINBLENDUNG_MODELL = os.environ.get("NEWS_WELTLAGE_EINBLENDUNG_MODELL", "sonnet")   # Claude-CLI
 NEWS_WELTLAGE_EINBLENDUNG_OLLAMA_MODELL = os.environ.get("NEWS_WELTLAGE_EINBLENDUNG_OLLAMA_MODELL", "gemma3:27b")
 
-# --- Weltlage Kompakt: realistischeres Studio-Compositing der stehenden Pose (Marlons Wahl 01.10.2026, Task
+# --- Weltlage Kompakt: realistischeres Studio-Compositing der stehenden Pose (rexemres Wahl 01.10.2026, Task
 # 20261001-165559-5e26/180145-c47f): Kontaktschatten unter den Schuhen, Schlagschatten, Bodenspiegelung, kuehleres
 # Studiolicht, Randlicht/Light-Wrap von der LED-Wand, Koernung (video/composite_fx.py). Nur die stehende Pose (bei
 # der Sitz-Pose verdeckt das Pult die Fuesse). Default an.
@@ -306,11 +306,11 @@ NEWS_WELTLAGE_COMPOSITE_FX = os.environ.get("NEWS_WELTLAGE_COMPOSITE_FX", "1") =
 
 # --- Weltlage Kompakt: Lipsync-Gesicht KI-hochskaliert (Task 20261001-184254-d71b, video/gesicht_hd.py): das enge
 # Gesichtsfenster geht mit Real-ESRGAN + GFPGAN (untere Gesichtshaelfte) statt Lanczos in LatentSync, die Mundpartie der
-# Ausgabe wird nochmals mit GFPGAN nachgezeichnet. Kostet ~1-2 min GPU pro 7-s-Stueck zusaetzlich. Marlon hat den
+# Ausgabe wird nochmals mit GFPGAN nachgezeichnet. Kostet ~1-2 min GPU pro 7-s-Stueck zusaetzlich. rexemre hat den
 # Vergleichsclip am 01.10.2026 abgenommen: Default an fuer alle Folgen. tools/weltlage_abnahme.py prueft dazu, dass
 # jedes _fenster.json unter <ordner>/_schnitt/_freisteller tatsaechlich mit HD gerechnet wurde.
 NEWS_WELTLAGE_LIPSYNC_HD = os.environ.get("NEWS_WELTLAGE_LIPSYNC_HD", "1") == "1"
-# Real-ESRGAN-Hochskalierung des Gesichtsfensters innerhalb der HD-Stufen. Marlons Entscheid 23.10.2026 (Vergleich Task
+# Real-ESRGAN-Hochskalierung des Gesichtsfensters innerhalb der HD-Stufen. rexemres Entscheid 23.10.2026 (Vergleich Task
 # 20261023-105317-04c3, Variante C): Standard AUS (Lanczos statt Real-ESRGAN, spart ~40 min je Folge, im Mund-Zoom fast
 # gleich scharf); die GFPGAN-Mund-Nachzeichnung (vor und nach LatentSync) bleibt an. "1" = alter Weg (Variante A).
 NEWS_WELTLAGE_LIPSYNC_ESRGAN = os.environ.get("NEWS_WELTLAGE_LIPSYNC_ESRGAN", "0") == "1"
@@ -319,7 +319,7 @@ NEWS_WELTLAGE_LIPSYNC_ESRGAN = os.environ.get("NEWS_WELTLAGE_LIPSYNC_ESRGAN", "0
 # 20261010-081311-ca9f, Laufzeit-Analyse): video/gesicht_hd.py rief esrgan()/gfpgan() bisher einzeln pro Bild auf,
 # auf der RTX 4090 bei einem 768-px-Fenster ueberwiegt dort der Python/CUDA-Startaufwand die eigentliche Rechenzeit.
 # Gleiche Gewichte, gleiche Tile-Aufteilung, nur mehrere Bilder in einer Stapel-Dimension -> rechnerisch das Gleiche
-# (siehe tests/test_gesicht_hd_batch.py, Abweichung < 2/255). Seit 14.10.2026 (Task 20261014-192918-98bb, Marlons
+# (siehe tests/test_gesicht_hd_batch.py, Abweichung < 2/255). Seit 14.10.2026 (Task 20261014-192918-98bb, rexemres
 # Auftrag "Produktion auf 2 h straffen"): echt gemessen (tools/lipsync_steps_vergleich.py) statt nur geschaetzt -
 # Batch 4 spart auf der RTX 4090 pro 7-s-Stueck real Zeit (kein SyncNet-/Mundbewegungs-Unterschied messbar), darum
 # jetzt Standard 4 statt 1.
@@ -327,8 +327,8 @@ NEWS_WELTLAGE_GESICHT_HD_BATCH = int(os.environ.get("NEWS_WELTLAGE_GESICHT_HD_BA
 
 # --- Weltlage Kompakt: LatentSync-Schritte/Staerke/Fenster (video/freisteller_lipsync.py STEPS/GUIDANCE/ZOOM,
 # Task 20261001-202910-0180). Verlauf der Guidance: Probe 29.09. (Task 1fa2) 2,5 (Mund ~50 % staerker als
-# LatentSync-Standard 1,5), 01.10. auf 2,0, 02.10. nachts kurz 1,5 (Task 6861), dann Marlons Entscheid 02.10.
-# mittags (Task 20261002-131755-44f2): 2,0 fester Standard. Seit Marlons Entscheid 19.10.2026 (Drosselprobe Task
+# LatentSync-Standard 1,5), 01.10. auf 2,0, 02.10. nachts kurz 1,5 (Task 6861), dann rexemres Entscheid 02.10.
+# mittags (Task 20261002-131755-44f2): 2,0 fester Standard. Seit rexemres Entscheid 19.10.2026 (Drosselprobe Task
 # 20261019-120910-a2ea, siehe NEWS_LIPSYNC_STUFEN oben) gilt stattdessen die zentrale Stufe 2 fuer alle drei
 # Werte; einzeln ueberschreibbar, Default kommt aus NEWS_LIPSYNC_STUFE. Die Werte stecken im Cache-Hash jedes
 # Lipsync-Stuecks, Stuecke mit anderen Werten werden also nie wiederverwendet; die Abnahme prueft sie je
@@ -337,10 +337,10 @@ NEWS_WELTLAGE_LIPSYNC_STEPS = int(os.environ.get("NEWS_WELTLAGE_LIPSYNC_STEPS", 
 NEWS_WELTLAGE_LIPSYNC_GUIDANCE = float(os.environ.get("NEWS_WELTLAGE_LIPSYNC_GUIDANCE", str(_lipsync_stufe["guidance"])))
 NEWS_WELTLAGE_LIPSYNC_ZOOM = int(os.environ.get("NEWS_WELTLAGE_LIPSYNC_ZOOM", str(_lipsync_stufe["zoom"])))
 
-# --- Weltlage Kompakt: taeglicher Lauf zu fixen Zeiten (tools/weltlage_tageslauf.py, Marlon 01.10.2026) ---
+# --- Weltlage Kompakt: taeglicher Lauf zu fixen Zeiten (tools/weltlage_tageslauf.py, rexemre 01.10.2026) ---
 # Die resident laufende Pipeline (Aufgabe AbakosNewsroomPipeline, orchestrator/pipeline.py) startet pro Slot einen
 # Tageslauf: Skript -> Bilder -> Stimme -> Rohschnitt/Lipsync -> B-Roll -> Abnahme -> Thumbnail -> Upload. Slots =
-# PRODUKTIONSSTART-Zeiten (lokal, HH:MM, Komma-Liste). Seit 16.10.2026 (Marlons Ansage per Telegram: "keine festen
+# PRODUKTIONSSTART-Zeiten (lokal, HH:MM, Komma-Liste). Seit 16.10.2026 (rexemres Ansage per Telegram: "keine festen
 # Veroeffentlichungs-Slots mehr, Themenwahl erst beim Produktionsstart"): die Themenwahl (Schritt 0) beginnt GENAU
 # zum Slot, nicht mehr Stunden vorher fuer einen spaeteren Veroeffentlichungstermin; veroeffentlicht wird, sobald die
 # Folge fertig und freigegeben ist - egal wie spaet, nie wegen Verspaetung verworfen (vorher: Slots = Veroeffent-
@@ -352,8 +352,8 @@ NEWS_WELTLAGE_UPLOAD_VISIBILITY = os.environ.get("NEWS_WELTLAGE_UPLOAD_VISIBILIT
 # Nur noch Meldeschwelle fuer die Weltlage-Wache (ab wann ein fertiger Lauf als "spaet" im Lagebild auftaucht) -
 # seit 16.10.2026 KEIN Abbruchgrund mehr im Tageslauf selbst (Dauerregel: nie wegen Verspaetung verwerfen).
 NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN = float(os.environ.get("NEWS_WELTLAGE_MAX_VERSPAETUNG_STUNDEN", "5"))
-# Zweimal taeglich mit Themenwahl und Freigabe (Marlon 02.10.2026 23:03, dauerhafte Freigabe): pro Slot zuerst drei
-# Storylines A/B/C an Telegram + Beta-App, THEMENWAHL Minuten auf Marlons Wahl warten (sonst Empfehlung), dann
+# Zweimal taeglich mit Themenwahl und Freigabe (rexemre 02.10.2026 23:03, dauerhafte Freigabe): pro Slot zuerst drei
+# Storylines A/B/C an Telegram + Beta-App, THEMENWAHL Minuten auf rexemres Wahl warten (sonst Empfehlung), dann
 # Produktion (Dauer PRODUKTION_STUNDEN; "auto" = gemessen aus den letzten *_renderzeiten.json + Zuschlag), zum Slot
 # Video + Knoepfe Freigeben/Feedback/Stopp, FREIGABE Minuten warten, ohne Reaktion oeffentlich veroeffentlichen.
 # TROCKENLAUF=1: alles wie echt, aber nie ein YouTube-Upload (Tests).
@@ -362,10 +362,10 @@ NEWS_WELTLAGE_FREIGABE_MINUTEN = float(os.environ.get("NEWS_WELTLAGE_FREIGABE_MI
 NEWS_WELTLAGE_PRODUKTION_STUNDEN = os.environ.get("NEWS_WELTLAGE_PRODUKTION_STUNDEN", "auto").strip().lower()
 NEWS_WELTLAGE_TROCKENLAUF = os.environ.get("NEWS_WELTLAGE_TROCKENLAUF", "0") == "1"
 NEWS_WELTLAGE_MAX_FEEDBACK_RUNDEN = int(os.environ.get("NEWS_WELTLAGE_MAX_FEEDBACK_RUNDEN", "3"))
-# Automatische Aktualisierung bei der Freigabe (16.10.2026, Marlons Rueckfall-Beschwerde: Themen waren bei
+# Automatische Aktualisierung bei der Freigabe (16.10.2026, rexemres Rueckfall-Beschwerde: Themen waren bei
 # Veroeffentlichung nicht mehr frisch, der Hinweis vom 13.10. war nur eine Warnung ohne Wirkung). Findet
 # weltlage_themen.aktualitaet_pruefen() beim Zusammenstellen der Freigabe neue Meldungen zum gewaehlten Thema,
-# versucht der Tageslauf jetzt automatisch (wie Marlons Feedback, aber ohne ihn zu fragen) einen kurzen, vorsichtig
+# versucht der Tageslauf jetzt automatisch (wie rexemres Feedback, aber ohne ihn zu fragen) einen kurzen, vorsichtig
 # attribuierten Satz zu ergaenzen, statt nur zu warnen (seit es keine festen Veroeffentlichungs-Slots mehr gibt,
 # immer sofort versucht, kein Zeitfenster-Vorbehalt mehr noetig).
 NEWS_WELTLAGE_AKTUALISIERUNG_AUTO = os.environ.get("NEWS_WELTLAGE_AKTUALISIERUNG_AUTO", "1") == "1"
@@ -376,7 +376,7 @@ NEWS_WELTLAGE_UPLOAD_VORAB = os.environ.get("NEWS_WELTLAGE_UPLOAD_VORAB", "0") =
 # Upload im Browser: so lange auf 100 Prozent Dateitransfer + Verarbeitungsstart warten (Minuten)
 NEWS_UPLOAD_TIMEOUT_MINUTEN = float(os.environ.get("NEWS_UPLOAD_TIMEOUT_MINUTEN", "60"))
 
-# --- Weltlage Kompakt: Shorts aus der fertigen Folge (tools/weltlage_shorts.py, Marlon 11.10.2026) ---
+# --- Weltlage Kompakt: Shorts aus der fertigen Folge (tools/weltlage_shorts.py, rexemre 11.10.2026) ---
 # Analyse 11.10.2026 (reports/youtube-kanal/weltlage-analyse-20261011): der Kanal hatte trotz fertiger
 # Shorts-Technik noch keine einzige echte Short veroeffentlicht. Nach der Veroeffentlichung einer Folge
 # schneidet der Tageslauf bis zu SHORTS_MAX Shorts heraus, wartet SHORTS_VERZUG_MINUTEN (zeitversetzt,
@@ -388,7 +388,7 @@ NEWS_UPLOAD_TIMEOUT_MINUTEN = float(os.environ.get("NEWS_UPLOAD_TIMEOUT_MINUTEN"
 NEWS_WELTLAGE_SHORTS = os.environ.get("NEWS_WELTLAGE_SHORTS", "1") == "1"
 NEWS_WELTLAGE_SHORTS_MAX = int(os.environ.get("NEWS_WELTLAGE_SHORTS_MAX", "2"))
 NEWS_WELTLAGE_SHORTS_VERZUG_MINUTEN = float(os.environ.get("NEWS_WELTLAGE_SHORTS_VERZUG_MINUTEN", "30"))
-# Dauerhafte Freigabe + fester Takt (Marlon 13.10.2026 per Telegram, nach dem ersten echten Short ~400 Views/
+# Dauerhafte Freigabe + fester Takt (rexemre 13.10.2026 per Telegram, nach dem ersten echten Short ~400 Views/
 # 8 Likes/4 Abos in 48 h): taeglich 4 Shorts, alle 6 h, OHNE Einzelfreigabe oeffentlich. Das Schneiden bleibt an
 # die Folgen-Veroeffentlichung gekoppelt (s.o.), der tatsaechliche Upload folgt diesem festen Takt
 # (tools/weltlage_shorts_takt.py, von der Weltlage-Wache stuendlich aufgerufen) - Uhrzeiten bewusst NICHT auf
@@ -396,7 +396,7 @@ NEWS_WELTLAGE_SHORTS_VERZUG_MINUTEN = float(os.environ.get("NEWS_WELTLAGE_SHORTS
 # dieselbe Zeit wie eine Folge hochladen und die Browser-Automatik (dasselbe Edge-Profil) nicht kollidiert.
 NEWS_WELTLAGE_SHORTS_SLOTS = os.environ.get("NEWS_WELTLAGE_SHORTS_SLOTS", "02:00,08:00,14:00,20:00")
 
-# --- Weltlage Kompakt: Themenwahl nur wirklich neue Themen (Marlon 07.10.2026, Task 20261007-174635-f7ff) ---
+# --- Weltlage Kompakt: Themenwahl nur wirklich neue Themen (rexemre 07.10.2026, Task 20261007-174635-f7ff) ---
 # Seit der Vortagswahl (THEMENWAHL-Fenster beginnt ~16 h vor dem Slot) reicht das alte 48-h-Fenster nicht mehr aus,
 # um nur aktuelle Meldungen vorzuschlagen; jetzt nur noch die letzten THEMEN_STUNDEN Stunden Rohmeldungen.
 NEWS_WELTLAGE_THEMEN_STUNDEN = float(os.environ.get("NEWS_WELTLAGE_THEMEN_STUNDEN", "24"))
@@ -435,7 +435,7 @@ PIPER_MODEL_PATH = BASE_DIR / "models" / "piper" / os.environ.get("NEWS_PIPER_VO
 CHATTERBOX_PYTHON = BASE_DIR / (".venv-tts-gpu" if (BASE_DIR / ".venv-tts-gpu" / "Scripts" / "python.exe").exists()
                                 else ".venv-tts") / "Scripts" / "python.exe"
 VOICE_REF_PATH = CONFIG_DIR / "brand" / "voice_ref.wav"
-# --- Weltlage Kompakt: Stimm-Veredelung Variante A (Marlons Wahl 01.10.2026, Task 20261001-165559-5e26/180145-c47f):
+# --- Weltlage Kompakt: Stimm-Veredelung Variante A (rexemres Wahl 01.10.2026, Task 20261001-165559-5e26/180145-c47f):
 # satzweise natuerliche Pausen + leiser synthetischer Atmer (tts/chatterbox_worker.py), danach Resemble Enhance
 # (.venv-enhance, MIT, CPU) gegen den dumpfen Klang und eine leichte Klangkette (tts/veredelung.py). Default an;
 # Ausgabe bleibt 24 kHz mono (STIMME_SR in tools/weltlage_tts.py), damit Stimmpruefung/Abnahme unveraendert bleiben.

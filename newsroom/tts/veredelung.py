@@ -1,4 +1,4 @@
-"""Stimm-Veredelung Variante A, Schritt 2 (Marlons Wahl 01.10.2026, Task 20261001-165559-5e26/180145-c47f):
+"""Stimm-Veredelung Variante A, Schritt 2 (rexemres Wahl 01.10.2026, Task 20261001-165559-5e26/180145-c47f):
 Resemble Enhance (MIT, .venv-enhance, tts/_enhance_worker.py) holt die Hoehen zurueck, die Chatterbox nicht liefert,
 danach eine leichte Klangkette (Mulm raus, Praesenz, Zischlaute daempfen, sanft komprimieren, 10 % Raum).
 Schritt 1 (satzweise Pausen + Atmer) passiert in tts/chatterbox_worker.py selbst (--veredeln).

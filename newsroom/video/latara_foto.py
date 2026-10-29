@@ -1,8 +1,8 @@
 """Latara-Fotoauswahl fuer Weltlage-Thumbnails (Task 20261002-220950-b2d6, 02.10.2026).
 
-Marlon legt Fotos von Latara in seinem eigenen Ordner ab (Documents/WK/Latara Thumbnails, auf der Platte
+rexemre legt Fotos von Latara in seinem eigenen Ordner ab (Documents/WK/Latara Thumbnails, auf der Platte
 "latara_thunbnails" geschrieben). Dieses Modul waehlt daraus automatisch das Bild, das zur Stimmung der Folge
-passt, und vermeidet die letzten paar zuvor gezeigten Bilder. Der Ordner bleibt Marlons: nur lesen, nie
+passt, und vermeidet die letzten paar zuvor gezeigten Bilder. Der Ordner bleibt rexemres: nur lesen, nie
 verschieben, umbenennen oder loeschen.
 
 Die Stimmung eines Fotos kommt aus dem Dateinamen (Schluesselwoerter unten unter DATEINAME_WOERTER). Neue Bilder
@@ -10,10 +10,10 @@ im Ordner werden beim naechsten Aufruf automatisch in die Index-Datei (config/br
 aufgenommen. Erkennt der Dateiname keine Stimmung, landet das Bild unter "unbekannt" - dann traegt eine
 Bildanalyse die Stimmung einmalig von Hand in die Index-Datei ein.
 
-Marlons Korrektur (Task 20261002-222340-0165, 02.10.2026): das alte freigestellte Standardbild (jetzt nur noch
-Rueckfallebene unter config/brand/thumbnail/) war unbemerkt inhaltsgleich zu einem Bild in Marlons Pool und wurde
+rexemres Korrektur (Task 20261002-222340-0165, 02.10.2026): das alte freigestellte Standardbild (jetzt nur noch
+Rueckfallebene unter config/brand/thumbnail/) war unbemerkt inhaltsgleich zu einem Bild in rexemres Pool und wurde
 dadurch trotz der neuen Auswahl immer wieder gezeigt. Jedes Pool-Bild, dessen Dateiinhalt (SHA-256) einem der alten
-Standardbilder entspricht, wird deshalb nie in den Index aufgenommen (siehe _ALTE_STANDARDBILDER_HASHES) - Marlons
+Standardbilder entspricht, wird deshalb nie in den Index aufgenommen (siehe _ALTE_STANDARDBILDER_HASHES) - rexemres
 Ordner bleibt dabei unangetastet, das Bild liegt weiter dort, es wird nur nie ausgewaehlt.
 
     python -m video.latara_foto "Text der Folge"   -> zeigt gewaehltes Foto + erkannte Stimmungen (Testlauf,
@@ -25,12 +25,12 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-ORDNER = Path(r"C:\Users\Marlon\Documents\WK\latara_thunbnails")   # Marlons Ordner - nur lesen
+ORDNER = (Path.home() / r"Documents\WK\latara_thunbnails")   # rexemres Ordner - nur lesen
 INDEX = ROOT / "config" / "brand" / "thumbnail" / "latara_index.json"
 VERLAUF = ROOT / "state" / "latara_verlauf.json"
 LETZTE_AUSSCHLUSS = 3   # so viele letzte Folgen duerfen dasselbe Bild nicht noch einmal bekommen
 
-# Alte feste Fotos (Rueckfallebene, siehe weltlage_thumbnail.FOTO_FUER_FARBE) - Kopien davon in Marlons Pool
+# Alte feste Fotos (Rueckfallebene, siehe weltlage_thumbnail.FOTO_FUER_FARBE) - Kopien davon in rexemres Pool
 # duerfen nie ausgewaehlt werden (Task 20261002-222340-0165).
 _ALTE_STANDARDBILDER = (ROOT / "config" / "brand" / "thumbnail" / "latara.png",
                          ROOT / "config" / "brand" / "thumbnail" / "latara_schock.png")

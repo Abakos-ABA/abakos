@@ -5,7 +5,7 @@ set -uo pipefail
 export PATH="$HOME/sdk/go/bin:$HOME/go/bin:/usr/local/go/bin:$PATH"
 export GOTOOLCHAIN=auto
 
-SRC=/mnt/c/Users/Marlon/abakos
+SRC=/mnt/c/Users/USER/abakos
 DST="$HOME/abakos-evmprobe"
 
 echo "[1/5] sync throwaway copy -> $DST"

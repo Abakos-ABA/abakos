@@ -34,7 +34,7 @@ class AbkuerzungenTest(unittest.TestCase):
             self.assertIn(soll, out)
 
     def test_englische_kuerzel_englisch_buchstabiert(self):
-        # Marlons Rueckmeldung 18.10.2026 (Folgeauftrag): FBI/CIA/NSA englisch buchstabiert ("Eff Bi Ai"),
+        # rexemres Rueckmeldung 18.10.2026 (Folgeauftrag): FBI/CIA/NSA englisch buchstabiert ("Eff Bi Ai"),
         # nicht deutsch ("Eff Beh Ih"); andere Kuerzel (NSA selbst eingeschlossen) bleiben in SPELL_OUT_EN.
         out = norm("Das FBI, die CIA und die NSA ermitteln.")
         for soll in ("Eff Bi Ai", "Si Ai Ei", "En Es Ei"):
@@ -74,7 +74,7 @@ class ZahlenTest(unittest.TestCase):
         self.assertIn("ein Uhr dreißig", norm("um 1:30 Uhr"))
 
     def test_jahreszahl_wie_ein_sprecher(self):
-        # Marlons Regel (Folgeauftrag Unreal-Studio, 19.10.2026): ab 2000 als "zweitausend..."-Zahlwort, vor 2000
+        # rexemres Regel (Folgeauftrag Unreal-Studio, 19.10.2026): ab 2000 als "zweitausend..."-Zahlwort, vor 2000
         # als "neunzehnhundert..."-Zahlwort - beides liefert num2words(..., to="year") bereits korrekt (_jahr()).
         self.assertIn("neunzehnhundertvierundneunzig", norm("seit 1994"))
         self.assertIn("neunzehnhundertzehn", norm("Das war 1910."))

@@ -2,7 +2,7 @@
 tools/weltlage_verabschiedung.py).
 
 Ersetzt die alte Outro-Grafik (output/outro_v3, reine Musik/Logo-Animation ohne Latara) als letzte Szene der
-Folge (Marlon 04.10.2026): ein kurzer, eigenstaendiger Kanal-Abschluss mit Latara (ein zeitloser Ausblick-Satz,
+Folge (rexemre 04.10.2026): ein kurzer, eigenstaendiger Kanal-Abschluss mit Latara (ein zeitloser Ausblick-Satz,
 kein Bezug zum Folgeninhalt - die eigentliche Verabschiedung/der "bis morgen" bleibt in der bestehenden Szene
 Verabschiedung), dazu das WK-Logo im Studio und der animierte Abo-Hinweis (tools/endscreen_overlay.render_abo_icon,
 wird von tools/weltlage_rohschnitt.py per abo_overlay() ueber diese Szene gelegt - nicht hier eingebrannt, damit

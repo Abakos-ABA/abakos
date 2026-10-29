@@ -1,4 +1,4 @@
-"""Weltlage Kompakt - Eilmeldungs-Thumbnail (Marlons Auftrag 21.10.2026, Vorlage: heller Hintergrund, roter Balken).
+"""Weltlage Kompakt - Eilmeldungs-Thumbnail (rexemres Auftrag 21.10.2026, Vorlage: heller Hintergrund, roter Balken).
 
 Layout (1280x720 Langvideo/Livestream, 1080x1920 Short mit sicherer Mittelzone): heller Hintergrund, oben roter
 Balken mit weisser Grossschrift (Label), darunter zwei Zeilen dunkle Schlagzeile mit Ausrufezeichen, unten links ein
@@ -46,7 +46,7 @@ def _font(name: str, size: int):
     return ImageFont.load_default(size=size)
 
 
-# Schock-Labels (Marlon 21.10.2026): im roten Balken und am Titelanfang steht NIE «Weltlage», sondern ein Schock-Label.
+# Schock-Labels (rexemre 21.10.2026): im roten Balken und am Titelanfang steht NIE «Weltlage», sondern ein Schock-Label.
 # Regeln statt LLM (deterministisch, kein Ausfall); Rotation ueber die letzten Labels, damit es nicht immer gleich ist.
 LABELS_THEMA = [
     (r"eskalat|angriff|krieg|rakete|truppen|milit|waffen|drohne|bomb|invasion",

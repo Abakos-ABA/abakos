@@ -1,4 +1,4 @@
-"""Weltlage Kompakt - Abnahme-Pruefung einer fertigen Folge VOR dem Versand an Marlon (01.10.2026).
+"""Weltlage Kompakt - Abnahme-Pruefung einer fertigen Folge VOR dem Versand an rexemre (01.10.2026).
 
     python tools/weltlage_abnahme.py <folgenordner> <master.mp4>
 
@@ -20,7 +20,7 @@ Prueft und schreibt <master>_abnahme.json + <master>_begleittext.txt (Themen, Zi
      Render drin, der vor einer spaeteren Aenderung losgelaufen ist.
   4d. Welt-Bumper: der Ton am Ende der Szene "Cold Open + Welt-Bumper" muss der aktiven Bumper-Datei
      (bumper/aktiv.json) entsprechen (Kreuzkorrelation >= BUMPER_MIN_KORR). 4c sieht das nicht: ein neuer Bumper-Ton
-     hat dieselbe Bildlaenge (Vorfall 02.10.2026: Marlon bekam eine Folge mit dem alten Bumper-Ton).
+     hat dieselbe Bildlaenge (Vorfall 02.10.2026: rexemre bekam eine Folge mit dem alten Bumper-Ton).
   4e. Eingefrorene Sprechszenen (Begruessung/Verabschiedung): 4c prueft nur, ob das Video die aktuell aktive
      Datei verwendet, nicht, mit welcher Lipsync-Staerke/HD-Stufe genau diese Datei gebaut wurde. Darum zusaetzlich
      deren aktiv.json gegen NEWS_WELTLAGE_LIPSYNC_GUIDANCE/_HD pruefen (Task 20261002-163146-afaf, 02.10.2026):
@@ -41,16 +41,16 @@ Prueft und schreibt <master>_abnahme.json + <master>_begleittext.txt (Themen, Zi
      der betroffenen Begruessung ~0,024 - kein brauchbarer Abstand). Siehe Memory weltlage-szenen-workflow.md fuer
      den Stand und eine Idee fuer einen zuverlaessigeren Nachweis.
   4g. Abo-Hinweis: der animierte Button (config/brand/endscreen/abo_hinweis_icon.mov, tools/endscreen_overlay.py)
-     muss sichtbaren Text haben (Marlon 04.10.2026: die alte Fassung war nur ein Glocken-Symbol ohne Schrift) -
+     muss sichtbaren Text haben (rexemre 04.10.2026: die alte Fassung war nur ein Glocken-Symbol ohne Schrift) -
      geprueft wird die Metadatei daneben (<name>.json, Feld "text"), kein Bild-/OCR-Nachweis (abo_hinweis_probleme).
   4h. Steh-/Sitz-Wechsel: beide Uebergaenge der Folge (Begruessung->Themen, Themen->Meldungen) muessen ueber den
-     Logo-Wisch laufen statt als harter Schnitt aneinanderzustossen (Marlon 04.10.2026: Themen->Meldungen lief
+     Logo-Wisch laufen statt als harter Schnitt aneinanderzustossen (rexemre 04.10.2026: Themen->Meldungen lief
      bisher ohne jeden Uebergang; uebergang_fehlt_probleme prueft die Zeitmarken-Reihenfolge).
   5. Zitate: alle Zitate aus skript.json geprueft («ok»), jedes steht wortgleich im Sprechtext von texte.json.
   5b. Orte: jeder in texte.json benutzte "ort"-Slug muss in config/brand/orte/orte.json existieren (video/orte.py).
-  6. B-Roll-Variante (Marlon 04.10.2026): kein Clip in broll_lizenzen.json darf noch die Variante "wand" (Video auf
+  6. B-Roll-Variante (rexemre 04.10.2026): kein Clip in broll_lizenzen.json darf noch die Variante "wand" (Video auf
      der Studiowand HINTER Latara) tragen - seit diesem Datum nur noch pip (daneben) oder voll.
-  6b. Quellen-Screenshots (Marlon 04.10.2026, korrigiert 04.10.2026: keine Domain pauschal gesperrt - auch
+  6b. Quellen-Screenshots (rexemre 04.10.2026, korrigiert 04.10.2026: keine Domain pauschal gesperrt - auch
      france24.com darf einen Screenshot liefern, wenn er inhaltlich passt): jedes Bild in bilder.json muss genug
      Schlagzeilen-/Lead-Text zeigen (video.sources.MIN_HEADLINE_TEXT Zeichen im "textzeichen"-Feld), statt eines
      Hero-Bilds/Werbung/Kopfnavigation. Fehlt "textzeichen" (Aufnahme von vor diesem Datum), nur eine Warnung.
@@ -59,14 +59,14 @@ Prueft und schreibt <master>_abnahme.json + <master>_begleittext.txt (Themen, Zi
      video.sources.struktur_probleme() zusaetzlich Aufloesung, Seitenverhaeltnis (ein duenner Streifen = Fehler)
      und ob die beim Aufnehmen gefundene Schlagzeile zum erwarteten Artikeltitel passt - echte Bild-Analyse statt
      nur der gespeicherten Zeichenzahl zu vertrauen, als Fehler (nicht nur Warnung) in dieser Abnahme.
-  4i. Mindestlaenge (Marlons Entscheid 04.10.2026 23:53): die fertige Folge muss mindestens MIN_DAUER_S (8:00 Min.)
+  4i. Mindestlaenge (rexemres Entscheid 04.10.2026 23:53): die fertige Folge muss mindestens MIN_DAUER_S (8:00 Min.)
      dauern, sonst erlaubt YouTube keine Mid-Roll-Werbung. Gilt ab dieser Aenderung; frueher produzierte, kuerzere
      Folgen bleiben unberuehrt. tools/weltlage_skript.py zielt seither auf 850-1080 Woerter (rund 8:30 bis 10:00),
      reicht das trotzdem nicht, verlaengert tools/weltlage_tageslauf.py (Schritt abnahme) das Skript einmal
      automatisch ueber tools/weltlage_ueberarbeiten.py und rendert die betroffenen Szenen neu (Muster "nie
      blockieren, ersetzen" wie bei der Einblendungs-Reparatur oben) - erst danach, bei erneutem Fehlschlag, bricht
      die Folge ab und wird nicht veroeffentlicht.
-  7. Einblendungs-Inhalt (Marlon 04.10.2026, video/einblendungen.py): JEDE visuelle Einblendung (Quellen-Bild-Karte,
+  7. Einblendungs-Inhalt (rexemre 04.10.2026, video/einblendungen.py): JEDE visuelle Einblendung (Quellen-Bild-Karte,
      B-Roll-Clip, kuenftig Text-Karten) bekommt ein repraesentatives Standbild plus den zeitgleich gesprochenen
      Satz vor ein Vision-Modell (primaer die Claude-CLI, Fallback ein lokales Ollama-Vision-Modell) - kein
      Zufallsfoto, keine Seitenteile/Werbung/Cookie-Banner, der Inhalt muss zur Aussage passen, nicht nur grob zum
@@ -98,7 +98,7 @@ from config.settings import (NEWS_WELTLAGE_LIPSYNC_HD, NEWS_WELTLAGE_LIPSYNC_GUI
                              NEWS_WELTLAGE_EINBLENDUNG_PRUEFUNG, NEWS_LIPSYNC_STUFEN)
 
 SPRUNG_DB = 3.5          # benachbarte hoerbare Szenen duerfen sich hoechstens so stark unterscheiden; geschaerft von
-                         # 4.0 (Task 20261003-201442-8908, Marlon: zwei Lautstaerkespruenge am 03.10. 19 Uhr genau am
+                         # 4.0 (Task 20261003-201442-8908, rexemre: zwei Lautstaerkespruenge am 03.10. 19 Uhr genau am
                          # unbehandelten Logo-Wisch, 4.8 dB, wurde erst knapp erkannt). Gesunde Folgen zeigen hier
                          # konstant -2,6 dB (Reinlaufen->Begruessung, siehe data/weltlage_20261003_1100 und _1900),
                          # darum noch genug Abstand ohne Fehlalarme.
@@ -112,7 +112,7 @@ SZENE_MAX_UNTER_DB = 6.0                            # Sprechszene leiser als die
 # Neu-Codierung, sicher unter jedem 256k-Master.
 TON_MIN_KBPS = 192
 BUMPER_MIN_KORR = 0.6    # Bumper-Ton im Master vs. aktive Bumper-Datei (Pegel/Crossfade aendern wenig, fremder Ton < 0,3)
-MIN_DAUER_S = 480.0      # 8:00 Minuten (Marlons Entscheid 04.10.2026 23:53): erst ab hier erlaubt YouTube Mid-Roll-Werbung
+MIN_DAUER_S = 480.0      # 8:00 Minuten (rexemres Entscheid 04.10.2026 23:53): erst ab hier erlaubt YouTube Mid-Roll-Werbung
 
 
 def guidance_stufe(guidance) -> int | None:
@@ -130,7 +130,7 @@ def guidance_einordnung(ist, soll: float) -> tuple[str, str]:
     ("ok", "") bei Gleichheit; ("hinweis", Text) wenn `ist` die Staerke einer HOEHEREN Drosselstufe ist (kleinere
     Stufennummer = mehr Rechenschritte/Staerke, also mindestens gleich gute Qualitaet) - so gebaute Stuecke bleiben
     gueltig; ("fehler", Text) bei allem anderen (unbekannter Wert, schwaechere Stufe als heute verlangt).
-    Grund (Vorfall 19.10.2026, Task 20261020-002406-1486): Marlons Umstellung auf Stufe 2 (Guidance 2,0 -> 1,5) kam
+    Grund (Vorfall 19.10.2026, Task 20261020-002406-1486): rexemres Umstellung auf Stufe 2 (Guidance 2,0 -> 1,5) kam
     um 14:02 in den Code, waehrend der Rohschnitt der 10:00-Folge seit 13:45 mit 2,0 rechnete; die Abnahme um 23:23
     verglich stur gegen 1,5 und liess eine 9-h-Folge durchfallen, obwohl Stufe 1 die bessere Qualitaet ist. Eine
     laufende Folge ueberlebt seither eine Standard-Aenderung nach unten; nach oben (Stuecke schwaecher als heute
@@ -177,7 +177,7 @@ def guidance_hinweise(meta: dict, guidance: float) -> list[str]:
 
 
 # Signatur-Felder, die nur die Rechenzeit betreffen, nicht das Bild: eine damit anders eingefrorene Szene ist nicht
-# schlechter (steps: 20 statt 12 seit 07.10.2026, Marlon: kein sichtbarer Unterschied) - nur Hinweis, kein Abbruch.
+# schlechter (steps: 20 statt 12 seit 07.10.2026, rexemre: kein sichtbarer Unterschied) - nur Hinweis, kein Abbruch.
 # Vorfall 08.10.2026: das neue Feld "steps" liess jede Folge an Begruessung/Abschluss durchfallen.
 NUR_AUFWAND = {"steps"}
 
@@ -229,7 +229,7 @@ def pipeline_probleme(meta: dict, aktuell: dict, streng: bool = False) -> list[s
 
 
 def laenge_probleme(dauer_s: float) -> list[str]:
-    """Mindestlaenge der fertigen Folge (Marlons Entscheid 04.10.2026 23:53): unter MIN_DAUER_S (8:00 Minuten)
+    """Mindestlaenge der fertigen Folge (rexemres Entscheid 04.10.2026 23:53): unter MIN_DAUER_S (8:00 Minuten)
     erlaubt YouTube keine Mid-Roll-Werbung. Leere Liste = passt. Pure Funktion, offline testbar."""
     if dauer_s < MIN_DAUER_S:
         return [f"Folge zu kurz: {dauer_s:.0f} s statt mindestens {MIN_DAUER_S:.0f} s (8:00 Min., erst ab da "
@@ -239,7 +239,7 @@ def laenge_probleme(dauer_s: float) -> list[str]:
 
 def broll_wand_probleme(clips: list[dict]) -> list[str]:
     """B-Roll-Clips (broll_lizenzen.json["clips"]), die noch mit der Variante "wand" (Video auf der Studiowand
-    HINTER Latara) eingesetzt wurden - seit 04.10.2026 nicht mehr Standard (Marlon: "neben ihr sah gut aus"), nur
+    HINTER Latara) eingesetzt wurden - seit 04.10.2026 nicht mehr Standard (rexemre: "neben ihr sah gut aus"), nur
     noch pip/voll. Leere Liste = passt. Pure Funktion, offline testbar."""
     return [f"Stelle {c.get('nr')} ({c.get('zeit')}): B-Roll-Variante 'wand' verwendet - seit 04.10.2026 nicht mehr "
             f"erlaubt (nur noch pip/voll), Folge neu einbauen" for c in clips if c.get("variante") == "wand"]
@@ -278,7 +278,7 @@ def quellen_screenshot_probleme(bilder: dict) -> tuple[list[str], list[str]]:
 
 def uebergang_fehlt_probleme(szenen: list[dict]) -> list[str]:
     """Prueft, dass die beiden Steh-/Sitz-Wechsel der Folge (Begruessung->Themen und Themen->Meldungen) ueber den
-    Logo-Wisch laufen statt als harter Schnitt direkt aneinanderzustossen (Marlon 04.10.2026: der Wechsel von der
+    Logo-Wisch laufen statt als harter Schnitt direkt aneinanderzustossen (rexemre 04.10.2026: der Wechsel von der
     stehenden Themen-Szene in die sitzende erste Meldung lief bisher ohne jeden Uebergang). szenen = die geparsten
     Zeitmarken-Labels in Reihenfolge (siehe _zeitmarken); eine fehlende Begruessung/Themen-Szene (z.B. --kurztest
     ohne die jeweils andere Szene) wird nicht geprueft - nur ein tatsaechlich vorhandenes Paar ohne Logo-Wisch
@@ -295,7 +295,7 @@ def uebergang_fehlt_probleme(szenen: list[dict]) -> list[str]:
 
 def abo_hinweis_probleme(meta: dict | None) -> list[str]:
     """Prueft die Metadatei neben dem animierten Abo-Hinweis (tools/endscreen_overlay.render_abo_icon schreibt sie
-    als <abo_hinweis_icon>.json) auf einen echten, nicht-leeren Text - Marlon 04.10.2026: der alte Button bestand
+    als <abo_hinweis_icon>.json) auf einen echten, nicht-leeren Text - rexemre 04.10.2026: der alte Button bestand
     nur aus dem Glocken-Symbol ohne jede Schrift. meta=None (Datei fehlt, z.B. alter Render vor diesem Datum) ist
     ebenfalls ein Problem, kein stiller Rueckfall. Pure Funktion, offline testbar."""
     if meta is None:
@@ -399,7 +399,7 @@ def pruefen(ordner: Path, video: Path) -> dict:
         if abs(d) > SPRUNG_DB:
             fehler.append(f"Lautstaerkesprung {d:+.1f} dB beim Uebergang zu {label} ({start:.1f} s)")
     # Steh-/Sitz-Wechsel: beide Uebergaenge (Begruessung->Themen, Themen->Meldungen) muessen ueber den Logo-Wisch
-    # laufen, sonst harter Schnitt (Marlon 04.10.2026: Themen->Meldungen lief bisher ohne jeden Uebergang).
+    # laufen, sonst harter Schnitt (rexemre 04.10.2026: Themen->Meldungen lief bisher ohne jeden Uebergang).
     uprobleme = uebergang_fehlt_probleme(szenen)
     info["uebergang_steh_sitz"] = {"probleme": uprobleme}
     fehler += uprobleme
@@ -433,7 +433,7 @@ def pruefen(ordner: Path, video: Path) -> dict:
         if abs(ist - soll) > 0.1:
             fehler.append(f"{label}: {ist:.2f} s im Video, aktuell eingefroren sind {soll:.2f} s ({pfad.name}) - "
                           f"Render lief vor einer Aenderung an der zugehoerigen aktiv.json, Folge neu rendern")
-    # 4d. Intro = Unreal-Standard-Intro (Marlon 20.10.2026): aktiv.json darf nie wieder auf das alte Globus-Intro
+    # 4d. Intro = Unreal-Standard-Intro (rexemre 20.10.2026): aktiv.json darf nie wieder auf das alte Globus-Intro
     #     zeigen (Fehler); Datum/Boersenkurse/Ton des Intros muessen zur Folge passen (Warnung bei Rueckfall).
     import weltlage_intro
     try:
@@ -485,7 +485,7 @@ def pruefen(ordner: Path, video: Path) -> dict:
                           f"{k:.2f} < {BUMPER_MIN_KORR}) - Render lief vor einem Bumper-Wechsel, Folge neu rendern")
     elif BUMPER and BUMPER.exists():
         fehler.append("Welt-Bumper aktiv, aber keine Szene 'Welt-Bumper' in den Zeitmarken")
-    # 4g. Abo-Hinweis: der animierte Button muss sichtbaren Text haben (Marlon 04.10.2026, siehe abo_hinweis_probleme)
+    # 4g. Abo-Hinweis: der animierte Button muss sichtbaren Text haben (rexemre 04.10.2026, siehe abo_hinweis_probleme)
     if ABO_ICON and ABO_ICON.exists():
         abo_meta_pfad = ABO_ICON.with_suffix(".json")
         abo_meta = json.loads(abo_meta_pfad.read_text(encoding="utf-8")) if abo_meta_pfad.exists() else None
@@ -497,7 +497,7 @@ def pruefen(ordner: Path, video: Path) -> dict:
     info["ton"] = t
     if not ton_ok(t):
         fehler.append(f"Ton {t} statt AAC 48 kHz Stereo >= {TON_MIN_KBPS} kbps")
-    # 4i. Mindestlaenge: ab 8:00 Minuten erlaubt YouTube Mid-Roll-Werbung (Marlons Entscheid 04.10.2026 23:53)
+    # 4i. Mindestlaenge: ab 8:00 Minuten erlaubt YouTube Mid-Roll-Werbung (rexemres Entscheid 04.10.2026 23:53)
     dauer_s = dur(video)
     info["dauer_s"] = round(dauer_s, 1)
     fehler += laenge_probleme(dauer_s)

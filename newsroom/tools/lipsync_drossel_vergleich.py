@@ -1,4 +1,4 @@
-"""Lipsync-Drosselprobe (Marlons Auftrag, Task 20261019-120910-a2ea): 4 Stufen abnehmender Lipsync-Qualitaet/
+"""Lipsync-Drosselprobe (rexemres Auftrag, Task 20261019-120910-a2ea): 4 Stufen abnehmender Lipsync-Qualitaet/
 Rechenaufwand auf einem 5-s-Ausschnitt einer aktuellen Weltlage-Folge, je Rechenzeit pro Sekunde Video gemessen.
 
 Stufe 1 = heutiger Produktionsstandard (video/freisteller_lipsync.py: STEPS=8, GUIDANCE=2.0, ZOOM=768). Die Hebel
@@ -38,9 +38,9 @@ sys.path.insert(0, str(ROOT))
 from video import freisteller_lipsync as fl  # noqa: E402
 
 WORK = ROOT / "data" / "lipsync_drossel_20261019"
-REPORT = Path(r"C:\Users\Marlon\projekte\jarvis\reports\lipsync_drossel_vergleich_20261019")
+REPORT = (Path.home() / r"projekte\jarvis\reports\lipsync_drossel_vergleich_20261019")
 TASK = os.environ.get("JARVIS_TASK_ID", "20261019-120910-a2ea")
-PROGRESS = Path(r"C:\Users\Marlon\projekte\jarvis\tasks") / f"{TASK}.progress.md"
+PROGRESS = (Path.home() / r"projekte\jarvis\tasks") / f"{TASK}.progress.md"
 POSE = "stehend"
 # Quelle: aktuelle Folge, 00:00-Lauf vom 19.10.2026 (zu dieser Zeit laengst fertig; der 10:00-Lauf rechnet parallel
 # noch, dessen Dateien bleiben unberuehrt).

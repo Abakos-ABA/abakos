@@ -81,7 +81,7 @@ class LataraFoto(unittest.TestCase):
 
 
 class LataraFotoAltesStandardbild(unittest.TestCase):
-    """Marlons Korrektur (Task 20261002-222340-0165): eine Kopie des alten freigestellten Standardbilds lag
+    """rexemres Korrektur (Task 20261002-222340-0165): eine Kopie des alten freigestellten Standardbilds lag
     unbemerkt in seinem Pool und wurde deshalb immer wieder gezeigt. Eine Kopie (gleicher Dateiinhalt) darf nie
     im Index landen, egal unter welchem Dateinamen."""
 

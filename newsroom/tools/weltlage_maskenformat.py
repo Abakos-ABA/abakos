@@ -1,4 +1,4 @@
-"""Weltlage Kompakt - Masken-Format (Marlon 27.10.2026). Spezifikation: docs/weltlage_maskenformat.md.
+"""Weltlage Kompakt - Masken-Format (rexemre 27.10.2026). Spezifikation: docs/weltlage_maskenformat.md.
 
 Neues Videoformat NEBEN dem Latara-Format (tools/weltlage_rohschnitt.py bleibt unveraendert). Schalter
 NEWS_MASKENFORMAT=1 (config/settings.py, Standard 0): tools/weltlage_tageslauf.py ruft dann im Schritt "schnitt"

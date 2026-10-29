@@ -1,4 +1,4 @@
-"""Offline-Test Mund der Masken-Maske starr (Vorfall 28./29.10.2026, Marlon zum 2. Mal: «Der Mund der Maske bewegt sich»).
+"""Offline-Test Mund der Masken-Maske starr (Vorfall 28./29.10.2026, rexemre zum 2. Mal: «Der Mund der Maske bewegt sich»).
 
 Ursache: Jede Masken-Sprecher-Spur kam aus Wan (Loop, dann FLF-Kurzclips). Wan zeichnet das Gesicht jedes Frame neu,
 die Lippen der Maske veraendern sich mit; die Clip-Pruefung (Mund-SSIM >= 0,72 gegen das Standbild) liess das durch.

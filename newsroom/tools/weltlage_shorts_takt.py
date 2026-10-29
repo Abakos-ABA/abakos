@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-"""Weltlage Kompakt: fester 6-Stunden-Takt fuer Shorts-Uploads (Marlon 13.10.2026, Telegram-Auftrag nach dem
+"""Weltlage Kompakt: fester 6-Stunden-Takt fuer Shorts-Uploads (rexemre 13.10.2026, Telegram-Auftrag nach dem
 ersten echten Short: ~400 Views/8 Likes/4 Abos in 48 h, deutlich besser als frueherer Inhalt).
 
 Vorher (seit 11.10.) schnitt der Tageslauf Shorts direkt nach jeder Folge und fragte JEDE Short einzeln per
 Telegram frei (shorts_erzeugen_und_freigeben in weltlage_tageslauf.py) - das kam unregelmaessig (an die
-Folgen-Slots gekoppelt) und brauchte eine Reaktion. Marlons neuer Auftrag: taeglich GENAU 4 Shorts, alle 6
+Folgen-Slots gekoppelt) und brauchte eine Reaktion. rexemres neuer Auftrag: taeglich GENAU 4 Shorts, alle 6
 Stunden, vollautomatisch OEFFENTLICH, keine Einzelfreigabe mehr (dauerhafte Freigabe).
 
 Architektur (erweitert statt neu gebaut): das Schneiden bleibt dort, wo es ist (tools/weltlage_shorts.py,
@@ -220,7 +220,7 @@ def einreihen(key: str, slot: str, ordner: Path, shorts: list[dict]) -> int:
     Eindeutigkeits-Schluessel ist jetzt (key, szene_id) statt nur szene_id - key ist die Folge, nie zwei Folgen
     teilen sich einen key.
 
-    Fehlerfund 18.10.2026 (Task 20261018-161538-e742, Marlons Meldung: fuenf zu Unrecht als "Duplikat" geloeschte
+    Fehlerfund 18.10.2026 (Task 20261018-161538-e742, rexemres Meldung: fuenf zu Unrecht als "Duplikat" geloeschte
     Shorts sollten mit eigenem Titel neu hochgeladen werden): "bekannt" zaehlte bisher JEDEN Verlaufseintrag, auch
     bereits geloeschte - ein absichtlich (ob zu Recht oder faelschlich) geloeschter Short liess sich dadurch nie
     wieder hochladen, die Sperre liess sich nur durch Umbenennen der szene_id aushebeln. Ein geloeschter Short ist
@@ -347,7 +347,7 @@ def takt(now: datetime | None = None, trocken: bool = False) -> dict:
             # Fehlerfund 18.10.2026 (Task 20261018-152136-0684): die Datei wurde an Studio uebergeben, aber wir
             # haben keine Video-ID - ohne die harte Sperre haette die naechste Stunde dieselbe Datei blind erneut
             # hochgeladen (echter Doppel-Upload, siehe youtube_playwright._wizard). Statt zu wiederholen: aus der
-            # Warteschlange nehmen, in "zur_pruefung" vermerken, Marlon/Jarvis per weltlage_entscheid informieren.
+            # Warteschlange nehmen, in "zur_pruefung" vermerken, rexemre/Jarvis per weltlage_entscheid informieren.
             q.pop(0)
             _schreiben(QUEUE_PFAD, q)
             verlauf.setdefault("zur_pruefung", []).append({
@@ -422,7 +422,7 @@ def takt(now: datetime | None = None, trocken: bool = False) -> dict:
 
 
 def nachtrag_liste() -> list[dict]:
-    """Frei geplante Einzel-Nachtraege (Marlon 18.10.2026, Task 20261018-161538-e742: fuenf zu Unrecht als
+    """Frei geplante Einzel-Nachtraege (rexemre 18.10.2026, Task 20261018-161538-e742: fuenf zu Unrecht als
     'Duplikat' geloeschte, in Wahrheit eigenstaendige Shorts sollten mit eigenem Titel neu hochgeladen werden,
     im Abstand von vier Stunden statt an den vier festen SLOTS). Anders als die normale Warteschlange (q, nur
     FIFO an feste Tageszeiten) hat jeder Eintrag hier eine eigene faellig_ab-Zeit - fuer kuenftige Einzelfaelle
@@ -570,7 +570,7 @@ def _thumbnail_live_sichtbar(video_id: str, lokal=None, log=print, url: str | No
     shorts, ytInitialData) zeigt pro Short entweder `sardefault.jpg` (= das eigene, in Studio gesetzte Bild,
     1080x1920) oder - wenn keins gesetzt ist - einen der automatisch gewaehlten Videoframes `oar1|oar2|oar3.jpg`.
     Das bisher geprueft hqdefault.jpg (16:9) ist nur eine Ableitung davon; sardefault.jpg ist die Datei, die
-    Marlon im Regal sieht, und fehlt (HTTP 404), solange gar kein eigenes Bild gesetzt ist. CDN-Cache: max-age
+    rexemre im Regal sieht, und fehlt (HTTP 404), solange gar kein eigenes Bild gesetzt ist. CDN-Cache: max-age
     7200 s, d.h. ein neu gesetztes Bild ist spaetestens nach 2 h hier sichtbar (gemessen: unter einer Minute).
 
     Ist das erwartete lokale Bild (lokal) bekannt, zaehlt nur ein direkter Bildvergleich - so faellt auch ein
@@ -672,7 +672,7 @@ def shorts_regal_auswerten(html: str, urls: dict | None = None) -> dict[str, str
 
 
 def shorts_regal_lesen(kanal_id: str | None = None, log=print, urls: dict | None = None) -> dict[str, str] | None:
-    """Holt das echte Shorts-Regal der Kanalseite (das, was Marlon sieht) und gibt {video_id: Bildart} zurueck,
+    """Holt das echte Shorts-Regal der Kanalseite (das, was rexemre sieht) und gibt {video_id: Bildart} zurueck,
     siehe shorts_regal_auswerten. None, wenn die Seite nicht abrufbar ist. Nur die vordersten Shorts stehen im
     ersten Seitenabruf (rund 20-30, reicht fuer die Nachkontrolle der letzten Tage)."""
     import urllib.error

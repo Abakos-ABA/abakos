@@ -1,4 +1,4 @@
-"""Weltlage Kompakt - Themenbild fuer Thumbnails (Marlons Auftrag 23.10.2026).
+"""Weltlage Kompakt - Themenbild fuer Thumbnails (rexemres Auftrag 23.10.2026).
 
 Befund: Die Suche nahm die ersten Woerter des Titels als Begriffe. «BREAKING» (Label-Praefix) fand auf Commons
 «Big wave breaking in Santa Cruz» (Macron- und Lula-Shorts alle mit demselben Wellenbild), und bei «Trump» lieferte

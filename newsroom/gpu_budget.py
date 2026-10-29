@@ -1,6 +1,6 @@
 """VRAM budget for all newsroom GPU work (Weltlage Kompakt + Steel & Ledger), shared by every wait point.
 
-Old rule: "GTA runs -> nothing touches the GPU". New rule (2026-09-23, Marlon: zocken UND Fortschritt):
+Old rule: "GTA runs -> nothing touches the GPU". New rule (2026-09-23, rexemre: zocken UND Fortschritt):
 
     budget = free VRAM (nvidia-smi) - reserve
     reserve = NEWS_GPU_RESERVE_GB (default 3 GB) while a game runs,
@@ -27,7 +27,7 @@ out): every GPU wait point also takes a place in Jarvis' queue (projekte/jarvis/
 state in jarvis/state/gpu_queue.json): priority first, then arrival, VRAM accounting across all processes, dead
 processes freed automatically. slot(step) = context manager, hold(step) = until the process exits; wait_for() now
 takes a hold. The game rules above stay here and act as the queue's gate. Queue unreachable -> old behaviour + warning.
-Priority: NEWS_GPU_PRIO (default 3 = normal render; 2 = Marlon waits, 4 = background).
+Priority: NEWS_GPU_PRIO (default 3 = normal render; 2 = rexemre waits, 4 = background).
 
 CLI:  python gpu_budget.py            -> status line (free, budget, game, what may run)
       python gpu_budget.py log 600    -> log VRAM every 5 s for 600 s to state/gpu_budget_vram.log
@@ -80,7 +80,7 @@ HEAVY = {"wan_clip", "lipsync", "vision"}               # never next to a game
 # STEP_MB above is "free VRAM needed" and would never fit next to them (lipsync 18 GB + reserve, 29.09.)
 QUEUE_MB = {"lipsync": 14000, "wan_clip": 16000, "wan_clip_spar": 9000}
 QUEUE_PRIO = int(os.environ.get("NEWS_GPU_PRIO", "3"))
-JARVIS_TOOLS = Path(r"C:\Users\Marlon\projekte\jarvis\tools")
+JARVIS_TOOLS = (Path.home() / r"projekte\jarvis\tools")
 _queue_mod = None
 
 

@@ -6,7 +6,7 @@ set -euo pipefail
 export PATH="$HOME/sdk/go/bin:$HOME/go/bin:$PATH"
 export GOTOOLCHAIN=auto
 
-SRC=/mnt/c/Users/Marlon/abakos
+SRC=/mnt/c/Users/USER/abakos
 DST="$HOME/abakos"
 
 echo "[1/4] sync source -> $DST (chain + chain-sdk as siblings for the go.mod replace)"

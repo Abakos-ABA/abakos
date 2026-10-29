@@ -2,7 +2,7 @@
 passen - und der Tageslauf baut sie vor einem neuen Rohschnitt selbst neu, wenn nicht (tools/weltlage_tageslauf.
 feste_szenen_veraltet / feste_szenen_aktualisieren, Task 20261020-002406-1486, 20.10.2026).
 
-Vorfall 19.10.2026: Marlons Umstellung auf Drosselstufe 2 (Guidance 2,0 -> 1,5, config.settings.NEWS_LIPSYNC_STUFE)
+Vorfall 19.10.2026: rexemres Umstellung auf Drosselstufe 2 (Guidance 2,0 -> 1,5, config.settings.NEWS_LIPSYNC_STUFE)
 kam in den Code, ohne dass Begruessung/Abschluss neu eingefroren wurden. Jede Folge waere an der Abnahme
 («eingefroren mit Guidance 2.0 statt Standard 1.5 - neu bauen (build + freeze)») gescheitert, die Weltlage-Wache
 kannte keinen Fix. Der letzte Test hier schlaegt deshalb an, sobald jemand den Standard aendert, ohne die

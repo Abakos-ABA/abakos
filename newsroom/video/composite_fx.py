@@ -2,7 +2,7 @@
 seiner eigenen Unterkante), kurzer Schlagschatten nach hinten, Spiegelung im glaenzenden Boden, kuehleres
 Studiolicht (Schatten leicht blau, Waerme -3 %, Schwarzwert an den Hintergrund angeglichen), Randlicht/Light-Wrap
 von der LED-Wand und leichte Koernung. Probe: Task 20261001-165559-5e26 (reports/weltlage_latara_echtheit_20261001/
-proben_code/composite.py), Marlons Wahl und Standard seit Task 20261001-180145-c47f.
+proben_code/composite.py), rexemres Wahl und Standard seit Task 20261001-180145-c47f.
 
 Nur die stehende Pose (bei der Sitz-Pose verdeckt das Pult die Fuesse, siehe Bericht 5e26). Aufgerufen von
 video/freisteller_lipsync.composite_studio, wenn config.settings.NEWS_WELTLAGE_COMPOSITE_FX an ist (Default an).

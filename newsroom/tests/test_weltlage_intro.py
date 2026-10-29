@@ -1,4 +1,4 @@
-"""Unreal-Standard-Intro der Weltlage-Folgen (Marlon 20.10.2026): offline, ohne Unreal/GPU/Netz.
+"""Unreal-Standard-Intro der Weltlage-Folgen (rexemre 20.10.2026): offline, ohne Unreal/GPU/Netz.
 
     .venv\Scripts\python -m unittest tests.test_weltlage_intro
 

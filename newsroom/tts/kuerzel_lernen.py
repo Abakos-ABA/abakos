@@ -1,4 +1,4 @@
-"""Automatisches Lernen englischer Kuerzel (22.10.2026, Marlon: "CNBC falsch, englische Medien-/Organisationskuerzel
+"""Automatisches Lernen englischer Kuerzel (22.10.2026, rexemre: "CNBC falsch, englische Medien-/Organisationskuerzel
 englisch, EU/CDU deutsch"). Laeuft im Tageslauf-Schritt aussprache (aussprache_pruefung.pruefe_folge), also VOR der
 Vertonung der Folge.
 

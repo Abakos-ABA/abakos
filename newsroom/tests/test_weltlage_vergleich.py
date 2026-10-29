@@ -1,5 +1,5 @@
 """Tests fuer tools/weltlage_vergleich.py: Titel-Merkmale, Rang-Vergleich, Bericht. Komplett offline, kein
-Playwright, kein Netz (Marlon 19.10.2026, Task 20261019-115559-7e79 im Jarvis-Repo).
+Playwright, kein Netz (rexemre 19.10.2026, Task 20261019-115559-7e79 im Jarvis-Repo).
 
     .venv\\Scripts\\python -m unittest tests.test_weltlage_vergleich
 """

@@ -2,7 +2,7 @@
 
 Quelle: config/brand/stimme/profile.json ("aktiv": "A" | "B"); die Umgebungsvariable NEWS_STIMME_PROFIL
 uebersteuert "aktiv" (z.B. fuer Proben). Profil A = Stand 30.09.2026 (voice_ref.wav, ex 0.4, cfg 0.4, Absaetze
-bis 280 Zeichen), Profil B = optimiert (Task 20260930-182721-1dc4). Umschalten auf B erst nach Marlons Wahl:
+bis 280 Zeichen), Profil B = optimiert (Task 20260930-182721-1dc4). Umschalten auf B erst nach rexemres Wahl:
 
     python tts/stimme_profil.py            # zeigt das aktive Profil
     python tts/stimme_profil.py B          # setzt "aktiv" auf B (danach Begruessung neu bauen, siehe README)
