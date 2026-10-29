@@ -327,12 +327,15 @@ def master_ton(wav: Path, video: Path, out: Path) -> dict:
     +3,6). Bei 256 kbps bringen sie nichts: AAC_OPT schaltet beide ab (Ueberschwinger danach ~0,1 dB, Stimme naeher
     am Original). Zur Sicherheit Begrenzer-Decke MASTER_TP - TP_CODEC_RESERVE_DB und Nachmessung: liegt der fertige
     Master trotzdem ueber MASTER_TP, Decke um den Ueberschuss + Sicherheitsabstand senken und nur den Ton neu
-    codieren (Bild wird kopiert)."""
+    codieren (Bild wird kopiert).
+
+    Lautheit nachregeln (Vorfall 29.10.2026): bei spitzem Programmton kostet der Begrenzer >1 LU. Liegt der fertige
+    Master mehr als LUFS_TOLERANZ neben MASTER_LUFS, Verstaerkung um die Abweichung erhoehen und neu codieren."""
     m = _ebur128(wav)
     gain = MASTER_LUFS - m["I"]
     decke = MASTER_TP - TP_CODEC_RESERVE_DB
-    versuche = []
-    for _ in range(TP_MAX_VERSUCHE):
+    versuche, nachgeregelt = [], 0
+    for _ in range(TP_MAX_VERSUCHE + LUFS_MAX_NACHREGELN):
         af = (f"volume={gain:.2f}dB,aresample={SR * 4},"
               f"alimiter=limit={10 ** (decke / 20):.4f}:attack=2:release=80:level=disabled:latency=true,"
               f"aresample={SR}")
@@ -340,11 +343,16 @@ def master_ton(wav: Path, video: Path, out: Path) -> dict:
              "-af", af, "-ar", str(SR), "-ac", str(CH), "-c:a", "aac", "-b:a", MASTER_KBPS, *AAC_OPT,
              "-shortest", "-movflags", "+faststart", str(out)])
         nachher = _ebur128(out)
-        versuche.append({"decke_dbtp": round(decke, 2), "tp": nachher["TP"]})
+        versuche.append({"decke_dbtp": round(decke, 2), "verstaerkung_db": round(gain, 2), "tp": nachher["TP"],
+                         "i": nachher["I"]})
         neu = naechste_tp_decke(decke, nachher["TP"])
-        if neu is None:
+        if neu is not None:
+            decke = neu
+            continue
+        neu_gain = naechste_verstaerkung(gain, nachher["I"])
+        if neu_gain is None or nachgeregelt >= LUFS_MAX_NACHREGELN:
             break
-        decke = neu
+        gain, nachgeregelt = neu_gain, nachgeregelt + 1
     return {"vorher": m, "verstaerkung_db": round(gain, 2), "nachher": nachher, "tp_versuche": versuche}
 
 
@@ -353,6 +361,11 @@ TP_CODEC_RESERVE_DB = 0.3   # Rest-Ueberschwinger des AAC-Encoders ohne PNS/IS (
 TP_SICHERHEIT_DB = 0.2      # zusaetzlicher Abstand, wenn nachgeregelt werden muss
 TP_MAX_VERSUCHE = 3
 TP_MIN_DECKE = -4.0         # nie tiefer begrenzen (sonst hoerbares Pumpen); Abnahme meldet dann den Rest
+# Der Begrenzer kostet Lautheit, je spitzer der Programmton (Vorfall 29.10.2026, Masken-Folge 10:00: Chatterbox-Stimme
+# -22,3 LUFS mit Spitzen -0,8 dBTP, +8,3 dB -> Spitzen bis +7,5 dBFS, nach dem Begrenzer -15,4 statt -14 LUFS).
+LUFS_TOLERANZ = 0.3         # so nah muss der fertige Master an MASTER_LUFS liegen, sonst Verstaerkung nachregeln
+LUFS_MAX_NACHREGELN = 3     # hoechstens so viele Nachregel-Durchgaenge (je ein AAC-Durchlauf, nur Ton)
+VERSTAERKUNG_MAX_DB = 24.0  # nie mehr anheben (Schutz vor Stille/kaputtem Programmton)
 
 
 def naechste_tp_decke(decke: float, gemessen_tp: float) -> float | None:
@@ -364,11 +377,36 @@ def naechste_tp_decke(decke: float, gemessen_tp: float) -> float | None:
     return round(neu, 2) if neu < decke - 0.01 else None
 
 
+def naechste_verstaerkung(gain: float, gemessen_i: float) -> float | None:
+    """Neue feste Verstaerkung (dB), wenn der fertig begrenzte Master mehr als LUFS_TOLERANZ neben MASTER_LUFS liegt,
+    sonst None (passt). Regelt um die volle Abweichung nach (der Begrenzer frisst davon wieder etwas, darum mehrere
+    Durchgaenge), nie ueber VERSTAERKUNG_MAX_DB. Pure Funktion, offline testbar."""
+    fehlt = MASTER_LUFS - gemessen_i
+    if abs(fehlt) <= LUFS_TOLERANZ:
+        return None
+    neu = min(VERSTAERKUNG_MAX_DB, gain + fehlt)
+    return round(neu, 2) if abs(neu - gain) > 0.01 else None
+
+
+def master_quellen(work: Path) -> tuple[Path, Path]:
+    """(Programmton, Bild) fuer master_erneuern: Latara-Rohschnitt <work>/audio_all.wav + video_all.mp4, sonst das
+    Masken-Format im Geschwister-Ordner _maskenformat/ton.wav + roh.mp4 (tools/weltlage_maskenformat.py). Vorfall
+    29.10.2026, 10:00-Folge: Nur-Pegel-Reparatur der Masken-Folge scheiterte an fehlendem _schnitt."""
+    wav, vid = work / "audio_all.wav", work / "video_all.mp4"
+    if wav.exists() and vid.exists():
+        return wav, vid
+    mf = work.parent / "_maskenformat"
+    if (mf / "ton.wav").exists() and (mf / "roh.mp4").exists():
+        return mf / "ton.wav", mf / "roh.mp4"
+    return wav, vid
+
+
 def master_erneuern(work: Path, out: Path) -> dict:
     """Nur den Master-Ton neu machen (Sekunden statt Stunden): aus dem ungemasterten Programmton _schnitt/
     audio_all.wav und dem Bild _schnitt/video_all.mp4 eines fertigen Rohschnitts. Fuer Abnahme-Fehler, die nur den
-    Gesamtpegel betreffen (True Peak, integrierte Lautheit) - kein Neuschnitt, kein Warten auf die GPU."""
-    wav, vid = work / "audio_all.wav", work / "video_all.mp4"
+    Gesamtpegel betreffen (True Peak, integrierte Lautheit) - kein Neuschnitt, kein Warten auf die GPU.
+    Masken-Format (kein _schnitt): Programmton _maskenformat/ton.wav + Bild _maskenformat/roh.mp4 daneben."""
+    wav, vid = master_quellen(work)
     if not (wav.exists() and vid.exists()):
         raise FileNotFoundError(f"{work}: audio_all.wav/video_all.mp4 fehlen - nur ein Neuschnitt hilft")
     tmp = out.with_name(out.stem + "_neu" + out.suffix)
