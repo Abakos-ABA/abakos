@@ -7,6 +7,7 @@ kein Upload - Zustandsdateien liegen in einem Temp-Ordner.
 import json
 import sys
 import tempfile
+import time
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -31,6 +32,10 @@ def _texte():
 class Basis(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
+        from video import weltlage_thumbnail_eil as _eil   # Label-Historie nicht in den echten state/ schreiben
+        self._eil_alt = _eil.LABEL_HISTORIE
+        _eil.LABEL_HISTORIE = self.tmp / "eil_labels.json"
+        self.addCleanup(lambda: setattr(_eil, "LABEL_HISTORIE", self._eil_alt))
         self._alt = {(m, n): getattr(m, n) for m, n in [(tl, "ZUSTAND"), (tl, "PAUSE"), (ent, "DIR"), (ent, "OFFEN"),
                                                        (ent, "ANTWORTEN"), (ent, "telegram_senden"), (ent, "beta"),
                                                        (ent, "telegram_text"), (ent, "_knoepfe_weg"), (th, "POOL")]}
@@ -150,6 +155,62 @@ class Rohschnitt0510(Basis):
             self.assertEqual(rc, 0, "Ausgabe alle 0,4 s = lebt, trotz 3,2 s Laufzeit > 1,2 s Stillstandsgrenze")
         finally:
             tl.POLL_S = alt
+
+    def test_aktivitaet_zaehlt_gpu_warteschlange_als_lebenszeichen(self):
+        """Vorfall 21.10.2026: Vertonung wartete/rechnete ueber 60 min in der GPU-Warteschlange ohne Logzeile ->
+        Stillstands-Waechter beendete sie. Ein Platz des Prozessbaums (wartend: seen_ts, laufend: jetzt) zaehlt."""
+        log = tl._Log(self.tmp / "t.log")
+        log("start")
+        alt_lz, alt_nk = tl._gpu_lebenszeichen, tl._nachkommen
+        try:
+            tl._nachkommen = lambda pid: {4711, 4712}
+            tl._gpu_lebenszeichen = lambda pids: 1e12 if 4712 in pids else 0.0
+            self.assertGreaterEqual(tl._aktivitaet(log, self.tmp, 4711), 1e12, "GPU-Platz eines Kindprozesses = lebt")
+            self.assertLess(tl._aktivitaet(log, self.tmp), 1e12, "ohne PID nur Log/Dateien")
+            tl._gpu_lebenszeichen = lambda pids: 0.0
+            self.assertLess(tl._aktivitaet(log, self.tmp, 4711), 1e12, "kein Eintrag = kein Lebenszeichen")
+        finally:
+            tl._gpu_lebenszeichen, tl._nachkommen = alt_lz, alt_nk
+
+    def test_gpu_lebenszeichen_liest_warteschlange(self):
+        import types
+        st = {"running": [{"pid": 10, "name": "tts"}], "waiting": [{"pid": 20, "seen_ts": 1234.0, "since_ts": 1000.0},
+                                                                    {"pid": 30, "since_ts": 900.0}]}
+        zust = self.tmp / "gpu_queue.json"
+        zust.write_text(json.dumps(st), encoding="utf-8")
+        fake_q = types.SimpleNamespace(state_path=lambda: zust)
+        import gpu_budget
+        alt = gpu_budget.queue
+        gpu_budget.queue = lambda: fake_q
+        try:
+            self.assertGreater(tl._gpu_lebenszeichen({10}), time.time() - 5, "laufender GPU-Job = jetzt")
+            self.assertEqual(tl._gpu_lebenszeichen({20}), 1234.0, "wartend: seen_ts")
+            self.assertEqual(tl._gpu_lebenszeichen({30}), 900.0, "wartend ohne seen_ts: since_ts")
+            self.assertEqual(tl._gpu_lebenszeichen({40}), 0.0, "fremde PID: nichts")
+            self.assertEqual(tl._gpu_lebenszeichen(set()), 0.0)
+            fake_q.aktivitaet_fuer = lambda pids: 77.0          # neuere gpu_queue.py liefert es selbst
+            self.assertEqual(tl._gpu_lebenszeichen({10}), 77.0)
+        finally:
+            gpu_budget.queue = alt
+
+    def test_vertonen_wiederholt_bei_stillstand_statt_abbruch(self):
+        log = tl._Log(self.tmp / "t.log")
+        rcs = [tl.STILLSTAND_RC, tl.STILLSTAND_RC, 0]
+        aufrufe = []
+        run = lambda cmd, log, **kw: aufrufe.append(kw.get("still_min")) or rcs.pop(0)   # noqa: E731
+        self.assertEqual(tl.vertonen(self.tmp, log, versuche=3, run=run), 3, "zwei Stillstaende, dritter Anlauf ok")
+        self.assertEqual(aufrufe, [tl.STILLSTAND_MIN] * 3)
+        self.assertIn("Anlauf 2/3", (self.tmp / "t.log").read_text(encoding="utf-8"))
+        rcs[:] = [tl.STILLSTAND_RC] * 3
+        with self.assertRaises(tl.Abbruch) as cm:
+            tl.vertonen(self.tmp, log, versuche=3, run=run)
+        self.assertIn("Stillstand", str(cm.exception), "nach allen Anlaeufen Abbruch mit Grund «Stillstand»")
+        self.assertTrue(str(cm.exception).startswith("Vertonung fehlgeschlagen"), "Wache-Diagnose bleibt kompatibel")
+        rcs[:] = [1]
+        with self.assertRaises(tl.Abbruch) as cm:
+            tl.vertonen(self.tmp, log, versuche=3, run=run)
+        self.assertNotIn("Stillstand", str(cm.exception), "echter Fehler (Exit 1): sofort Abbruch, kein Neuanlauf")
+        self.assertEqual(rcs, [], "genau ein Aufruf")
 
     def test_verspaetung_pro_lauf(self):
         tl._eintrag("2026-10-05_19:00", max_verspaetung_h=8)
@@ -276,6 +337,48 @@ class Ueberarbeiten(Basis):
         self.assertFalse(res["neu_rendern"])
         self.assertTrue(master.exists())
         self.assertEqual(json.loads((ordner / "texte.json").read_text(encoding="utf-8"))["titel"], "Neuer Titel?")
+
+
+class MetadatenBreakingPraefix(Basis):
+    """Experiment "BREAKING:"-Praefix (rexemre-Auftrag 19.10.2026, Task 20261019-223623-e943): Befund war ein
+    Titel, der das gesuchte Schlagwort erst nach dem Doppelpunkt nannte und praktisch keinen Suchtraffic bekam
+    - metadaten() haengt deshalb testweise "BREAKING: " vor jeden neu gebauten Titel (NEWS_WELTLAGE_TITEL_BREAKING,
+    config/settings.py), ohne den vom Modell gepruefte Titel selbst (texte.json) zu veraendern."""
+
+    def _ordner(self):
+        ordner = self.tmp / "folge_breaking"
+        ordner.mkdir()
+        (ordner / "texte.json").write_text(json.dumps(_texte()), encoding="utf-8")
+        (ordner / "news.json").write_text(json.dumps([]), encoding="utf-8")
+        return ordner
+
+    def test_praefix_an_haengt_ihn_vor_den_titel(self):
+        tl.NEWS_WELTLAGE_TITEL_BREAKING = True
+        try:
+            meta = tl.metadaten(self._ordner())
+        finally:
+            tl.NEWS_WELTLAGE_TITEL_BREAKING = False
+        lab = meta["title"].split("! ")[0] + "!"
+        self.assertNotIn("WELTLAGE", lab)
+        self.assertEqual(meta["title"], lab + " " + _texte()["titel"])
+
+    def test_praefix_aus_laesst_titel_unveraendert(self):
+        tl.NEWS_WELTLAGE_TITEL_BREAKING = False
+        meta = tl.metadaten(self._ordner())
+        self.assertEqual(meta["title"], _texte()["titel"])
+
+    def test_schon_vorhandenes_praefix_wird_nicht_verdoppelt(self):
+        ordner = self._ordner()
+        texte = _texte()
+        texte["titel"] = "BREAKING: " + texte["titel"]
+        (ordner / "texte.json").write_text(json.dumps(texte), encoding="utf-8")
+        tl.NEWS_WELTLAGE_TITEL_BREAKING = True
+        try:
+            meta = tl.metadaten(ordner)
+        finally:
+            tl.NEWS_WELTLAGE_TITEL_BREAKING = False
+        self.assertNotIn("BREAKING", meta["title"])
+        self.assertEqual(meta["title"].count("!"), 1 + texte["titel"].count("!") - texte["titel"].count("BREAKING!"))
 
 
 class Freigabe(Basis):
@@ -486,6 +589,67 @@ class Sofort(Basis):
             self.assertTrue(tl.vorab_fuer("2026-10-10_11:00"))
         finally:
             tl.NEWS_WELTLAGE_UPLOAD_VORAB, tl.NEWS_WELTLAGE_UPLOAD_VISIBILITY = alt
+
+
+class SchnittVeraltetTest(unittest.TestCase):
+    """Vorfall 29.10.2026, 10:00: Szenen nach dem Rendern neu vertont, alter Master blieb -> Abnahme Korrelation 0,01."""
+
+    def _folge(self, d: Path) -> Path:
+        import os
+        (d / "audio").mkdir()
+        (d / "_maskenformat").mkdir()
+        master = d / "folge.mp4"
+        for f in (d / "audio" / "s1.wav", d / "audio" / "s2.wav", d / "_maskenformat" / "ton.wav", master,
+                  d / "_maskenformat" / "host_spur.mp4", d / "folge_abnahme.json"):
+            f.write_bytes(b"x")
+        alt = time.time() - 3600
+        for f in (d / "audio" / "s1.wav", d / "audio" / "s2.wav"):
+            os.utime(f, (alt - 60, alt - 60))
+        for f in (d / "_maskenformat" / "ton.wav", master):
+            os.utime(f, (alt, alt))
+        return master
+
+    def test_passend_und_veraltet(self):
+        import os
+        with tempfile.TemporaryDirectory() as t:
+            d = Path(t)
+            master = self._folge(d)
+            self.assertEqual(tl.schnitt_veraltet(d, master, maskenformat=True), [])
+            (d / "audio" / "s2.wav").touch()
+            (d / "audio" / "s2_rh.wav").write_bytes(b"x")   # Rueckhoer-Zwischendatei zaehlt nicht
+            self.assertEqual(tl.schnitt_veraltet(d, master, maskenformat=True), ["s2"])
+            tl.schnitt_verwerfen(d, master)
+            self.assertFalse(master.exists())
+            self.assertFalse((d / "folge_abnahme.json").exists())
+            self.assertFalse((d / "_maskenformat" / "host_spur.mp4").exists())
+            self.assertEqual(tl.schnitt_veraltet(d, master, maskenformat=True), [], "ohne Master nichts zu verwerfen")
+
+    def test_neu_gemasterter_master_zaehlt_nicht_als_frisch(self):
+        """master_neu macht den Master jung, der Programmton bleibt alt - massgebend ist der aeltere Stand."""
+        import os
+        with tempfile.TemporaryDirectory() as t:
+            d = Path(t)
+            master = self._folge(d)
+            os.utime(d / "audio" / "s1.wav", (time.time() - 1800, time.time() - 1800))
+            master.touch()
+            self.assertEqual(tl.schnitt_veraltet(d, master, maskenformat=True), ["s1"])
+
+
+class CaptureFrist(unittest.TestCase):
+    def test_haengender_prozess_wird_nach_frist_beendet(self):
+        """21.10.2026: Schritt bilder stand 7,5 h - capture_mit_frist beendet den Prozess und gibt [] zurueck."""
+        import subprocess
+        from unittest import mock
+        from video import sources
+        real = subprocess.Popen
+        def haengt(cmd, **kw):
+            if "video.sources" not in cmd:          # taskkill (subprocess.run) laeuft ueber dasselbe Popen
+                return real(cmd, **kw)
+            return real([sys.executable, "-c", "import time; time.sleep(60)"], **kw)
+        t0 = time.time()
+        with mock.patch("subprocess.Popen", haengt):
+            self.assertEqual(sources.capture_mit_frist("t", [{"url": "http://x", "source": "s", "title": "t"}], frist_s=2), [])
+        self.assertLess(time.time() - t0, 20)
 
 
 if __name__ == "__main__":

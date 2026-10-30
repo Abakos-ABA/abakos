@@ -110,6 +110,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -117,7 +118,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from config.settings import (DATA_DIR, NEWS_WELTLAGE_AKTUALISIERUNG_AUTO,
+from config.settings import (DATA_DIR, NEWS_MASKENFORMAT, NEWS_WELTLAGE_AKTUALISIERUNG_AUTO,
                              NEWS_WELTLAGE_BROLL, NEWS_WELTLAGE_BROLL_OHNE_KI,
                              NEWS_WELTLAGE_FREIGABE_MINUTEN,  # noqa: E402
                              NEWS_WELTLAGE_MAX_FEEDBACK_RUNDEN,
@@ -155,6 +156,7 @@ MIN_SPRECH_S = 520                 # Sprechdauer einer 8-Min.-Folge (Abnahme 4i)
 PRODUKTION_MAX_STUNDEN = 16.0
 STILLSTAND_MIN = 60                # kein neues Log/keine neue Datei so lange = haengt -> Prozessbaum beenden
 STIMME_MAX_STUNDEN = 10            # nur Sicherheitsnetz; massgeblich ist der Stillstand
+STIMME_VERSUCHE = 3                # Stillstand in der Vertonung: so oft neu anlaufen (fertige Szenen bleiben), erst dann Abbruch
 SCHNITT_MAX_STUNDEN = 24
 SCHNITT_VERSUCHE = 2               # nach Stillstand einmal neu: fertige LatentSync-Stuecke liegen im Cache
 
@@ -382,6 +384,30 @@ def nur_pegel_fehler(info: dict) -> bool:
     return bool(fehler) and all(PEGEL_FEHLER.match(f) for f in fehler)
 
 
+def schnitt_veraltet(ordner: Path, master: Path, maskenformat: bool | None = None) -> list[str]:
+    """Sprechdateien audio/*.wav, die neuer sind als der fertige Schnitt (Master und sein Programmton
+    _maskenformat/ton.wav bzw. _schnitt/audio_all.wav). Leer = Schnitt passt zur Vertonung. Grund (Vorfall 29.10.2026,
+    10:00): ein Resume pflegte das Aussprache-Lexikon («Deal»), der Schritt stimme sprach dadurch Szenen neu, der
+    Schritt schnitt sah den alten Master und tat nichts - die Abnahme verglich neuen Ton mit altem Video
+    (Korrelation 0,01) und auch master_neu haette nur den alten Programmton neu gemastert."""
+    if not master.exists():
+        return []
+    maskenformat = NEWS_MASKENFORMAT if maskenformat is None else maskenformat
+    ton = ordner / ("_maskenformat/ton.wav" if maskenformat else "_schnitt/audio_all.wav")
+    bezug = min([master.stat().st_mtime] + ([ton.stat().st_mtime] if ton.exists() else []))
+    return sorted(w.stem for w in (ordner / "audio").glob("*.wav")
+                  if not w.stem.endswith("_rh") and w.stat().st_mtime > bezug + 1)
+
+
+def schnitt_verwerfen(ordner: Path, master: Path):
+    """Veralteten Schnitt verwerfen: Master und alles daraus Abgeleitete (wie master_neu) plus die Sprecher-Spur des
+    Masken-Formats (ihre Sprechbewegung kommt aus der alten Ton-Huellkurve), damit der Schritt schnitt neu rendert."""
+    for q in (master, master.with_name(master.stem + "_clips.mp4"), master.with_name(master.stem + "_abnahme.json"),
+              ordner / "telegram" / f"{master.stem}_telegram.mp4", ordner / "telegram" / f"{master.stem}_clips_telegram.mp4",
+              ordner / "_maskenformat" / "host_spur.mp4"):
+        q.unlink(missing_ok=True)
+
+
 def master_neu(ordner: Path, master: Path, log=print) -> dict:
     """Master-Ton neu (Sekunden) und alles verwerfen, was aus dem alten Master abgeleitet ist (B-Roll-Fassung,
     Abnahme, Telegram-Fassung), damit B-Roll und Abnahme frisch laufen."""
@@ -513,9 +539,103 @@ def _baum_beenden(pid: int):
     subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, creationflags=NO_WINDOW)
 
 
-def _aktivitaet(log, ordner: Path | None) -> float:
-    """Juengste Aenderung (mtime) von Log, Arbeitsordnern (_schnitt, audio) - Lebenszeichen eines Schritts."""
+_LOG_WACHSTUM: dict = {}   # Logpfad -> (letzte Groesse, Zeitpunkt der letzten Aenderung)
+
+
+def _nachkommen(pid) -> set[int]:
+    """PID(s) samt allen Nachkommen (Toolhelp-Schnappschuss der Standardbibliothek; psutil fehlt in .venv).
+    Fehlt der Schnappschuss, zaehlen nur die uebergebenen PIDs."""
+    wurzeln = {int(p) for p in (pid if isinstance(pid, (set, list, tuple)) else [pid]) if p}
+    if not wurzeln:
+        return set()
+    if os.name != "nt":
+        return wurzeln
+    try:
+        import ctypes
+        from ctypes import wintypes as w
+
+        class PE32(ctypes.Structure):
+            _fields_ = [("dwSize", w.DWORD), ("cntUsage", w.DWORD), ("th32ProcessID", w.DWORD),
+                        ("th32DefaultHeapID", ctypes.POINTER(ctypes.c_ulong)), ("th32ModuleID", w.DWORD),
+                        ("cntThreads", w.DWORD), ("th32ParentProcessID", w.DWORD), ("pcPriClassBase", ctypes.c_long),
+                        ("dwFlags", w.DWORD), ("szExeFile", ctypes.c_char * 260)]
+        k = ctypes.WinDLL("kernel32", use_last_error=True)
+        k.CreateToolhelp32Snapshot.restype = ctypes.c_void_p
+        k.CreateToolhelp32Snapshot.argtypes = [w.DWORD, w.DWORD]
+        k.Process32First.argtypes = [ctypes.c_void_p, ctypes.POINTER(PE32)]
+        k.Process32Next.argtypes = [ctypes.c_void_p, ctypes.POINTER(PE32)]
+        k.CloseHandle.argtypes = [ctypes.c_void_p]
+        snap = k.CreateToolhelp32Snapshot(0x2, 0)
+        if not snap or snap in (2 ** 64 - 1, 2 ** 32 - 1):
+            return wurzeln
+        kinder: dict[int, list[int]] = {}
+        try:
+            pe = PE32()
+            pe.dwSize = ctypes.sizeof(PE32)
+            ok = k.Process32First(snap, ctypes.byref(pe))
+            while ok:
+                kinder.setdefault(int(pe.th32ParentProcessID), []).append(int(pe.th32ProcessID))
+                ok = k.Process32Next(snap, ctypes.byref(pe))
+        finally:
+            k.CloseHandle(snap)
+    except Exception:   # noqa: BLE001
+        return wurzeln
+    alle, offen = set(wurzeln), list(wurzeln)
+    while offen:
+        for c in kinder.get(offen.pop(), []):
+            if c not in alle:
+                alle.add(c)
+                offen.append(c)
+    return alle
+
+
+def _gpu_lebenszeichen(pids: set[int]) -> float:
+    """Juengstes Lebenszeichen der zentralen GPU-Warteschlange (jarvis tools/gpu_queue.py) fuer diese PIDs: ein
+    wartender Eintrag erneuert seen_ts alle 2 min, ein laufender GPU-Job zaehlt als «jetzt». 0.0 = kein Eintrag.
+    Vorfall 21.10.2026 (Folgen 00:00 und 10:00): die Vertonung stand hinter Cinema-Jobs in der Warteschlange bzw.
+    rechnete neben ihnen auf der geteilten Karte stark ausgebremst - beides ohne Logzeile, der Stillstands-Waechter
+    hielt sie nach 60 min fuer einen Haenger und beendete sie."""
+    pids = {int(p) for p in pids if p}
+    if not pids:
+        return 0.0
+    try:
+        import gpu_budget
+        q = gpu_budget.queue()
+        if q is None:
+            return 0.0
+        if hasattr(q, "aktivitaet_fuer"):
+            return float(q.aktivitaet_fuer(pids))
+        st = json.loads(Path(q.state_path()).read_text(encoding="utf-8"))
+    except Exception:   # noqa: BLE001 - Warteschlange nicht lesbar: dann zaehlen Log/Dateien allein
+        return 0.0
+    now, t = time.time(), 0.0
+    for e in st.get("running") or []:
+        if int(e.get("pid") or 0) in pids:
+            t = now
+    for e in st.get("waiting") or []:
+        if int(e.get("pid") or 0) in pids:
+            t = max(t, float(e.get("seen_ts") or e.get("since_ts") or 0))
+    return t
+
+
+def _aktivitaet(log, ordner: Path | None, pid=None) -> float:
+    """Juengste Aenderung (mtime) von Log, Arbeitsordnern (_schnitt, audio) - Lebenszeichen eines Schritts.
+    pid (eine oder mehrere): zusaetzlich zaehlt ein Platz des Prozessbaums in der GPU-Warteschlange (wartend oder
+    laufend) als Lebenszeichen, siehe _gpu_lebenszeichen()."""
     t = log.datei.stat().st_mtime if log.datei.exists() else 0.0
+    # Vorfall 21.10.2026: Der Kindprozess haengt "warte auf GPU"-Zeilen ans Log, doch die mtime einer offenen Datei
+    # wird unter Windows verzoegert nachgefuehrt -> 60 min Warten hinter Cinema-Jobs galt als Stillstand. Darum
+    # zaehlt auch jedes Wachsen des Logs (Groesse per frisch geoeffnetem Handle) als Lebenszeichen.
+    try:
+        with open(log.datei, "rb") as fh:
+            fh.seek(0, 2)
+            gr = fh.tell()
+        alt = _LOG_WACHSTUM.get(str(log.datei))
+        if alt is None or alt[0] != gr:
+            _LOG_WACHSTUM[str(log.datei)] = alt = (gr, time.time())
+        t = max(t, alt[1])
+    except OSError:
+        pass
     for sub in ("_schnitt", "audio") if ordner else ():
         for wurzel, _, dateien in os.walk(ordner / sub):
             for d in dateien:
@@ -523,6 +643,8 @@ def _aktivitaet(log, ordner: Path | None) -> float:
                     t = max(t, os.stat(os.path.join(wurzel, d)).st_mtime)
                 except OSError:
                     pass
+    if pid:
+        t = max(t, _gpu_lebenszeichen(_nachkommen(pid)))
     return t
 
 
@@ -540,7 +662,7 @@ def _warten_auf_lauf(skript: str, ordner: Path, log, eigene: bool, still_min: fl
             log(f"{skript} läuft schon ({'für diese Folge' if eigene else 'für eine andere Folge'}, PID "
                 f"{', '.join(map(str, pids))}) - warte darauf statt {'doppelt zu starten' if eigene else 'gleichzeitig'}")
             gewartet = True
-        if eigene and time.time() - _aktivitaet(log, ordner) > still_min * 60:
+        if eigene and time.time() - _aktivitaet(log, ordner, pids) > still_min * 60:
             log(f"{skript} ohne Lebenszeichen seit {still_min:.0f} min - beende PID {pids}")
             for p in pids:
                 _baum_beenden(p)
@@ -575,7 +697,7 @@ def _run(cmd: list, log, timeout_h: float = 6, python=None, ordner: Path | None 
             grund = None
             if time.time() - t0 > timeout_h * 3600:
                 grund = f"Obergrenze {timeout_h:g} h erreicht"
-            elif still_min and time.time() - max(t0, _aktivitaet(log, ordner)) > still_min * 60:
+            elif still_min and time.time() - max(t0, _aktivitaet(log, ordner, p.pid)) > still_min * 60:
                 grund = f"seit {still_min:.0f} min kein Lebenszeichen (Log/Dateien)"
             if grund:
                 log(f"{grund} - beende Prozessbaum {p.pid}")
@@ -585,6 +707,23 @@ def _run(cmd: list, log, timeout_h: float = 6, python=None, ordner: Path | None 
                 break
     log(f"-> Exit {rc}")
     return rc
+
+
+def vertonen(ordner: Path, log, versuche: int = STIMME_VERSUCHE, run=None) -> int:
+    """Vertonung (tools/weltlage_tts.py) mit Wiederholung statt Abbruch (21.10.2026, Folgen 00:00 + 10:00 beide
+    verloren): beendet der Stillstands-Waechter den TTS-Prozess, laeuft die Vertonung bis zu `versuche` Mal neu an -
+    jeder Anlauf ueberspringt fertige audio/*.wav (Nachweis + Hash), verloren geht hoechstens die angefangene Szene.
+    Erst danach (oder bei einem echten Fehler, Exit != 0) Abbruch mit Grund. Rueckgabe: Zahl der Anlaeufe."""
+    run = run or _run
+    for v in range(1, max(1, int(versuche)) + 1):
+        rc = run(["tools/weltlage_tts.py", ordner], log, timeout_h=STIMME_MAX_STUNDEN, ordner=ordner,
+                 still_min=STILLSTAND_MIN)
+        if rc == 0:
+            return v
+        if rc != STILLSTAND_RC or v >= versuche:
+            raise Abbruch("Vertonung fehlgeschlagen" + (f" (Stillstand, {v} Anläufe)" if rc == STILLSTAND_RC else ""))
+        log(f"Vertonung stand {STILLSTAND_MIN} min still - Anlauf {v + 1}/{versuche} (fertige Szenen bleiben)")
+    return versuche
 
 
 def _nur_montage(ordner: Path) -> bool:
@@ -724,7 +863,7 @@ def laenge_reparatur_noetig(info: dict, runden: int) -> str | None:
 
 def bilder_holen(ordner: Path, log) -> dict:
     """Screenshots der Quellartikel pro verwendeter Meldung (wie data/<folge>/bilder_holen.py, jetzt allgemein)."""
-    from video.sources import capture
+    from video.sources import capture_mit_frist as capture
     news = json.loads((ordner / "news.json").read_text(encoding="utf-8"))
     texte = json.loads((ordner / "texte.json").read_text(encoding="utf-8"))
     byurl = {a["url"].split("?")[0]: a for g in news for a in g["articles"] if a.get("url")}
@@ -737,7 +876,10 @@ def bilder_holen(ordner: Path, log) -> dict:
             continue
         arts = [a for u in b["urls"] for a in [byurl.get(u.split("?")[0])
                                                or next((v for k, v in byurl.items() if k.startswith(u)), None)] if a]
+        t0 = time.time()
         shots = capture(f"{praefix}_{b['idx']}", arts)
+        if time.time() - t0 > 540:
+            log(f"Bilder Meldung {b['idx']}: Aufnahme dauerte {int(time.time() - t0)} s (Frist 600 s)")
         res[b["idx"]] = []
         for s in shots:
             dst = ordner / "bilder" / f"m{b['idx']}_{s['index']}.png"
@@ -801,6 +943,12 @@ def metadaten(ordner: Path) -> dict:
     attribution = ordner / "broll_attribution.txt"
     if attribution.exists() and attribution.read_text(encoding="utf-8").strip():
         teile.append(attribution.read_text(encoding="utf-8").strip())
+    tq = ordner / "thumbnails" / "thumbnail_quelle.json"
+    if tq.exists():
+        try:
+            teile.append(json.loads(tq.read_text(encoding="utf-8"))["attribution"])
+        except (OSError, ValueError, KeyError):
+            pass
     teile.append(_hashtags(namen))
     beschreibung = "\n\n".join(t for t in teile if t.strip())[:4900]
     tags, laenge = [], 0
@@ -810,8 +958,22 @@ def metadaten(ordner: Path) -> dict:
             tags.append(t)
             laenge += len(t) + 2
     titel = texte["titel"]
-    if NEWS_WELTLAGE_TITEL_BREAKING and not titel.upper().startswith("BREAKING"):
-        titel = NEWS_WELTLAGE_TITEL_BREAKING_PRAEFIX + titel
+    try:   # Neugier-Luecken-Titel (Groq + Pruefschritt, 21.10.2026); ohne Ergebnis bleibt der Skript-Titel
+        from video import weltlage_schlagzeile
+        sz = weltlage_schlagzeile.gemerkt(ordner)
+        if sz and sz.get("titel"):
+            titel = sz["titel"]
+    except Exception:   # noqa: BLE001
+        pass
+    if NEWS_WELTLAGE_TITEL_BREAKING:
+        try:   # seit 21.10.2026 Schock-Label (wie im Thumbnail) statt «BREAKING: »; Rueckfall alter Praefix
+            from video import weltlage_thumbnail_eil as eil
+            lab = eil.label_fuer(ordner, " ".join(str(texte.get(k) or "") for k in ("titel", "zentrale_these", "hook")),
+                                 (ordner / "breaking.flag").exists())
+            titel = eil.titel_mit_label(titel, lab)
+        except Exception:   # noqa: BLE001
+            if not titel.upper().startswith("BREAKING"):
+                titel = NEWS_WELTLAGE_TITEL_BREAKING_PRAEFIX + titel
     meta = {"title": titel[:100], "description": beschreibung, "tags": tags, "language": "de",
             "titel_varianten": texte.get("titel_varianten"), "thumbnail": texte.get("thumbnail"),
             "kommentarfrage": texte.get("kommentarfrage")}
@@ -1162,6 +1324,12 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
                 log("Skript mit Problemen - zweiter Versuch")
                 rc = _run(cmd, log, timeout_h=1)
             if rc != 0 or not (ordner / "texte.json").exists():
+                # 25.10.2026: kam gar kein Skript (Claude-Abo gesperrt, keine Ersatz-KI), steht die echte Ursache in
+                # skript_fehler.txt - sie gehoert in den Zustand, damit Wache/Worker nicht «Prüfung» lesen
+                fehler_datei = ordner / "skript_fehler.txt"
+                if fehler_datei.exists():
+                    raise Abbruch("Skript nicht erzeugt - "
+                                  + fehler_datei.read_text(encoding="utf-8", errors="replace").strip()[:400])
                 raise Abbruch("Skript besteht die automatische Prüfung nicht (siehe skript.md)")
         elif schritt == "aussprache":
             try:
@@ -1183,14 +1351,16 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
                 log("Rohschnitt dieser Folge läuft noch - Vertonung bleibt wie sie ist")
                 return
             _warten_auf_lauf("weltlage_tts.py", ordner, log, eigene=True)
-            if _run(["tools/weltlage_tts.py", ordner], log, timeout_h=STIMME_MAX_STUNDEN, ordner=ordner,
-                    still_min=STILLSTAND_MIN) != 0:
-                raise Abbruch("Vertonung fehlgeschlagen")
+            vertonen(ordner, log)
         elif schritt == "schnitt":
             _warten_auf_lauf("weltlage_rohschnitt.py", ordner, log, eigene=True)
+            veraltet = schnitt_veraltet(ordner, master)
+            if veraltet:
+                log(f"Vertonung neuer als der Schnitt ({', '.join(veraltet)}) - verwerfe den alten Master, neu schneiden")
+                schnitt_verwerfen(ordner, master)
             # Eingefrorene Sprechszenen zuerst an den heutigen Lipsync-Standard anpassen (nur vor einem neuen
             # Render; ein fertiger Master behaelt seine Fassung, die Abnahme toleriert dort eine staerkere Stufe)
-            if not master.exists():
+            if not master.exists() and not NEWS_MASKENFORMAT:   # Masken-Format: kein Lipsync
                 feste_szenen_aktualisieren(log)
             # B-Roll-Planung vorgezogen (rexemre 19.10.2026, Task 20261019-182613-44c1): Stufe 1 von
             # weltlage_broll.py (Einsatzstellen, Darstellungsart, Clips - braucht nur texte.json + audio/*.wav) lief
@@ -1224,7 +1394,9 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
                     except weltlage_speicher.SpeicherVoll as ex:
                         raise Abbruch(str(ex)) from ex
                     schnitt_vorbereiten(key, ordner, log)
-                    rc = _run(["tools/weltlage_rohschnitt.py", ordner, "--out", master], log,
+                    # Masken-Format (27.10.2026, docs/weltlage_maskenformat.md): statt Latara-Rohschnitt/Lipsync
+                    skript = "tools/weltlage_maskenformat.py" if NEWS_MASKENFORMAT else "tools/weltlage_rohschnitt.py"
+                    rc = _run([skript, ordner, "--out", master], log,
                               timeout_h=SCHNITT_MAX_STUNDEN, python=LS_PY, ordner=ordner, still_min=STILLSTAND_MIN)
                     if rc != STILLSTAND_RC:
                         break
@@ -1236,7 +1408,7 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
                     os.environ["NEWS_WELTLAGE_SKIP_SZENEN"] = alt_skip
             if not master.exists():
                 raise Abbruch("Rohschnitt/Lipsync fehlgeschlagen oder Stimmen-Endprüfung durchgefallen")
-        elif schritt == "broll" and NEWS_WELTLAGE_BROLL:
+        elif schritt == "broll" and NEWS_WELTLAGE_BROLL and not NEWS_MASKENFORMAT:
             clips = master.with_name(master.stem + "_clips.mp4")
             cmd = ["tools/weltlage_broll.py", ordner, "--video", master] + (["--ohne-ki"] if NEWS_WELTLAGE_BROLL_OHNE_KI
                                                                            else [])
@@ -1416,11 +1588,32 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
             _eintrag(key, shorts_erledigt=True)
 
     schritt = "start"
+    bilder_bg: dict = {}
     try:
         for schritt in SCHRITTE:
             if nur and schritt not in nur:
                 continue
             _eintrag(key, schritt=schritt)
+            # 3-h-Vorgabe (rexemre 21.10.2026): die Quellen-Screenshots (Schritt "bilder", 10-60 min, am 21.10. 8 h im
+            # Browser) brauchen nur texte.json und blockieren die Vertonung nicht - parallel dazu laufen lassen, vor dem
+            # Rohschnitt (der sie liest) wieder einsammeln. Nur im vollen Lauf (nicht bei --nur/--bis).
+            if (schritt == "bilder" and not nur and not bis and not (ordner / "bilder.json").exists()
+                    and os.environ.get("NEWS_WELTLAGE_BILDER_PARALLEL", "1") == "1"):
+                def _bilder_bg():
+                    try:
+                        schritt_ausfuehren("bilder")
+                    except BaseException as ex_:  # noqa: BLE001
+                        bilder_bg["fehler"] = ex_
+                bilder_bg["th"] = threading.Thread(target=_bilder_bg, name="bilder", daemon=True)
+                bilder_bg["th"].start()
+                log("Bilder laufen parallel zur Vertonung (3-h-Vorgabe)")
+                continue
+            if schritt == "schnitt" and bilder_bg.get("th"):
+                bilder_bg["th"].join()
+                bilder_bg.pop("th")
+                if bilder_bg.get("fehler"):
+                    schritt = "bilder"
+                    raise bilder_bg["fehler"]
             schritt_ausfuehren(schritt)
             if bis and schritt == bis:
                 _eintrag(key, status="angehalten", schritt=schritt)
