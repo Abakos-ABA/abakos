@@ -294,6 +294,22 @@ def _passend(d, text, name, start, breite, minimum=40):
     return f, size
 
 
+def _zeilen_passend(d, text, name, start, breite, minimum=40):
+    """Passt text in eine Zeile; sonst bei Mindestschrift Wortumbruch (nie ueber den Rand hinaus, nie abgeschnitten)."""
+    f, size = _passend(d, text, name, start, breite, minimum)
+    if d.textlength(text, font=f) <= breite:
+        return f, size, [text]
+    zeilen, akt = [], ""
+    for w in text.split():
+        probe = f"{akt} {w}".strip()
+        if akt and d.textlength(probe, font=f) > breite:
+            zeilen.append(akt)
+            akt = w
+        else:
+            akt = probe
+    return f, size, zeilen + [akt]
+
+
 def _foto_feld(bild: Image.Image, foto: Image.Image, box):
     x0, y0, x1, y1 = box
     w, h = x1 - x0, y1 - y0
@@ -325,10 +341,11 @@ def render(label: str, zeile1: str, zeile2: str, out: Path, foto: Image.Image | 
     for t in (zeile1.upper().strip(), zeile2.upper().strip()):
         if not t:
             continue
-        f, size = _passend(d, t, "arialbd.ttf", 58, 740)
-        tw = d.textlength(t, font=f)
-        d.text((42 + (758 - tw) / 2, ty), t, font=f, fill=DUNKEL, stroke_width=1, stroke_fill=DUNKEL)
-        ty += int(size * 1.15)
+        f, size, teile = _zeilen_passend(d, t, "arialbd.ttf", 58, 740)
+        for teil in teile:
+            tw = d.textlength(teil, font=f)
+            d.text((42 + (758 - tw) / 2, ty), teil, font=f, fill=DUNKEL, stroke_width=1, stroke_fill=DUNKEL)
+            ty += int(size * 1.15)
     if foto is not None:
         _foto_feld(bild, foto, (170, 378, 740, 688))
         _pfeil(ImageDraw.Draw(bild), (70, 380), (200, 580), (35, 545), 28)
@@ -353,10 +370,11 @@ def _render_short(label, zeile1, zeile2, out, foto) -> Path:
     for t in (zeile1.upper().strip(), zeile2.upper().strip()):
         if not t:
             continue
-        f, size = _passend(d, t, "arialbd.ttf", 78, W - 130)
-        tw = d.textlength(t, font=f)
-        d.text(((W - tw) / 2, y), t, font=f, fill=DUNKEL, stroke_width=1, stroke_fill=DUNKEL)
-        y += int(size * 1.18)
+        f, size, teile = _zeilen_passend(d, t, "arialbd.ttf", 78, W - 130)
+        for teil in teile:
+            tw = d.textlength(teil, font=f)
+            d.text(((W - tw) / 2, y), teil, font=f, fill=DUNKEL, stroke_width=1, stroke_fill=DUNKEL)
+            y += int(size * 1.18)
     y += 20
     foto_h = 400
     if foto is not None:
@@ -389,6 +407,12 @@ def baue(felder: dict, out: Path, *, short: bool = False, frisch: bool = False, 
          suche: list[str] | None = None, log=print) -> Path:
     """felder: zeile1/zeile2/banderole/stimmungstext. Schreibt die Attribution nach <ordner>/thumbnails/
     thumbnail_quelle[_short].json (nur wenn ein Foto verwendet wurde)."""
+    try:   # seit 27.10.2026 optionale Themenbild-Vorlage (Cyber-Noir, ohne Moderator); Schalter, Standard aus
+        from video import weltlage_thumbnail_thema as thema
+        if thema.schalter_aktiv():
+            return thema.baue(felder, out, short=short, frisch=frisch, ordner=ordner, suche=suche, log=log)
+    except Exception as e:   # noqa: BLE001
+        log(f"WARNUNG Themenbild-Vorlage fehlgeschlagen ({type(e).__name__}: {e}) - Eil-Vorlage")
     label = label_fuer(ordner, felder.get("stimmungstext") or "", frisch)
     titel = felder.get("titel") or f"{felder.get('zeile1', '')} {felder.get('zeile2', '')}"
     if suche is None and ordner is not None:   # seit 23.10.2026: Quellbild > lizenzfrei > B-Roll, Merkliste

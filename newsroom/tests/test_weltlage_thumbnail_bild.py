@@ -55,5 +55,19 @@ class Lizenz(unittest.TestCase):
             news.rmdir()
 
 
+class ZeilenUmbruch(unittest.TestCase):
+    def test_lange_titelzeile_wird_umbrochen_statt_abgeschnitten(self):
+        from PIL import Image, ImageDraw
+        d = ImageDraw.Draw(Image.new("RGB", (10, 10)))
+        t = "BREAKING: TRUMP VERHÄNGT NEUE SANKTIONEN GEGEN IRAN"
+        f, _, teile = eil._zeilen_passend(d, t, "arialbd.ttf", 78, 950)
+        self.assertGreater(len(teile), 1)
+        self.assertEqual(" ".join(teile), t)
+        for z in teile:
+            self.assertLessEqual(d.textlength(z, font=f), 950)
+        _, _, kurz = eil._zeilen_passend(d, "KURZ", "arialbd.ttf", 78, 950)
+        self.assertEqual(kurz, ["KURZ"])
+
+
 if __name__ == "__main__":
     unittest.main()
