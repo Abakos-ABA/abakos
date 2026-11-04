@@ -174,8 +174,8 @@ class Rohschnitt0510(Basis):
 
     def test_gpu_lebenszeichen_liest_warteschlange(self):
         import types
-        st = {"running": [{"pid": 10, "name": "tts"}], "waiting": [{"pid": 20, "seen_ts": 1234.0, "since_ts": 1000.0},
-                                                                    {"pid": 30, "since_ts": 900.0}]}
+        st = {"running": [{"pid": 10, "name": "tts", "started_ts": 5000.0, "wd_ts": 6000.0}, {"pid": 11, "started_ts": 4000.0}],
+              "waiting": [{"pid": 20, "seen_ts": 1234.0, "since_ts": 1000.0}, {"pid": 30, "since_ts": 900.0}]}
         zust = self.tmp / "gpu_queue.json"
         zust.write_text(json.dumps(st), encoding="utf-8")
         fake_q = types.SimpleNamespace(state_path=lambda: zust)
@@ -183,7 +183,10 @@ class Rohschnitt0510(Basis):
         alt = gpu_budget.queue
         gpu_budget.queue = lambda: fake_q
         try:
-            self.assertGreater(tl._gpu_lebenszeichen({10}), time.time() - 5, "laufender GPU-Job = jetzt")
+            # 04.11.2026: ein gehaltener Platz ist kein Lebenszeichen mehr (Chatterbox hing 5,5 h, Spur hielt den Platz)
+            self.assertEqual(tl._gpu_lebenszeichen({10}), 6000.0, "laufend: letzte von der Queue-Wache gesehene Aktivität")
+            self.assertEqual(tl._gpu_lebenszeichen({11}), 4000.0, "laufend ohne Wache-Messung: Platzbeginn")
+            self.assertLess(tl._gpu_lebenszeichen({10, 11}), time.time() - 5, "nie «jetzt» nur weil der Platz gehalten wird")
             self.assertEqual(tl._gpu_lebenszeichen({20}), 1234.0, "wartend: seen_ts")
             self.assertEqual(tl._gpu_lebenszeichen({30}), 900.0, "wartend ohne seen_ts: since_ts")
             self.assertEqual(tl._gpu_lebenszeichen({40}), 0.0, "fremde PID: nichts")

@@ -7,6 +7,7 @@ monetized channel.
 """
 import json
 import logging
+import os
 import wave
 from pathlib import Path
 
@@ -101,12 +102,284 @@ def worker_mit_wiederholung(lauf, out_path, name: str = "worker", log=print, anl
         result = lauf()
         if not ist_absturz(result.returncode):
             return result
-        log(f"{name} abgestuerzt ({exit_text(result.returncode)}, typisch NVIDIA-Treiber nvcuda64.dll) - "
-            f"Anlauf {anlauf}/{anlaeufe}")
+        if result.returncode == STILLSTAND_RC:
+            log(f"{name} hing (keine Ausgabe mehr, Stillstands-Waechter hat ihn beendet) - Anlauf {anlauf}/{anlaeufe}")
+        else:
+            log(f"{name} abgestuerzt ({exit_text(result.returncode)}, typisch NVIDIA-Treiber nvcuda64.dll) - "
+                f"Anlauf {anlauf}/{anlaeufe}")
         if anlauf < anlaeufe and pause_s > 0:
             import time
             time.sleep(pause_s)
     return result
+
+
+_AUSGABE_WICHTIG = ("model loaded", "chunk ", "wrote ", "Traceback", "Error", "error", "CUDA", "cuda")
+
+
+def worker_mit_ausgabe(cmd, cwd=None, prefix: str = "worker", tail: int = 40):
+    """subprocess.run-Ersatz fuer GPU-Worker: reicht Fortschrittszeilen (model loaded / chunk i/n / wrote, Fehler)
+    sofort an stdout weiter und behaelt die letzten `tail` Zeilen fuer die Fehlermeldung (CompletedProcess.stderr).
+    Vorfall 21.10.2026: capture_output verschluckte die Zeilen des Chatterbox-Workers; neben Cinema-Renders auf der
+    geteilten GPU brauchte eine 70-s-Szene ueber eine Stunde, und der Stillstands-Waechter des Tageslaufs
+    (kein Log, keine Datei seit 60 min) beendete die lebende Vertonung - zweimal am selben Tag."""
+    import collections
+    import subprocess
+    import time
+    t0 = time.time()
+    letzte = collections.deque(maxlen=tail)
+    p = subprocess.Popen([str(c) for c in cmd], cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                         stdin=subprocess.DEVNULL, text=True, encoding="utf-8", errors="replace",
+                         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    assert p.stdout is not None
+    for line in p.stdout:
+        line = line.rstrip()
+        if not line:
+            continue
+        letzte.append(line)
+        if any(m in line for m in _AUSGABE_WICHTIG):
+            print(f"  [{prefix} {time.time() - t0:.0f} s] {line[:200]}", flush=True)
+    rc = p.wait()
+    return subprocess.CompletedProcess(cmd, rc, stdout="", stderr="\n".join(letzte))
+
+
+# Stillstands-Waechter (Vorfall 04.11.2026, Weltlage 00:00): der Chatterbox-Dauerprozess blieb bei «chunk 3/10» in CUDA
+# haengen (spaeter Treiber-Exit 0xFFFFFFFF), der Client las blockierend auf stdout und wartete 20'038 s; die Spur hielt
+# dabei 18,5 GB VRAM in der GPU-Warteschlange, die Karte war die ganze Nacht mit 22 von 23 GB voll, der Desktop stockte
+# (Haenger 141 s) und das Shorts-Studio bekam zweimal 60 min keinen Platz. Darum: kommt STILLSTAND_S lang keine Zeile vom
+# Worker (ein Chunk meldet sich normal nach Sekunden, Veredelung nach 1-7 s, Modell-Laden nach ~12-45 s), wird der Prozess
+# beendet und der Auftrag wie ein Absturz gemeldet (worker_mit_wiederholung startet ihn neu).
+STILLSTAND_S = float(os.environ.get("NEWS_TTS_STILLSTAND_S", "900"))
+STILLSTAND_RC = -1          # negativer Exit-Code = Absturz (veredelung.ist_absturz), nie ein Windows-Exit-Code
+
+
+class _ChatterboxServer:
+    """Dauerprozess tts/chatterbox_worker.py --server: Modell einmal laden (Import + Laden kosten ~20 s je Aufruf), danach
+    beliebig viele Auftraege. Folge 30.10.2026: 45 Modell-Ladevorgaenge = rund 9 min der Vertonung. Ein Absturz oder
+    Fehler-Exit des Prozesses wird dem Aufrufer wie bei einem Einzelaufruf gemeldet (CompletedProcess), der naechste
+    Auftrag startet den Prozess neu. Die Ausgabe liest ein eigener Thread; bleibt sie STILLSTAND_S lang aus, gilt der
+    Worker als haengend und wird beendet (STILLSTAND_RC)."""
+
+    def __init__(self, python, worker, cwd, prefix: str, stillstand_s: float | None = None):
+        self.python, self.worker, self.cwd, self.prefix = python, worker, cwd, prefix
+        self.stillstand_s = STILLSTAND_S if stillstand_s is None else float(stillstand_s)
+        self.p = None
+        self.q = None
+
+    @staticmethod
+    def _leser(p, q):
+        try:
+            for line in p.stdout:
+                q.put(line.rstrip())
+        except (OSError, ValueError):
+            pass
+        finally:
+            q.put(None)                                    # EOF: Prozess beendet
+
+    def _stillstand(self, seit_s: float, letzte):
+        p, self.p = self.p, None
+        msg = (f"Stillstand: {seit_s:.0f} s keine Ausgabe vom Worker (PID {getattr(p, 'pid', '?')}), "
+               f"Prozess beendet (Waechter {self.stillstand_s:.0f} s)")
+        print(f"  [{self.prefix}] {msg}", flush=True)
+        letzte.append(msg)
+        if p is not None:
+            try:
+                p.kill()
+                p.wait(timeout=30)
+            except Exception:  # noqa: BLE001
+                pass
+            _pipes_zu(p)
+
+    def _lies_bis_marke(self):
+        import collections
+        import queue
+        import time
+        t0 = time.time()
+        letzte = collections.deque(maxlen=40)
+        rc = None
+        while True:
+            try:
+                line = self.q.get(timeout=self.stillstand_s)
+            except queue.Empty:
+                self._stillstand(time.time() - t0, letzte)
+                return STILLSTAND_RC, letzte
+            if line is None:                               # Prozess gestorben
+                return None, letzte
+            if line.startswith("@@FERTIG"):
+                rest = line.split(" ", 1)[1] if " " in line else ""
+                rc = 0 if rest == "bereit" else int(rest)
+                break
+            if not line:
+                continue
+            letzte.append(line)
+            if any(m in line for m in _AUSGABE_WICHTIG):
+                print(f"  [{self.prefix} {time.time() - t0:.0f} s] {line[:200]}", flush=True)
+        return rc, letzte
+
+    def _starte(self):
+        import queue
+        import subprocess
+        import threading
+        self.p = subprocess.Popen([str(self.python), str(self.worker), "--server"], cwd=self.cwd, stdout=subprocess.PIPE,
+                                  stderr=subprocess.STDOUT, stdin=subprocess.PIPE, text=True, encoding="utf-8",
+                                  errors="replace", creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        self.q = queue.Queue()
+        threading.Thread(target=self._leser, args=(self.p, self.q), daemon=True,
+                         name=f"tts-leser-{self.prefix}").start()
+        rc, letzte = self._lies_bis_marke()
+        if rc == STILLSTAND_RC:                            # Laden blieb haengen, Prozess schon beendet
+            return STILLSTAND_RC, letzte
+        if rc is None:                                 # Prozess vor "bereit" gestorben
+            code = self.p.wait()
+            self.p = None
+            return code or 1, letzte
+        return 0, letzte
+
+    def lauf(self, args: list):
+        """Ein Auftrag (Argumentliste wie beim Einzelaufruf, ohne Python/Skript) -> CompletedProcess."""
+        import json
+        import subprocess
+        letzte = []
+        if self.p is None or self.p.poll() is not None:
+            rc, letzte = self._starte()
+            if rc != 0:
+                return subprocess.CompletedProcess(args, rc, stdout="", stderr=_NL.join(letzte))
+        try:
+            self.p.stdin.write(json.dumps([str(a) for a in args]) + _NL)
+            self.p.stdin.flush()
+            rc, letzte = self._lies_bis_marke()
+        except (OSError, ValueError):
+            rc, letzte = None, []
+        if rc == STILLSTAND_RC:                            # haengender Worker beendet, naechster Auftrag startet neu
+            return subprocess.CompletedProcess(args, STILLSTAND_RC, stdout="", stderr=_NL.join(letzte))
+        if rc is None:                                 # Prozess waehrend des Auftrags gestorben
+            code = self.p.wait() if self.p else 1
+            self.p = None
+            return subprocess.CompletedProcess(args, code or 1, stdout="", stderr=_NL.join(letzte))
+        return subprocess.CompletedProcess(args, rc, stdout="", stderr=_NL.join(letzte))
+
+    def schliessen(self):
+        p, self.p = self.p, None
+        if p is None:
+            return
+        try:
+            p.stdin.write("quit" + _NL)
+            p.stdin.flush()
+            p.wait(timeout=30)
+        except Exception:  # noqa: BLE001
+            p.kill()
+        _pipes_zu(p)
+
+
+def _pipes_zu(p) -> None:
+    for f in (getattr(p, "stdin", None), getattr(p, "stdout", None)):
+        try:
+            if f is not None:
+                f.close()
+        except Exception:  # noqa: BLE001
+            pass
+
+
+_NL = chr(10)
+import threading as _threading  # noqa: E402
+_server_lock = _threading.Lock()
+_server_aktiv = False
+_server_alle: list = []
+_server_tl = None
+
+
+class server_sitzung:
+    """with server_sitzung(): _synthesize_chatterbox nutzt je Thread einen Dauerprozess (Modell einmal geladen) statt
+    je Aufruf einen neuen. Beim Verlassen werden alle Prozesse beendet. Ausserhalb der Sitzung (und mit
+    NEWS_TTS_SERVER=0) bleibt es beim Einzelaufruf wie bisher."""
+
+    def __enter__(self):
+        import os
+        import threading
+        global _server_aktiv, _server_tl
+        _server_tl = threading.local()
+        _server_aktiv = os.environ.get("NEWS_TTS_SERVER", "1") != "0"
+        return self
+
+    def __exit__(self, *exc):
+        global _server_aktiv, _enhance_gemeinsam
+        _server_aktiv = False
+        _enhance_gemeinsam = None
+        for sv in _server_alle:
+            sv.schliessen()
+        _server_alle.clear()
+        return False
+
+
+def _server_dieses_threads(python, worker, cwd, art: str = "chatterbox"):
+    """Dauerprozess dieses Threads fuer `art` (je Spur einer): "chatterbox" oder "enhance"."""
+    d = getattr(_server_tl, "server", None)
+    if d is None:
+        d = _server_tl.server = {}
+    sv = d.get(art)
+    if sv is None:
+        sv = d[art] = _ChatterboxServer(python, worker, cwd, prefix=f"{art} {len(_server_alle) + 1}")
+        _server_alle.append(sv)
+    return sv
+
+
+class _GemeinsamerServer:
+    """Ein Dauerprozess fuer mehrere Spuren: Aufrufe nacheinander (Sperre). Resemble Enhance braucht je Satz/Szene bis ~9 GB
+    VRAM-Spitze (gemessen 30.10.2026: 8,4-8,8 GB bei 33-53 s Ton) - zweimal nebeneinander plus zwei Chatterbox-Prozesse
+    (je ~4 GB) sprengt die 24-GB-Karte (Ueberlauf in den Hauptspeicher: Satz in 164 s statt 12 s). Darum ein Prozess, den
+    sich alle Spuren teilen."""
+
+    def __init__(self, server):
+        import threading
+        self.server, self.sperre = server, threading.Lock()
+
+    def lauf(self, args: list):
+        with self.sperre:
+            return self.server.lauf(args)
+
+    def schliessen(self):
+        self.server.schliessen()
+
+
+_enhance_gemeinsam = None
+ENHANCE_BRAUCHT_MB = 10500       # Enhance-Spitze (bis ~9 GB bei 30-s-Fenstern) + Luft
+
+
+def vram_fuer_enhance_freimachen(log=print) -> bool:
+    """Nur aus der exklusiven Veredelungs-Phase (kein Sprech-Auftrag laeuft): reicht der freie VRAM nicht fuer die
+    Veredelung neben den geladenen Chatterbox-Prozessen (je ~4 GB), werden diese beendet; der naechste Sprech-Auftrag
+    startet sie neu (~12 s). Messlauf 30.10.2026: ein fremder Cinema-Job belegte ~14 GB, Chatterbox (4 GB) + Enhance (9 GB)
+    daneben liefen ueber die 24 GB, die Veredelung brauchte 16+ min statt ~15 s. True, wenn Prozesse beendet wurden."""
+    try:
+        import gpu_budget
+        frei = gpu_budget.vram()[2]
+    except Exception:  # noqa: BLE001
+        return False
+    if frei == 0 or frei >= ENHANCE_BRAUCHT_MB:
+        return False
+    beendet = 0
+    for sv in list(_server_alle):
+        if isinstance(sv, _ChatterboxServer) and sv.p is not None and "chatterbox" in sv.prefix:
+            sv.schliessen()
+            beendet += 1
+    if beendet:
+        log(f"  VRAM knapp ({frei} MB frei): {beendet} Chatterbox-Prozess(e) fuer die Veredelung beendet, starten neu")
+    return bool(beendet)
+
+
+def enhance_server():
+    """Gemeinsamer Veredelungs-Dauerprozess (tts/_enhance_worker.py --server, Modell einmal geladen); None ausserhalb
+    einer server_sitzung (dann bleibt es beim Einzelaufruf wie bisher)."""
+    global _enhance_gemeinsam
+    if not _server_aktiv:
+        return None
+    import threading
+    with _server_lock:
+        if _enhance_gemeinsam is None:
+            from config.settings import BASE_DIR, ENHANCE_PYTHON
+            sv = _ChatterboxServer(ENHANCE_PYTHON, BASE_DIR / "tts" / "_enhance_worker.py", str(BASE_DIR), "enhance")
+            _enhance_gemeinsam = _GemeinsamerServer(sv)
+            _server_alle.append(_enhance_gemeinsam)
+        return _enhance_gemeinsam
 
 
 def _synthesize_chatterbox(text: str, out_path, seed: int | None = None):
@@ -146,12 +419,17 @@ def _synthesize_chatterbox(text: str, out_path, seed: int | None = None):
         cmd += ["--veredeln"]
     if st.get("prosodie"):                       # Satzmelodie-Plan je Satz (Profil-Schalter, 18.10.2026)
         cmd += ["--prosodie"]
-    import gpu_budget                                      # zentrale GPU-Warteschlange (29.09.), Fallback ohne
+    from tts import gpu_spur                               # zentrale GPU-Warteschlange (29.09.), Fallback ohne; in einer Spur schon gebucht
+
+    sv = (_server_dieses_threads(CHATTERBOX_PYTHON, BASE_DIR / "tts" / "chatterbox_worker.py", str(BASE_DIR))
+          if _server_aktiv else None)
 
     def _lauf():
-        with gpu_budget.slot("tts", name="tts chatterbox (newsroom)", vram_mb=5000):
-            return subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",
-                                  cwd=str(BASE_DIR))
+        with gpu_spur.slot("tts", name="tts chatterbox (newsroom)", vram_mb=5000):
+            if sv is not None:
+                with gpu_spur.phasen.gemeinsam():        # Sprechen mehrerer Spuren gleichzeitig ok, Veredeln nie daneben
+                    return sv.lauf(cmd[2:])              # cmd = [python, worker, *argumente]
+            return worker_mit_ausgabe(cmd, cwd=str(BASE_DIR), prefix="chatterbox")
     result = worker_mit_wiederholung(_lauf, out_path, name="chatterbox worker", log=logger.warning)
     Path(text_file).unlink(missing_ok=True)
     if result.returncode != 0 or not Path(out_path).exists():

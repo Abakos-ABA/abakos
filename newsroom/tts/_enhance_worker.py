@@ -14,16 +14,59 @@ import torch
 import torchaudio
 from resemble_enhance.enhancer.inference import enhance, denoise
 
-src, dst, mode = sys.argv[1], sys.argv[2], sys.argv[3]
-lambd = float(sys.argv[4]) if len(sys.argv) > 4 and sys.argv[4] else 0.5
-device = (sys.argv[5] if len(sys.argv) > 5 and sys.argv[5] else os.environ.get("ENHANCE_DEVICE")) or \
-    ("cuda" if torch.cuda.is_available() else "cpu")
-wav, sr = torchaudio.load(src)
-wav = wav.mean(0)
-if mode == "denoise":
-    out, osr = denoise(wav, sr, device)
-else:
-    out, osr = enhance(wav, sr, device, nfe=32, solver="midpoint", lambd=lambd, tau=0.5)
-torchaudio.save(dst, out[None].clamp(-1, 1), osr, encoding="PCM_S", bits_per_sample=16)
-peak_mb = torch.cuda.max_memory_allocated() / 1024**2 if device == "cuda" else 0.0
-print(dst, osr, device, f"{peak_mb:.0f}MB")
+
+def lauf(src, dst, mode, lambd, device):
+    wav, sr = torchaudio.load(src)
+    wav = wav.mean(0)
+    if mode == "denoise":
+        out, osr = denoise(wav, sr, device)
+    else:
+        out, osr = enhance(wav, sr, device, nfe=32, solver="midpoint", lambd=lambd, tau=0.5)
+    torchaudio.save(dst, out[None].clamp(-1, 1), osr, encoding="PCM_S", bits_per_sample=16)
+    peak_mb = torch.cuda.max_memory_allocated() / 1024**2 if device == "cuda" else 0.0
+    print(dst, osr, device, f"{peak_mb:.0f}MB", flush=True)
+
+
+def vram_cache_freigeben() -> None:
+    """Zwischen zwei Auftraegen den PyTorch-Zwischenspeicher zurueckgeben (wie tts/chatterbox_worker.py): der Enhance-
+    Dauerprozess hielt sonst ~13 GB VRAM, obwohl ein Auftrag nur ~8,8 GB Spitze braucht und er die meiste Zeit wartet
+    (Messung 04.11.2026). Das Modell bleibt geladen."""
+    try:
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def server():
+    """Dauerbetrieb (tts/veredelung.py, wie tts/chatterbox_worker.py --server): Modell bleibt geladen, je Auftrag eine
+    JSON-Zeile [src, dst, mode, lambd, device] auf stdin, Antwort "@@FERTIG <rc>"."""
+    import json
+    import traceback
+    print("@@FERTIG bereit", flush=True)
+    for zeile in sys.stdin:
+        zeile = zeile.strip()
+        if zeile == "quit":
+            break
+        if not zeile:
+            continue
+        rc = 0
+        try:
+            src, dst, mode, lambd, device = json.loads(zeile)
+            lauf(src, dst, mode, float(lambd or 0.5), device or ("cuda" if torch.cuda.is_available() else "cpu"))
+        except Exception:  # noqa: BLE001
+            traceback.print_exc()
+            rc = 1
+        finally:
+            vram_cache_freigeben()
+        print(f"@@FERTIG {rc}", flush=True)
+
+
+if __name__ == "__main__":
+    if sys.argv[1:2] == ["--server"]:
+        server()
+    else:
+        src, dst, mode = sys.argv[1], sys.argv[2], sys.argv[3]
+        lambd = float(sys.argv[4]) if len(sys.argv) > 4 and sys.argv[4] else 0.5
+        device = (sys.argv[5] if len(sys.argv) > 5 and sys.argv[5] else os.environ.get("ENHANCE_DEVICE")) or             ("cuda" if torch.cuda.is_available() else "cpu")
+        lauf(src, dst, mode, lambd, device)

@@ -22,6 +22,7 @@ import argparse
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -113,10 +114,10 @@ def split_sentences(text: str, max_chars: int = 280) -> list[str]:
     return out
 
 
-def main():
+def _parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--text-file", required=True)
-    ap.add_argument("--out", required=True)
+    ap.add_argument("--text-file")
+    ap.add_argument("--out")
     ap.add_argument("--lang", default="de")
     ap.add_argument("--ref", default=None)
     ap.add_argument("--exaggeration", type=float, default=0.4)
@@ -126,15 +127,23 @@ def main():
     ap.add_argument("--seed", type=int, default=None)              # fester Seed = reproduzierbar
     ap.add_argument("--veredeln", action="store_true")             # Variante A: Satz fuer Satz, Pause+Atmer statt fixer Stille
     ap.add_argument("--prosodie", action="store_true")             # Satzmelodie-Plan je Satz (18.10.2026)
-    args = ap.parse_args()
+    ap.add_argument("--server", action="store_true")               # Dauerbetrieb: Modell einmal laden, Auftraege per stdin
+    return ap
 
+
+def _lade_modell():
     from chatterbox.mtl_tts import ChatterboxMultilingualTTS
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     t0 = time.time()
     model = ChatterboxMultilingualTTS.from_pretrained(device=device)
     print(f"model loaded on {device} in {time.time() - t0:.0f}s", flush=True)
+    return model
 
+
+def erzeuge(model, args) -> None:
+    """Ein Auftrag: args.text_file -> args.out (Seed/Pausen/Prosodie wie immer; der Seed wird je Auftrag gesetzt,
+    ein Dauerprozess klingt daher bei gleichem Text+Seed wie ein frisch gestarteter)."""
     text = open(args.text_file, encoding="utf-8").read()
     chunks = split_sentences(text, 1 if (args.veredeln or args.prosodie) else args.max_chars)
     if args.seed is not None:
@@ -164,6 +173,54 @@ def main():
     # 16-bit PCM on purpose: 32-bit float wavs trip up the stdlib wave module used downstream
     torchaudio.save(args.out, audio, model.sr, encoding="PCM_S", bits_per_sample=16)
     print(f"wrote {args.out}: {audio.shape[-1] / model.sr:.1f}s", flush=True)
+
+
+FERTIG_MARKE = "@@FERTIG"
+
+
+def vram_cache_freigeben() -> None:
+    """Zwischen zwei Auftraegen den PyTorch-Zwischenspeicher an die Karte zurueckgeben: der Dauerprozess hielt sonst mit
+    dem geladenen Modell ~4 GB (Chatterbox) bzw. ~13 GB (Enhance) VRAM, auch wenn er minutenlang nichts tat (Messung
+    04.11.2026, Karte die ganze Nacht 22 von 23 GB voll). Das Modell bleibt geladen, nur freie Bloecke gehen zurueck."""
+    try:
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def server():
+    """Dauerbetrieb (tts/tts_client.py _ChatterboxServer): eine JSON-Zeile mit der Argumentliste pro Auftrag auf stdin,
+    Antwort "@@FERTIG <rc>" auf stdout (0 = ok, 1 = Auftrag fehlgeschlagen; ein Absturz beendet den Prozess)."""
+    import json
+    import traceback
+    model = _lade_modell()
+    print(f"{FERTIG_MARKE} bereit", flush=True)
+    for zeile in sys.stdin:
+        zeile = zeile.strip()
+        if not zeile:
+            continue
+        if zeile == "quit":
+            break
+        rc = 0
+        try:
+            erzeuge(model, _parser().parse_args(json.loads(zeile)))
+        except Exception:  # noqa: BLE001 - ein kaputter Auftrag soll den geladenen Dienst nicht beenden
+            traceback.print_exc()
+            print("Error: Auftrag fehlgeschlagen", flush=True)
+            rc = 1
+        finally:
+            vram_cache_freigeben()
+        print(f"{FERTIG_MARKE} {rc}", flush=True)
+
+
+def main():
+    args = _parser().parse_args()
+    if args.server:
+        return server()
+    if not (args.text_file and args.out):
+        raise SystemExit("--text-file und --out fehlen")
+    erzeuge(_lade_modell(), args)
 
 
 if __name__ == "__main__":

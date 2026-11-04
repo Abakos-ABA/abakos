@@ -591,10 +591,13 @@ def _nachkommen(pid) -> set[int]:
 
 def _gpu_lebenszeichen(pids: set[int]) -> float:
     """Juengstes Lebenszeichen der zentralen GPU-Warteschlange (jarvis tools/gpu_queue.py) fuer diese PIDs: ein
-    wartender Eintrag erneuert seen_ts alle 2 min, ein laufender GPU-Job zaehlt als «jetzt». 0.0 = kein Eintrag.
-    Vorfall 21.10.2026 (Folgen 00:00 und 10:00): die Vertonung stand hinter Cinema-Jobs in der Warteschlange bzw.
-    rechnete neben ihnen auf der geteilten Karte stark ausgebremst - beides ohne Logzeile, der Stillstands-Waechter
-    hielt sie nach 60 min fuer einen Haenger und beendete sie."""
+    wartender Eintrag erneuert seen_ts alle 2 min; ein laufender GPU-Job zaehlt mit seinem Platzbeginn bzw. der letzten
+    CPU-/GPU-Aktivitaet, die die Queue-Wache an seinem Prozessbaum sah (wd_ts) - NICHT mehr als «jetzt». 0.0 = kein
+    Eintrag. Vorfall 21.10.2026 (Folgen 00:00 und 10:00): die Vertonung stand hinter Cinema-Jobs in der Warteschlange
+    bzw. rechnete neben ihnen auf der geteilten Karte stark ausgebremst - beides ohne Logzeile, der Stillstands-
+    Waechter hielt sie nach 60 min fuer einen Haenger und beendete sie. Vorfall 04.11.2026 (Folge 00:00): «laufend =
+    jetzt» machte den Waechter blind - der Chatterbox-Worker hing 5,5 h in CUDA, die Spur hielt ihren Platz, die Karte
+    war die ganze Nacht voll (22 von 23 GB), der Desktop stockte; ein gehaltener Platz allein ist kein Lebenszeichen."""
     pids = {int(p) for p in pids if p}
     if not pids:
         return 0.0
@@ -608,10 +611,10 @@ def _gpu_lebenszeichen(pids: set[int]) -> float:
         st = json.loads(Path(q.state_path()).read_text(encoding="utf-8"))
     except Exception:   # noqa: BLE001 - Warteschlange nicht lesbar: dann zaehlen Log/Dateien allein
         return 0.0
-    now, t = time.time(), 0.0
+    t = 0.0
     for e in st.get("running") or []:
         if int(e.get("pid") or 0) in pids:
-            t = now
+            t = max(t, float(e.get("started_ts") or 0), float(e.get("wd_ts") or 0))
     for e in st.get("waiting") or []:
         if int(e.get("pid") or 0) in pids:
             t = max(t, float(e.get("seen_ts") or e.get("since_ts") or 0))
