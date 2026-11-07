@@ -122,7 +122,9 @@ def _host_video(ordner: Path, ton: Path, ende: float, seed: int) -> Path:
     work = ordner / "_maske"
     work.mkdir(exist_ok=True)
     host = None
-    if os.environ.get("NEWS_MASKEN_FLF", "0") == "1":
+    if mf.rede_aktiv():
+        host = mf.rede_spur(ton, ende, work / "host_spur.mp4", seed)
+    if host is None and os.environ.get("NEWS_MASKEN_FLF", "0") == "1":
         import maske_flf_mix
         if maske_flf_mix.verfuegbar():
             host = work / "host_spur.mp4"

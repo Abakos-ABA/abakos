@@ -180,6 +180,12 @@ def host_spur(loop: Path, ton: Path, ende: float, out: Path, versatz_s: float = 
     """Durchgehende Sprecher-Spur ueber die ganze Folge: Wan-Loop (24 fps, nahtlos) fortlaufend, Startversatz je Folge,
     darauf sprechsynchrone Zusatzbewegung (Kopf nickt/neigt sich dezent an Betonungen, Schultern atmen mit der
     Lautheit). Maske/Mund bleiben starr (nur Starrkoerper-Bewegung des Kopfbereichs, keine Verformung)."""
+    anim = os.environ.get("NEWS_MASKEN_ANIM", "").strip().lower()     # Standard leer = aus; atem|parallax: tools/maske_bewegung.py
+    if anim in ("atem", "parallax"):
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import maske_bewegung
+        maske_bewegung.render(ton, ende, out, anim, versatz_s=versatz_s)
+        return
     cap = cv2.VideoCapture(str(loop))
     fr = []
     while True:
@@ -216,6 +222,34 @@ def host_spur(loop: Path, ton: Path, ende: float, out: Path, versatz_s: float = 
         p.stdin.write(f.tobytes())
     p.stdin.close()
     p.wait()
+
+
+def rede_spur(ton: Path, ende: float, out: Path, seed: int) -> Path | None:
+    """Sprecher-Spur im Modus rede (tools/maske_bewegung.py, NEWS_MASKEN_ANIM=rede, seit 07.11.2026 Standard): Kopf und
+    Oberkoerper folgen dem Sprechen ohne Clips und ohne Schleife. Danach dieselben Wachen wie die FLF-Spur (Mund starr,
+    Kopf unter KOPF_GRENZE); schlaegt eine an oder bricht das Rendern ab -> None, der Aufrufer nimmt den bisherigen Weg."""
+    if out.exists():
+        return out
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import maske_bewegung
+    import maske_mund
+    try:
+        maske_bewegung.render(ton, ende, out, "rede", seed=seed)
+        mund, kopf = maske_mund.mund_bewegung(out), maske_mund.kopf_bewegung(out)
+    except Exception as e:   # noqa: BLE001 - Rueckfall statt Absturz der Folge
+        print(f"Sprecher-Spur rede fehlgeschlagen ({e}) -> bisheriger Weg", flush=True)
+        out.unlink(missing_ok=True)
+        return None
+    if not (mund["ok"] and kopf["ok"]):
+        print(f"Sprecher-Spur rede: Wache rot (Mund {mund}, Kopf {kopf}) -> bisheriger Weg", flush=True)
+        out.unlink(missing_ok=True)
+        return None
+    print(f"Sprecher-Spur rede ok (Mund {mund['mund_rest_mittel']}, Kopf {kopf['kopf_px_max']} px)", flush=True)
+    return out
+
+
+def rede_aktiv() -> bool:
+    return os.environ.get("NEWS_MASKEN_ANIM", "").strip().lower() == "rede"
 
 
 def host_quelle(arg: str | None, work: Path) -> Path:
@@ -513,7 +547,9 @@ def bauen(folge: Path, out: Path, max_s: float | None = None, host_arg: str | No
     if nur_plan:
         return erg
     host = None
-    if host_arg is None and os.environ.get("NEWS_MASKEN_FLF", "0") == "1":
+    if host_arg is None and rede_aktiv():
+        host = rede_spur(voll, ende, work / "host_spur.mp4", folgen_seed(folge, seed))
+    if host is None and host_arg is None and os.environ.get("NEWS_MASKEN_FLF", "0") == "1":
         # Kurze Wan-Clips mit gleichem Erst-/Letztbild (tools/maske_flf_mix.py); zu wenige gute Clips -> CPU-Loop (Rueckfall)
         sys.path.insert(0, str(Path(__file__).resolve().parent))
         import maske_flf_mix
