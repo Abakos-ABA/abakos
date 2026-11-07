@@ -202,8 +202,28 @@ def _schreiben(pfad: Path, daten) -> None:
     tmp.replace(pfad)
 
 
-def warteschlange() -> list[dict]:
-    return _lesen(QUEUE_PFAD, [])
+EIGEN_MAX_ALTER_STD = 36   # eigene Nachrichten-Shorts: aelter als das gilt die Meldung als ueberholt
+
+
+def warteschlange(now: datetime | None = None) -> list[dict]:
+    """Befund 07.11.2026 (Task 20261107-214554-946a): zwei Bolsonaro-Shorts vom 29.10. lagen 9 Tage in der
+    Warteschlange und waeren nach jeder Reparatur als «Neuigkeit» hochgegangen. Eigene Shorts (slot «eigen») gelten
+    nach EIGEN_MAX_ALTER_STD als veraltet und fliegen raus; die Wache baut dann frische nach."""
+    q = _lesen(QUEUE_PFAD, [])
+    now = now or datetime.now().astimezone()
+    frisch = []
+    for e in q:
+        try:
+            alt_h = (now - datetime.fromisoformat(e.get("eingereiht_am") or "")).total_seconds() / 3600
+        except (TypeError, ValueError):
+            alt_h = 0
+        if e.get("slot") == "eigen" and alt_h > EIGEN_MAX_ALTER_STD:
+            print(f"Veraltet verworfen ({alt_h:.0f} h): {e.get('meta', {}).get('title')}")
+            continue
+        frisch.append(e)
+    if len(frisch) != len(q):
+        _schreiben(QUEUE_PFAD, frisch)
+    return frisch
 
 
 def einreihen(key: str, slot: str, ordner: Path, shorts: list[dict]) -> int:
@@ -305,10 +325,14 @@ def _verwaister_upload(log_pfad: Path, bekannte_ids: set[str], now: datetime) ->
             "nachzug_fehler": None if public else "verwaister Upload uebernommen, Studio-Bestaetigung unklar"}
 
 
-def takt(now: datetime | None = None, trocken: bool = False) -> dict:
+def takt(now: datetime | None = None, trocken: bool = False, jetzt: bool = False) -> dict:
+    """jetzt=True (Befund 28.10.2026: Takt stand 2 Tage, Warteschlange voll): einen Short sofort ausserhalb der
+    festen Slots hochladen, als eigener Nachhol-Schluessel im Verlauf."""
     now = now or datetime.now().astimezone()
     verlauf = _lesen(VERLAUF_PFAD, {"hochgeladen": [], "erledigte_slots": []})
     schluessel = faelliger_slot(now, verlauf)
+    if jetzt and not schluessel:
+        schluessel = f"{now.date().isoformat()} nachholen-{now.strftime('%H:%M')}"
     if not schluessel:
         return {"faellig": False}
     q = warteschlange()
@@ -330,6 +354,9 @@ def takt(now: datetime | None = None, trocken: bool = False) -> dict:
         return {"faellig": True, "slot": schluessel, "hochgeladen": False,
                 "grund": f"Datei fehlt, verworfen: {mp4}"}
     log_pfad = Path(eintrag["ordner"]) / "shorts" / f"{eintrag['szene_id']}_upload.log"
+    # Befund 07.11.2026: eigene Shorts liegen direkt in data/weltlage_short_*/ ohne Unterordner «shorts» - das
+    # Upload-Log brach mit FileNotFoundError ab, seit 29.10. kam darum kein einziger Weltlage-Short mehr hoch.
+    log_pfad.parent.mkdir(parents=True, exist_ok=True)
     bekannte = {e.get("video_id") for e in verlauf.get("hochgeladen", [])}
     try:
         res = _verwaister_upload(log_pfad, bekannte, now)
@@ -474,6 +501,7 @@ def nachtrag_takt(now: datetime | None = None, trocken: bool = False) -> dict:
         liste = [e for e in liste if e is not eintrag]
         _schreiben(NACHTRAG_PFAD, liste)
         return {"faellig": True, "hochgeladen": False, "grund": f"Datei fehlt, verworfen: {mp4}"}
+    (Path(eintrag["ordner"]) / "shorts").mkdir(parents=True, exist_ok=True)   # wie takt(), Befund 07.11.2026
     try:
         res = upload_datei(mp4, eintrag["meta"], None, visibility="public",
                            log_path=Path(eintrag["ordner"]) / "shorts" / f"{eintrag['szene_id']}_nachtrag_upload.log")
@@ -828,6 +856,7 @@ def main():
     sub = p.add_subparsers(dest="cmd", required=True)
     t = sub.add_parser("takt")
     t.add_argument("--trocken", action="store_true")
+    t.add_argument("--jetzt", action="store_true", help="einen Short sofort ausserhalb der Slots hochladen")
     sub.add_parser("status")
     sub.add_parser("thumbnail_nachtrag")
     n = sub.add_parser("nachtrag_takt")
@@ -842,7 +871,7 @@ def main():
     if a.cmd == "nachtrag_takt":
         print(json.dumps(nachtrag_takt(trocken=a.trocken), ensure_ascii=False))
         return
-    erg = takt(trocken=a.trocken)
+    erg = takt(trocken=a.trocken, jetzt=a.jetzt)
     print(json.dumps(erg, ensure_ascii=False))
 
 
