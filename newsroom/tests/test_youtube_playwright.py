@@ -7,6 +7,7 @@ import sys
 import tempfile
 import types
 import unittest
+from unittest import mock
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -237,6 +238,137 @@ class Veroeffentlichen(unittest.TestCase):
         r = yp.veroeffentlichen("x" * 11, "PUBLIC", log=lambda m: None, pause_s=0)
         self.assertTrue(r["ok"])
         self.assertIn("Timeout", r["fehler"])
+
+
+class _Uhr:
+    def __init__(self):
+        self.t = 1000.0
+
+    def __call__(self):
+        return self.t
+
+
+class _TransferSeite:
+    """Studio-Fortschritt: je Abfrage der naechste Text, das Warten laeuft auf der Test-Uhr."""
+
+    def __init__(self, texte, uhr, schritt_s=60):
+        self.texte, self.uhr, self.schritt_s = list(texte), uhr, schritt_s
+
+    def evaluate(self, _js):
+        return self.texte.pop(0) if len(self.texte) > 1 else self.texte[0]
+
+    def wait_for_timeout(self, _ms):
+        self.uhr.t += self.schritt_s
+
+
+class WarteAufTransferTest(unittest.TestCase):
+    def _lauf(self, texte, timeout_min, schritt_s=60):
+        uhr = _Uhr()
+        with mock.patch("time.time", uhr):
+            try:
+                return yp._warte_auf_transfer(_TransferSeite(texte, uhr, schritt_s), lambda m: None, timeout_min), uhr.t - 1000
+            except RuntimeError as e:
+                return e, uhr.t - 1000
+
+    def test_langsamer_transfer_mit_fortschritt_laeuft_ueber_das_limit(self):
+        # Vorfall 08.11.2026: rund 1 % pro Minute, Limit 60 min, frueher Abbruch bei 75 %
+        texte = [f"Wird hochgeladen {p} % ... Noch {100 - p} Minuten" for p in range(1, 100)]
+        text, dauer = self._lauf(texte + ["Upload abgeschlossen ... wird verarbeitet"], 60)
+        self.assertIn("abgeschlossen", text)
+        self.assertGreater(dauer, 60 * 60)
+
+    def test_stillstand_bricht_ab(self):
+        fehler, dauer = self._lauf(["Wird hochgeladen 40 % ... Noch 9 Minuten"], 5)
+        self.assertIsInstance(fehler, RuntimeError)
+        self.assertLessEqual(dauer, (yp.TRANSFER_STILLSTAND_MIN + 1) * 60)
+
+    def test_harte_obergrenze(self):
+        fehler, dauer = self._lauf([f"Wird hochgeladen {p} %" for p in range(1, 100)], 60, schritt_s=600)
+        self.assertIsInstance(fehler, RuntimeError)
+        self.assertLessEqual(dauer, yp.TRANSFER_MAX_MIN * 60 + 600)
+
+
+class _Treffer:
+    def __init__(self, n, beim_klick=None, klick_fehler=False):
+        self.n, self.beim_klick, self.klick_fehler = n, beim_klick, klick_fehler
+
+    @property
+    def first(self):
+        return self
+
+    def count(self):
+        return self.n
+
+    def scroll_into_view_if_needed(self):
+        pass
+
+    def click(self, timeout=None):
+        if self.klick_fehler:
+            raise RuntimeError("Timeout: Knopf nicht klickbar")
+        if self.beim_klick:
+            self.beim_klick()
+
+
+class _Dialog:
+    def __init__(self, text, assistent=False, abbrechen=None):
+        self.text, self.assistent, self.abbrechen = text, assistent, abbrechen
+
+    def inner_text(self):
+        return self.text
+
+    def locator(self, sel):
+        if sel == "#title-textarea":
+            return _Treffer(1 if self.assistent else 0)
+        return _Treffer(1 if self.abbrechen else 0, self.abbrechen)
+
+
+class _ChooserFehlt:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        raise RuntimeError("Timeout: keine Dateiauswahl")
+
+
+class _ThumbSeite:
+    def __init__(self, dialoge, knopf=None):
+        self.dialoge, self.knopf = dialoge, knopf or _Treffer(1)
+        self.tasten = []
+        self.keyboard = types.SimpleNamespace(press=self.tasten.append)
+
+    def locator(self, sel):
+        if sel.startswith("ytcp-thumbnail-uploader"):
+            return self.knopf
+        return types.SimpleNamespace(all=lambda: list(self.dialoge))
+
+    def expect_file_chooser(self, timeout=None):
+        return _ChooserFehlt()
+
+    def wait_for_timeout(self, _ms):
+        pass
+
+
+class ThumbnailDialogTest(unittest.TestCase):
+    def _setzen(self, seite):
+        return yp._thumbnail_setzen(seite, "t.jpg", lambda m: None, lambda n: None)
+
+    def test_ohne_neuen_dialog_bleibt_der_assistent_offen(self):
+        # Vorfall 08.11.2026: Escape schloss den Assistenten, danach fehlte VIDEO_MADE_FOR_KIDS_NOT_MFK
+        seite = _ThumbSeite([_Dialog("Details Titel", assistent=True)], _Treffer(1, klick_fehler=True))
+        self.assertTrue(self._setzen(seite).startswith("unklar"))
+        self.assertEqual(seite.tasten, [])
+
+    def test_assistent_text_gilt_nicht_als_telefon_sperre(self):
+        seite = _ThumbSeite([_Dialog("Bitte bestätigen Details", assistent=True)], _Treffer(1, klick_fehler=True))
+        self.assertTrue(self._setzen(seite).startswith("unklar"))
+
+    def test_telefon_dialog_wird_gemeldet_und_nur_er_geschlossen(self):
+        seite = _ThumbSeite([_Dialog("Details Titel", assistent=True)])
+        geklickt = []
+        telefon = _Dialog("Du musst deine Telefonnummer bestätigen", abbrechen=lambda: geklickt.append(1))
+        seite.knopf = _Treffer(1, lambda: seite.dialoge.append(telefon))
+        self.assertTrue(self._setzen(seite).startswith("gesperrt"))
+        self.assertEqual((geklickt, seite.tasten), ([1], []))
 
 
 if __name__ == "__main__":

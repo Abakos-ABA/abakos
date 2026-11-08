@@ -55,6 +55,8 @@ from upload.metadata import build as build_metadata
 logger = logging.getLogger(__name__)
 
 STEP_TIMEOUT_MS = 120_000        # 06.10.2026: 60 s reichten fuer Studios Bearbeiten-Seite nicht immer
+TRANSFER_STILLSTAND_MIN = 20     # 08.11.2026: so lange darf der Dateitransfer ohne neuen Prozentpunkt stehen
+TRANSFER_MAX_MIN = 360           # absolute Obergrenze fuer einen Dateitransfer
 UPLOAD_TIMEOUT_MS = 20 * 60_000   # file transfer + processing of the dialog, generous on purpose
 PRUEF_WARTEN_MIN = float(os.environ.get("NEWS_UPLOAD_PRUEF_WARTEN_MIN", "20"))   # Vorabpruefung abwarten
 VEROEFFENTLICHEN_VERSUCHE = int(os.environ.get("NEWS_UPLOAD_VEROEFFENTLICHEN_VERSUCHE", "3"))
@@ -205,12 +207,20 @@ def upload_stand(text: str) -> tuple[str, int | None]:
 
 
 def _warte_auf_transfer(page, log, timeout_min: float):
-    """Blockiert, bis der Dateitransfer 100 Prozent hat und die Verarbeitung gestartet ist."""
+    """Blockiert, bis der Dateitransfer 100 Prozent hat und die Verarbeitung gestartet ist. timeout_min gilt nur noch
+    ohne Fortschritt (Vorfall 08.11.2026: 373 MB am langsamen Upload, nach 60 min bei 75 % abgebrochen, obwohl jede
+    Minute Prozente dazukamen): jeder neue Prozentpunkt verlaengert auf mindestens TRANSFER_STILLSTAND_MIN, hoechstens
+    bis TRANSFER_MAX_MIN."""
     import time
-    ende, letzt, letzt_log = time.time() + timeout_min * 60, None, 0.0
+    start = time.time()
+    ende, letzt, letzt_log, bester = start + timeout_min * 60, None, 0.0, -1
+    hart = start + max(timeout_min, TRANSFER_MAX_MIN) * 60
     while time.time() < ende:
         text = page.evaluate(_FORTSCHRITT_JS)
         stand, pct = upload_stand(text)
+        if pct is not None and pct > bester:
+            bester = pct
+            ende = min(hart, max(ende, time.time() + TRANSFER_STILLSTAND_MIN * 60))
         if text != letzt or time.time() - letzt_log > 60:
             log(f"Upload-Fortschritt: {stand} {'' if pct is None else f'{pct} %'} «{text[:120]}»")
             letzt, letzt_log = text, time.time()
@@ -219,7 +229,8 @@ def _warte_auf_transfer(page, log, timeout_min: float):
         if stand == "fehler":
             raise RuntimeError(f"Studio meldet einen Upload-Fehler: {text[:200]}")
         page.wait_for_timeout(5000)
-    raise RuntimeError(f"Dateitransfer nach {timeout_min:.0f} min nicht abgeschlossen (letzter Stand «{letzt}»)")
+    raise RuntimeError(f"Dateitransfer nach {(time.time() - start) / 60:.0f} min nicht abgeschlossen "
+                       f"(letzter Stand «{letzt}»)")
 
 
 def _thumbnail_setzen(page, thumb_path, log, shot) -> str:
@@ -229,10 +240,13 @@ def _thumbnail_setzen(page, thumb_path, log, shot) -> str:
     bestaetigen, um benutzerdefinierte Thumbnails hinzuzufuegen» - der wird abgebrochen und als gesperrt gemeldet."""
     sperre = re.compile(r"telefon|phone|verif|bestätig", re.I)
 
+    def fremde_dialoge():
+        # ohne den Upload-Assistenten selbst (der ist auch ein sichtbarer Dialog, erkennbar am Titelfeld)
+        return [d for d in page.locator("tp-yt-paper-dialog:visible, ytcp-dialog:visible, [role=dialog]:visible").all()
+                if d.inner_text().strip() and not d.locator("#title-textarea").count()]
+
     def dialoge():
-        return [" ".join(d.inner_text()[:300].split()) for d in
-                page.locator("tp-yt-paper-dialog:visible, ytcp-dialog:visible, [role=dialog]:visible").all()
-                if d.inner_text().strip()]
+        return [" ".join(d.inner_text()[:300].split()) for d in fremde_dialoge()]
 
     knopf = page.locator("ytcp-thumbnail-uploader #select-button").first
     if not knopf.count():
@@ -241,19 +255,21 @@ def _thumbnail_setzen(page, thumb_path, log, shot) -> str:
     try:
         knopf.scroll_into_view_if_needed()
         with page.expect_file_chooser(timeout=8000) as fc:
-            knopf.click()
+            knopf.click(timeout=8000)
         fc.value.set_files(str(thumb_path))
     except Exception:
         neu = [d for d in dialoge() if d not in vorher]
         shot("thumbnail_sperre")
         log(f"Thumbnail: keine Dateiauswahl, Dialog: {neu}")
-        abbrechen = page.locator("[role=dialog]:visible #cancel-button, tp-yt-paper-dialog:visible #cancel-button, "
-                                 "ytcp-dialog:visible #cancel-button").first
-        if abbrechen.count():
-            abbrechen.click()
-        else:
-            page.keyboard.press("Escape")
-        page.wait_for_timeout(1000)
+        # Nur einen wirklich neu aufgegangenen Dialog schliessen. Vorfall 08.11.2026 (wieder aufgenommener Entwurf: Knopf
+        # nicht klickbar, gar kein neuer Dialog): Escape schloss den Upload-Assistenten selbst, danach fehlte jedes Feld.
+        if neu:
+            abbrechen = fremde_dialoge()[-1].locator("#cancel-button").first
+            if abbrechen.count():
+                abbrechen.click()
+            else:
+                page.keyboard.press("Escape")
+            page.wait_for_timeout(1000)
         if any(sperre.search(d) for d in neu):
             return "gesperrt: Studio verlangt die Telefonbestätigung des Kanals für eigene Thumbnails"
         return "unklar: Studio hat keine Dateiauswahl geöffnet"
