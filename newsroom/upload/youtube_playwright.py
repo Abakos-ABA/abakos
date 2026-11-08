@@ -57,6 +57,9 @@ logger = logging.getLogger(__name__)
 STEP_TIMEOUT_MS = 120_000        # 06.10.2026: 60 s reichten fuer Studios Bearbeiten-Seite nicht immer
 TRANSFER_STILLSTAND_MIN = 20     # 08.11.2026: so lange darf der Dateitransfer ohne neuen Prozentpunkt stehen
 TRANSFER_MAX_MIN = 360           # absolute Obergrenze fuer einen Dateitransfer
+SPRACH_WARTEN_MS = 30_000        # 08.11.2026: so lange je Versuch auf die Sprachliste im Assistenten warten
+SPRACH_VERSUCHE = 2
+SPRACH_NAMEN = {"de": ("deutsch", "german"), "en": ("englisch", "english")}   # Anzeige je nach Sprache des Google-Kontos
 UPLOAD_TIMEOUT_MS = 20 * 60_000   # file transfer + processing of the dialog, generous on purpose
 PRUEF_WARTEN_MIN = float(os.environ.get("NEWS_UPLOAD_PRUEF_WARTEN_MIN", "20"))   # Vorabpruefung abwarten
 VEROEFFENTLICHEN_VERSUCHE = int(os.environ.get("NEWS_UPLOAD_VEROEFFENTLICHEN_VERSUCHE", "3"))
@@ -641,7 +644,7 @@ def _wizard(page, video_path: str, meta: dict, thumb_path, visibility: str, log,
     _click_radio(page, "VIDEO_HAS_ALTERED_CONTENT_YES")   # YouTube's synthetic-media disclosure
     _click_radio(page, "VIDEO_PAID_PRODUCT_PLACEMENT_NO")
     _add_tags(page, meta.get("tags") or [])
-    _set_language(page, meta.get("language") or "de")
+    _set_language(page, meta.get("language") or "de", log)
     shot("details")
     for _ in range(3):  # Details -> Video elements -> Checks -> Visibility
         page.locator("#next-button").first.click()
@@ -1118,13 +1121,38 @@ def _add_tags(page, tags: list[str]):
         field.press("Enter")
 
 
-def _set_language(page, language: str):
-    """Video language drives YouTube's auto-dubbing (it translates FROM this language)."""
+def _sprachliste_schliessen(page, box):
+    # Klick neben die Liste per Maus: Playwrights click() wartet sonst auf die Liste, die gerade im Weg liegt; Escape
+    # wuerde den Upload-Assistenten schliessen (Vorfall 08.11.2026, siehe _thumbnail_setzen)
+    try:
+        ziel = box.locator(".section-label-with-description").first.bounding_box()
+        if ziel:
+            page.mouse.click(ziel["x"] + 5, ziel["y"] + ziel["height"] / 2)
+        page.wait_for_timeout(1000)
+    except Exception:
+        pass
+
+
+def _set_language(page, language: str, log=lambda _msg: None):
+    """Video language drives YouTube's auto-dubbing (it translates FROM this language). Nur ein Nebenschritt: Vorfall
+    08.11.2026 (RiCQEZYbgZw, 16:30 und 17:28): die Liste ging auf, blieb 120 s leer, und der Abbruch kostete die ganze
+    Folge. Darum zwei Versuche mit kurzer Wartezeit, danach weiter mit Studios Vorgabe (Kanalsprache)."""
     box = page.locator("#language-subtitles-cc")
     box.scroll_into_view_if_needed()
-    box.locator("ytcp-dropdown-trigger").first.click()
-    page.locator(f'tp-yt-paper-item[test-id="{language}"]').first.click()
-    page.wait_for_timeout(500)
+    feld = box.locator("ytcp-form-language-input").first
+    aktuell = feld.inner_text().lower() if feld.count() else ""
+    if any(name in aktuell for name in SPRACH_NAMEN.get(language, ())):
+        return                                     # wieder aufgenommener Entwurf: steht schon richtig
+    option = page.locator(f'tp-yt-paper-item[test-id="{language}"]').first
+    for _ in range(SPRACH_VERSUCHE):
+        try:
+            box.locator("ytcp-dropdown-trigger").first.click(timeout=SPRACH_WARTEN_MS)
+            option.click(timeout=SPRACH_WARTEN_MS)
+            page.wait_for_timeout(500)
+            return
+        except Exception:
+            _sprachliste_schliessen(page, box)
+    log(f"Videosprache {language} nicht gesetzt: Studio zeigte die Sprachliste nicht, Upload geht weiter")
 
 
 def _video_id_from_dialog(page) -> str:

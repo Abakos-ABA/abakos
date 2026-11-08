@@ -371,5 +371,80 @@ class ThumbnailDialogTest(unittest.TestCase):
         self.assertEqual((geklickt, seite.tasten), ([1], []))
 
 
+class _SprachTreffer:
+    def __init__(self, seite, name):
+        self.seite, self.name = seite, name
+
+    @property
+    def first(self):
+        return self
+
+    def count(self):
+        return 1
+
+    def scroll_into_view_if_needed(self):
+        pass
+
+    def locator(self, sel):
+        return _SprachTreffer(self.seite, sel)
+
+    def inner_text(self):
+        return f"Videosprache\n{self.seite.aktuell}"
+
+    def bounding_box(self):
+        return {"x": 10, "y": 20, "width": 100, "height": 10}
+
+    def click(self, timeout=None):
+        self.seite.klicks.append((self.name, timeout))
+        if "paper-item" in self.name:
+            if self.seite.leer_bis >= self.seite.option_klicks():
+                raise TimeoutError("Liste leer")
+
+
+class _SprachSeite:
+    def __init__(self, aktuell="Auswählen", leer_bis=0):
+        self.aktuell, self.leer_bis, self.klicks, self.maus, self.tasten = aktuell, leer_bis, [], [], []
+        self.mouse = types.SimpleNamespace(click=lambda x, y: self.maus.append((x, y)))
+        self.keyboard = types.SimpleNamespace(press=self.tasten.append)
+
+    def option_klicks(self):
+        return sum("paper-item" in n for n, _ in self.klicks)
+
+    def locator(self, sel):
+        return _SprachTreffer(self, sel)
+
+    def wait_for_timeout(self, _ms):
+        pass
+
+
+class SpracheSetzenTest(unittest.TestCase):
+    def test_normalfall_waehlt_die_sprache(self):
+        seite = _SprachSeite()
+        yp._set_language(seite, "de")
+        self.assertEqual(seite.option_klicks(), 1)
+        self.assertEqual(seite.maus, [])
+
+    def test_schon_richtig_oeffnet_die_liste_nicht(self):
+        seite = _SprachSeite(aktuell="Deutsch")
+        yp._set_language(seite, "de")
+        self.assertEqual(seite.klicks, [])
+
+    def test_leere_liste_beim_ersten_mal_wird_wiederholt(self):
+        seite, meldungen = _SprachSeite(leer_bis=1), []
+        yp._set_language(seite, "de", meldungen.append)
+        self.assertEqual(seite.option_klicks(), 2)
+        self.assertEqual(len(seite.maus), 1)
+        self.assertEqual(meldungen, [])
+
+    def test_dauerhaft_leere_liste_bricht_den_upload_nicht_ab(self):
+        # Vorfall 08.11.2026: 120 s Warten und Abbruch der ganzen Folge; Escape wuerde den Assistenten schliessen
+        seite, meldungen = _SprachSeite(leer_bis=99), []
+        yp._set_language(seite, "de", meldungen.append)
+        self.assertEqual(seite.option_klicks(), yp.SPRACH_VERSUCHE)
+        self.assertEqual(seite.tasten, [])
+        self.assertEqual(len(meldungen), 1)
+        self.assertTrue(all(t == yp.SPRACH_WARTEN_MS for _, t in seite.klicks))
+
+
 if __name__ == "__main__":
     unittest.main()
