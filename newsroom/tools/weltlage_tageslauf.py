@@ -1016,8 +1016,13 @@ def _langlauf():
         return None
 
 
-def _melden(titel: str, text: str, log=print):
-    """Reine Meldung an Telegram + Beta-App (ohne Rueckfrage)."""
+def _melden(titel: str, text: str, log=print, intern: bool = False):
+    """Reine Meldung an Telegram + Beta-App (ohne Rueckfrage). intern=True: technische Fehlmeldung, geht nicht an
+    Marlon (Marlon 08.11.2026): sie steht im Log und im Lauf-Eintrag (status «fehler»), die Weltlage-Wache und der
+    Problemloeser beheben sie und melden Marlon nur ein endgueltiges Scheitern."""
+    if intern:
+        log(f"INTERN (nicht an Marlon): {titel}: {text}")
+        return
     try:
         import weltlage_entscheid as ent
         ent.mitteilen(titel, text, log)
@@ -1639,7 +1644,7 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
         _eintrag(key, status="fehler", fehler=f"{schritt}: {str(e)[:500]}",
                  fertig=datetime.now().astimezone().isoformat(timespec="seconds"))
         _melden(f"Weltlage {slot}", f"NICHT veröffentlicht. Schritt «{schritt}»: {str(e)[:600]}\nOrdner: {ordner}",
-                log)
+                log, intern=True)
         return 1
 
 
