@@ -70,7 +70,7 @@ STEP_MB = {
                            # next to the desktop apps' ~2.7 GB, ComfyUI DynamicVRAM offloads the rest itself)
     "lipsync": 18000,      # LatentSync 1.6 (own torch process, no offloading)
     "ollama_8b": 6500,     # qwen3:8b
-    "enhance": 10500,      # Resemble Enhance (.venv-enhance): bis ~8,8 GB Spitze + Luft (Messung 30.10., Worker gedeckelt, 09.11.)
+    "enhance": 11500,      # Resemble Enhance (.venv-enhance): 8,8 GB belegt, Cache bis zum Worker-Deckel (Probe 09.11.)
     "vision": 18000,       # lokales Ollama-Vision-Modell (gemma3:27b/qwen3.6:27b Q4_K_M, ~17-18 GB), nur Fallback
                            # fuer video/einblendungen.py, wenn die Claude-CLI nicht erreichbar ist
 }

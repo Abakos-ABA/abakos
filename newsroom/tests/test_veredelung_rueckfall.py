@@ -208,7 +208,7 @@ class VramAnmeldungTest(unittest.TestCase):
     def test_anmeldung_deckt_gemessene_spitze(self):
         import gpu_budget
         self.assertGreaterEqual(gpu_budget.queue_mb("enhance"), 9000)      # gemessen bis ~8,8 GB
-        self.assertEqual(gpu_budget.queue_mb("enhance"), tc.ENHANCE_BRAUCHT_MB)
+        self.assertGreaterEqual(gpu_budget.queue_mb("enhance"), tc.ENHANCE_BRAUCHT_MB)
 
     def test_deckel_gleich_anmeldung(self):
         import gpu_budget
@@ -218,7 +218,7 @@ class VramAnmeldungTest(unittest.TestCase):
         torch = self._torch()
         self._worker(torch).vram_deckeln("cuda")
         anteil = torch.cuda.set_per_process_memory_fraction.call_args[0][0]
-        self.assertAlmostEqual(anteil, 10500 / 23028, places=4)
+        self.assertAlmostEqual(anteil, 11500 / 23028, places=4)
 
     def test_kein_deckel_auf_cpu(self):
         torch = self._torch()

@@ -9,13 +9,14 @@ kein CUDA da ist oder ENHANCE_DEVICE=cpu erzwungen wird - aufgerufen von tts/ver
 import os
 import pathlib
 pathlib.PosixPath = pathlib.WindowsPath   # Windows-Pfade in den mitgelieferten Checkpoints
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb:512")   # sonst OOM am Deckel (Zerstueckelung, Probe 09.11.)
 import sys
 import torch
 import torchaudio
 from resemble_enhance.enhancer.inference import enhance, denoise
 
 
-DECKEL_MB = 10500             # wie gpu_budget.STEP_MB["enhance"]: gemessen ~8,8 GB Spitze (30-s-Fenster)
+DECKEL_MB = 11500             # wie gpu_budget.STEP_MB["enhance"]; Probe 09.11.: 8,8 GB belegt, 10500 ohne Luft gegen OOM
 
 
 def vram_deckeln(device) -> None:

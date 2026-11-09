@@ -9,7 +9,7 @@ normalisiert - das macht weiterhin tools/weltlage_rohschnitt.py im Master (loudn
 
 Schalter: config/settings.NEWS_WELTLAGE_STIMME_VEREDELN (Default an).
 Seit 01.10.2026 (Task 98b7) auf der GPU ueber gpu_budget.slot("enhance") (zentrale Warteschlange, seit 09.11.2026
-10,5 GB angemeldet und im Worker gedeckelt, gemessen auf der RTX 4090) statt CPU: rund 1-2 s Rechenzeit je Sekunde Ton statt vorher ~8 s/s auf der CPU. A/B-Probe
+11,5 GB angemeldet und im Worker gedeckelt, gemessen auf der RTX 4090) statt CPU: rund 1-2 s Rechenzeit je Sekunde Ton statt vorher ~8 s/s auf der CPU. A/B-Probe
 desselben Satzes CPU vs. GPU: Pegel (RMS/Peak) innerhalb 0.2 dB, Hochton-Anteil >8 kHz innerhalb 0.3 dB - die
 Unterschiede liegen im selben Rahmen wie zwei CPU-Laeufe desselben Satzes (das Modell samplet stochastisch), die GPU
 veraendert die Klangqualitaet also nicht. Faellt automatisch auf CPU zurueck, wenn .venv-enhance kein CUDA hat.
