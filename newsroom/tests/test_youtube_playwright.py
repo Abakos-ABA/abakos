@@ -391,7 +391,7 @@ class _SprachTreffer:
     def inner_text(self):
         return f"Videosprache\n{self.seite.aktuell}"
 
-    def bounding_box(self):
+    def bounding_box(self, timeout=None):
         return {"x": 10, "y": 20, "width": 100, "height": 10}
 
     def click(self, timeout=None):

@@ -59,6 +59,7 @@ TRANSFER_STILLSTAND_MIN = 20     # 08.11.2026: so lange darf der Dateitransfer o
 TRANSFER_MAX_MIN = 360           # absolute Obergrenze fuer einen Dateitransfer
 SPRACH_WARTEN_MS = 30_000        # 08.11.2026: so lange je Versuch auf die Sprachliste im Assistenten warten
 SPRACH_VERSUCHE = 2
+SPRACH_SCHLIESSEN_MS = 3_000     # 09.11.2026: das Schliessen darf nicht die vollen 120 s Standard-Wartezeit kosten
 SPRACH_NAMEN = {"de": ("deutsch", "german"), "en": ("englisch", "english")}   # Anzeige je nach Sprache des Google-Kontos
 UPLOAD_TIMEOUT_MS = 20 * 60_000   # file transfer + processing of the dialog, generous on purpose
 PRUEF_WARTEN_MIN = float(os.environ.get("NEWS_UPLOAD_PRUEF_WARTEN_MIN", "20"))   # Vorabpruefung abwarten
@@ -1125,9 +1126,14 @@ def _sprachliste_schliessen(page, box):
     # Klick neben die Liste per Maus: Playwrights click() wartet sonst auf die Liste, die gerade im Weg liegt; Escape
     # wuerde den Upload-Assistenten schliessen (Vorfall 08.11.2026, siehe _thumbnail_setzen)
     try:
-        ziel = box.locator(".section-label-with-description").first.bounding_box()
+        ziel = box.locator(".section-label-with-description").first.bounding_box(timeout=SPRACH_SCHLIESSEN_MS)
         if ziel:
             page.mouse.click(ziel["x"] + 5, ziel["y"] + ziel["height"] / 2)
+    except Exception:
+        pass
+    # Nachpruefung 09.11.2026: fehlt das Label, bliebe die Liste offen und verdeckte «Weiter»
+    try:
+        page.evaluate("() => document.querySelectorAll('tp-yt-iron-dropdown').forEach(d => { if (d.opened) d.close(); })")
         page.wait_for_timeout(1000)
     except Exception:
         pass
