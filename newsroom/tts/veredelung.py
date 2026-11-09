@@ -8,8 +8,8 @@ tools/weltlage_tts.py), deshalb bleiben Stimmpruefung und Abnahme unveraendert. 
 normalisiert - das macht weiterhin tools/weltlage_rohschnitt.py im Master (loudnorm nur linear).
 
 Schalter: config/settings.NEWS_WELTLAGE_STIMME_VEREDELN (Default an).
-Seit 01.10.2026 (Task 98b7) auf der GPU ueber gpu_budget.slot("enhance") (zentrale Warteschlange, ~4,2 GB VRAM,
-gemessen auf der RTX 4090) statt CPU: rund 1-2 s Rechenzeit je Sekunde Ton statt vorher ~8 s/s auf der CPU. A/B-Probe
+Seit 01.10.2026 (Task 98b7) auf der GPU ueber gpu_budget.slot("enhance") (zentrale Warteschlange, seit 09.11.2026
+10,5 GB angemeldet und im Worker gedeckelt, gemessen auf der RTX 4090) statt CPU: rund 1-2 s Rechenzeit je Sekunde Ton statt vorher ~8 s/s auf der CPU. A/B-Probe
 desselben Satzes CPU vs. GPU: Pegel (RMS/Peak) innerhalb 0.2 dB, Hochton-Anteil >8 kHz innerhalb 0.3 dB - die
 Unterschiede liegen im selben Rahmen wie zwei CPU-Laeufe desselben Satzes (das Modell samplet stochastisch), die GPU
 veraendert die Klangqualitaet also nicht. Faellt automatisch auf CPU zurueck, wenn .venv-enhance kein CUDA hat.
@@ -34,6 +34,7 @@ from config.settings import BASE_DIR, ENHANCE_PYTHON
 
 sys.path.insert(0, str(BASE_DIR))
 import gpu_budget  # noqa: E402
+from tts import gpu_spur  # noqa: E402
 
 ROOM_IR = BASE_DIR / "config" / "brand" / "stimme" / "veredelung_room_ir.wav"
 SR = 24000
@@ -89,6 +90,21 @@ def _run(cmd):
     return r
 
 
+def _enhance_lauf(wav_path: Path, enhanced: Path, device: str) -> None:
+    """Ein Enhance-Anlauf: in einer Vertonungs-Sitzung (tts_client.server_sitzung) ueber den Dauerprozess der Spur
+    (spart das Modell-Laden je Satz/Szene), sonst als Einzelaufruf. Fehler/Absturz -> WorkerFehler wie bei _run."""
+    from tts import tts_client
+    sv = tts_client.enhance_server() if device == "cuda" else None
+    if sv is None:
+        _run([ENHANCE_PYTHON, BASE_DIR / "tts" / "_enhance_worker.py", wav_path, enhanced, "enhance", "0.5", device])
+        return
+    with gpu_spur.phasen.exklusiv():                 # nie neben dem Sprechen einer anderen Spur (Karte voll, 15-fach langsamer)
+        tts_client.vram_fuer_enhance_freimachen()
+        r = sv.lauf([wav_path, enhanced, "enhance", "0.5", device])
+    if r.returncode:
+        raise WorkerFehler(f"{exit_text(r.returncode)}: enhance-Dauerprozess: " + (r.stderr or "")[-1500:], r.returncode)
+
+
 def _enhance(wav_path: Path, enhanced: Path, log=print, versuche_gpu: int = VERSUCHE_GPU, cpu_rueckfall: bool = True,
              pause_s: float | None = None) -> str:
     """Resemble Enhance mit Wiederholung: versuche_gpu Anlaeufe auf der GPU (ueber die zentrale Warteschlange), dann
@@ -102,11 +118,10 @@ def _enhance(wav_path: Path, enhanced: Path, log=print, versuche_gpu: int = VERS
     for i, device in enumerate(plan, 1):
         enhanced.unlink(missing_ok=True)
         try:
-            ctx = (gpu_budget.slot("enhance", name=f"Stimm-Veredelung {wav_path.stem}") if device == "cuda"
+            ctx = (gpu_spur.slot("enhance", name=f"Stimm-Veredelung {wav_path.stem}") if device == "cuda"
                    else contextlib.nullcontext())
             with ctx:
-                _run([ENHANCE_PYTHON, BASE_DIR / "tts" / "_enhance_worker.py", wav_path, enhanced, "enhance", "0.5",
-                      device])
+                _enhance_lauf(wav_path, enhanced, device)
             if enhanced.exists() and enhanced.stat().st_size > 44:
                 if i > 1:
                     log(f"  {wav_path.name}: Veredelung Anlauf {i} ({device}) erfolgreich")
@@ -140,6 +155,11 @@ def veredeln(wav_path: Path, log=print) -> str:
           "-ar", str(SR), "-ac", "1", "-c:a", "pcm_s16le", out])
     out.replace(wav_path)
     enhanced.unlink(missing_ok=True)
+    try:                                                   # 21.10.2026: Satzend-Rauschen + lauten Atmer entfernen
+        from tts.pausen_putzen import putzen_datei
+        putzen_datei(wav_path, log=log)
+    except Exception as ex:                                # nie die Vertonung daran scheitern lassen
+        log(f"  {wav_path.name}: Pausen-Putzer uebersprungen ({ex})")
     log(f"  {wav_path.name}: veredelt in {time.time() - t:.0f} s ({device})")
     return device
 

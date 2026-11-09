@@ -5,11 +5,13 @@ Tageslauf brachen ab - «stimme: Vertonung fehlgeschlagen»). Komplett offline: 
     .venv\\Scripts\\python -m unittest tests.test_veredelung_rueckfall
 """
 import contextlib
+import importlib.util
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -183,6 +185,45 @@ class ChatterboxWorkerWiederholung(unittest.TestCase):
         self.assertEqual(r.returncode, ABSTURZ)
         self.assertFalse(self.out.exists())
         self.assertEqual(len(self.log), 2)
+
+
+class VramAnmeldungTest(unittest.TestCase):
+    """Vorfall 09.11.2026: angemeldet 4200 MB, belegt 13177 MB, die Karte hatte nur noch 506 MB frei."""
+
+    def _worker(self, torch):
+        fremd = {"torch": torch, "torchaudio": mock.MagicMock(), "resemble_enhance": mock.MagicMock(),
+                 "resemble_enhance.enhancer": mock.MagicMock(), "resemble_enhance.enhancer.inference": mock.MagicMock()}
+        with mock.patch.dict(sys.modules, fremd):
+            spec = importlib.util.spec_from_file_location("_enhance_worker_test", ROOT / "tts" / "_enhance_worker.py")
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+        return mod
+
+    def _torch(self, total_mb=23028):
+        torch = mock.MagicMock()
+        torch.cuda.is_available.return_value = True
+        torch.cuda.get_device_properties.return_value.total_memory = total_mb * 1024**2
+        return torch
+
+    def test_anmeldung_deckt_gemessene_spitze(self):
+        import gpu_budget
+        self.assertGreaterEqual(gpu_budget.queue_mb("enhance"), 9000)      # gemessen bis ~8,8 GB
+        self.assertEqual(gpu_budget.queue_mb("enhance"), tc.ENHANCE_BRAUCHT_MB)
+
+    def test_deckel_gleich_anmeldung(self):
+        import gpu_budget
+        self.assertEqual(self._worker(self._torch()).DECKEL_MB, gpu_budget.queue_mb("enhance"))
+
+    def test_deckel_auf_cuda(self):
+        torch = self._torch()
+        self._worker(torch).vram_deckeln("cuda")
+        anteil = torch.cuda.set_per_process_memory_fraction.call_args[0][0]
+        self.assertAlmostEqual(anteil, 10500 / 23028, places=4)
+
+    def test_kein_deckel_auf_cpu(self):
+        torch = self._torch()
+        self._worker(torch).vram_deckeln("cpu")
+        torch.cuda.set_per_process_memory_fraction.assert_not_called()
 
 
 if __name__ == "__main__":

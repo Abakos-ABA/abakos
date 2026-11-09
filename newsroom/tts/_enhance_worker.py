@@ -15,7 +15,19 @@ import torchaudio
 from resemble_enhance.enhancer.inference import enhance, denoise
 
 
+DECKEL_MB = 10500             # wie gpu_budget.STEP_MB["enhance"]: gemessen ~8,8 GB Spitze (30-s-Fenster)
+
+
+def vram_deckeln(device) -> None:
+    """Haelt den PyTorch-Cache unter der Anmeldung: ohne Deckel wuchs er auf einer freien Karte auf ~13 GB (Messung 04.11.,
+    Vorfall 09.11.2026: 13177 MB belegt, Karte voll). Am Deckel gibt der Allokator zuerst seinen Cache zurueck."""
+    if device != "cuda" or not torch.cuda.is_available():
+        return
+    torch.cuda.set_per_process_memory_fraction(min(1.0, DECKEL_MB * 1024**2 / torch.cuda.get_device_properties(0).total_memory))
+
+
 def lauf(src, dst, mode, lambd, device):
+    vram_deckeln(device)
     wav, sr = torchaudio.load(src)
     wav = wav.mean(0)
     if mode == "denoise":
