@@ -48,7 +48,7 @@ class Basis(unittest.TestCase):
         ent.telegram_senden = lambda e, text, dokument=None, bild=None, log=print: self.gesendet.append(
             ("tg", e["phase"], e["runde"], text, dokument)) or [1]
         ent.beta = lambda befehl, daten, log=print: self.gesendet.append(("beta", befehl, daten)) or {"ok": True}
-        ent.telegram_text = lambda text, log=print: self.gesendet.append(("text", text))
+        ent.telegram_text = lambda text, log=print, art="routine": self.gesendet.append(("text", text))
         ent._knoepfe_weg = lambda e, log=print: None
         th.POOL = self.tmp / "pool.json"
 

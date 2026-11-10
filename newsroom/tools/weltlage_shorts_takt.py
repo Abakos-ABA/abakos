@@ -386,7 +386,8 @@ def takt(now: datetime | None = None, trocken: bool = False, jetzt: bool = False
                 import weltlage_entscheid as ent
                 ent.mitteilen(f"Short {eintrag['slot']}",
                               f"Status nach Upload-Versuch unklar, NICHT automatisch wiederholt (Duplikat-Gefahr): "
-                              f"{eintrag['meta']['title']}\n{str(e)[:300]}\nBitte in YouTube Studio pruefen.", print)
+                              f"{eintrag['meta']['title']}\n{str(e)[:300]}\nBitte in YouTube Studio pruefen.", print,
+                              art="fehler")
             except Exception:   # noqa: BLE001 - Meldung darf den Takt nie gefaehrden
                 pass
             return {"faellig": True, "slot": schluessel, "hochgeladen": False,
@@ -521,7 +522,8 @@ def nachtrag_takt(now: datetime | None = None, trocken: bool = False) -> dict:
                 import weltlage_entscheid as ent
                 ent.mitteilen("Short-Nachtrag",
                               f"Status nach Upload-Versuch unklar, NICHT automatisch wiederholt (Duplikat-Gefahr): "
-                              f"{eintrag['meta']['title']}\n{str(e)[:300]}\nBitte in YouTube Studio pruefen.", print)
+                              f"{eintrag['meta']['title']}\n{str(e)[:300]}\nBitte in YouTube Studio pruefen.", print,
+                              art="fehler")
             except Exception:   # noqa: BLE001 - Meldung darf den Nachtrag nie gefaehrden
                 pass
             return {"faellig": True, "hochgeladen": False,

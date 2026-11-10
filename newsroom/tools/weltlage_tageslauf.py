@@ -1016,16 +1016,17 @@ def _langlauf():
         return None
 
 
-def _melden(titel: str, text: str, log=print, intern: bool = False):
+def _melden(titel: str, text: str, log=print, intern: bool = False, art: str = "routine"):
     """Reine Meldung an Telegram + Beta-App (ohne Rueckfrage). intern=True: technische Fehlmeldung, geht nicht an
     Marlon (Marlon 08.11.2026): sie steht im Log und im Lauf-Eintrag (status «fehler»), die Weltlage-Wache und der
-    Problemloeser beheben sie und melden Marlon nur ein endgueltiges Scheitern."""
+    Problemloeser beheben sie und melden Marlon nur ein endgueltiges Scheitern. art: Einstufung fuer Jarvis'
+    Telegram-Filter (Marlon 10.11.2026): Routine nur in der Sammelzeile, «antwort»/«fehler» einzeln."""
     if intern:
         log(f"INTERN (nicht an Marlon): {titel}: {text}")
         return
     try:
         import weltlage_entscheid as ent
-        ent.mitteilen(titel, text, log)
+        ent.mitteilen(titel, text, log, art=art)
     except Exception as e:   # noqa: BLE001
         log(f"Meldung fehlgeschlagen: {e}")
 
@@ -1269,12 +1270,12 @@ def freigabe_einholen(key: str, slot: str, ordner: Path, master: Path, log, minu
             res = ueberarbeiten(ordner, ant.get("feedback") or "", runde, master)
         except Exception as ex:   # noqa: BLE001
             _melden(f"Weltlage {slot}", f"Feedback konnte ich nicht umsetzen ({str(ex)[:300]}). Das Video bleibt "
-                    "wie es ist und kommt gleich nochmal zur Freigabe.", log)
+                    "wie es ist und kommt gleich nochmal zur Freigabe.", log, art="antwort")
             continue
         log(f"Feedback Runde {runde}: Szenen {res['szenen'] or '-'}, Titel {res['titel']}, Thumbnail {res['thumbnail']}")
         _melden(f"Weltlage {slot}", f"Feedback wird umgesetzt: {res['zusammenfassung']} "
                 + (f"Neu gerendert werden {len(res['szenen'])} Szene(n), das dauert etwas."
-                   if res["neu_rendern"] else "Nur Titel/Thumbnail, kein neues Rendern."), log)
+                   if res["neu_rendern"] else "Nur Titel/Thumbnail, kein neues Rendern."), log, art="antwort")
         if res["neu_rendern"]:
             # Nur die vom Feedback geaenderten Szenen muessen neu gerendert werden (weltlage_ueberarbeiten.py:
             # die uebrigen liegen schon per Content-Hash im LatentSync-Cache) - das muss auch schnitt_stunden()
@@ -1554,7 +1555,8 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
                        else "")
             _melden(f"Weltlage {slot}", f"{'Veröffentlicht' if ok else 'Hochgeladen, aber noch NICHT öffentlich bestätigt'}"
                     f"{nachzug} ({NEWS_WELTLAGE_UPLOAD_VISIBILITY}, {e.get('freigabe')}): {meta['title']}\n"
-                    f"https://youtu.be/{res.get('video_id')}\nThumbnail: {res.get('thumbnail')}", log)
+                    f"https://youtu.be/{res.get('video_id')}\nThumbnail: {res.get('thumbnail')}", log,
+                    art="fehler" if not ok and res.get("nachzug_fehler") else "routine")
             _eintrag(key, status="veroeffentlicht" if ok else "unbestaetigt",
                      fertig=datetime.now().astimezone().isoformat(timespec="seconds"))
         elif schritt == "frage_kommentar":
@@ -1637,7 +1639,7 @@ def lauf(datum: str, slot: str, ordner: Path | None = None, bis: str | None = No
     except Gestoppt as e:
         log(f"GESTOPPT: {e}")
         _eintrag(key, status="gestoppt", fertig=datetime.now().astimezone().isoformat(timespec="seconds"))
-        _melden(f"Weltlage {slot}", f"Gestoppt, wird nicht veröffentlicht. Ordner: {ordner}", log)
+        _melden(f"Weltlage {slot}", f"Gestoppt, wird nicht veröffentlicht. Ordner: {ordner}", log, art="antwort")
         return 0
     except Exception as e:
         log(f"ABBRUCH in Schritt {schritt}: {e}")

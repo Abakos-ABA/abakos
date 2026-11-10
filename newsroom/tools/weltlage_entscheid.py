@@ -14,6 +14,12 @@ Kanaele:
             Antwort-Knoepfen; Antworten im App-Chat, die zum Muster passen («A», «Weltlage B, ...», «Freigeben»,
             «Stopp», «Feedback: ...»), schreibt der Knoten als Datei nach state/weltlage_entscheid/antworten/.
 
+Telegram-Filter (Marlon 10.11.2026 «weniger Weltlage Kompakt»): jede Telegram-Nachricht geht vorher durch Jarvis'
+zentralen Filter (jarvis/tools/telegram_filter.gate, quelle «newsroom_weltlage»). Dessen Themen-Stufe (config.json
+telegram_filter.themen.weltlage, Standard «wenig») laesst nur Rueckfragen (art «entscheidung»), Fehler mit
+Handlungsbedarf («fehler») und Folgen von Marlons eigener Antwort («antwort») einzeln raus; Routine (Standard von
+mitteilen) zaehlt nur fuer eine Sammelzeile am Abend. Die Beta-App bleibt unveraendert.
+
 Keine Antwort bis zur Frist -> warten() gibt None zurueck, der Lauf nimmt die Voreinstellung (Empfehlung bzw.
 Veroeffentlichen). Fehler in einem Kanal brechen nie den Lauf ab (nur Log).
 """
@@ -101,6 +107,21 @@ def offene() -> list[dict]:
 
 
 # ------------------------------------------------------------------ Telegram (nur senden, Jarvis pollt)
+JARVIS_TOOLS = Path.home() / r"projekte\jarvis\tools"
+
+
+def telegram_erlaubt(text: str, art: str, titel: str = "", log=print) -> bool:
+    """Jarvis' zentraler Telegram-Filter (siehe Modulkopf). Nicht erreichbar: nur Routine faellt weg."""
+    try:
+        if str(JARVIS_TOOLS) not in sys.path:
+            sys.path.append(str(JARVIS_TOOLS))
+        import telegram_filter
+        return telegram_filter.gate(text, art=art, quelle="newsroom_weltlage", titel=titel or text.split("\n", 1)[0])
+    except Exception as ex:  # noqa: BLE001 - der Filter darf den Lauf nie stoeren
+        log(f"Telegram-Filter nicht erreichbar ({ex}), {'verworfen' if art == 'routine' else 'sende'}")
+        return art != "routine"
+
+
 def _tg(methode: str, daten: dict, dateien: dict | None = None, timeout: float = 60) -> dict:
     import httpx
     r = httpx.post(f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/{methode}", data=daten, files=dateien,
@@ -120,6 +141,9 @@ def _knoepfe(e: dict) -> str:
 def telegram_senden(e: dict, text: str, dokument: Path | None = None, bild: Path | None = None, log=print) -> list[int]:
     ids = []
     kennung = f"\n\nJob {e['id']} (Runde {e['runde']})"
+    if not telegram_erlaubt(text + kennung, "entscheidung", e.get("titel") or "", log):
+        log("Telegram-Rueckfrage vom Filter zurueckgehalten (Themen-Stufe), nur Beta-App")
+        return ids
     try:
         if bild and Path(bild).exists():
             with open(bild, "rb") as f:
@@ -144,7 +168,10 @@ def telegram_senden(e: dict, text: str, dokument: Path | None = None, bild: Path
     return ids
 
 
-def telegram_text(text: str, log=print):
+def telegram_text(text: str, log=print, art: str = "routine"):
+    if not telegram_erlaubt(text, art, log=log):
+        log(f"Telegram-Meldung ({art}) vom Filter zurueckgehalten: {text[:80]!r}")
+        return
     try:
         _tg("sendMessage", {"chat_id": TELEGRAM_CHAT_ID, "text": text[:4000]})
     except Exception as ex:  # noqa: BLE001
@@ -329,9 +356,10 @@ def schliessen(e: dict, log=print):
         beta("schliessen", {"id": _beta_id(e)}, log)
 
 
-def mitteilen(titel: str, text: str, log=print, telegram: bool = True, beta_app: bool = True):
-    """Reine Meldung ohne Rueckfrage (Wahl bestaetigt, veroeffentlicht, Fehler) an Telegram und Beta-App."""
+def mitteilen(titel: str, text: str, log=print, telegram: bool = True, beta_app: bool = True, art: str = "routine"):
+    """Reine Meldung ohne Rueckfrage (Wahl bestaetigt, veroeffentlicht, Fehler) an Telegram und Beta-App.
+    art fuer den Telegram-Filter: «routine» (Standard), «fehler» (Marlon muss handeln), «antwort» (Folge seiner Antwort)."""
     if telegram:
-        telegram_text(f"{titel}\n{text}" if titel else text, log)
+        telegram_text(f"{titel}\n{text}" if titel else text, log, art)
     if beta_app:
         beta("mitteilen", {"titel": titel or "Weltlage Kompakt", "text": text}, log)

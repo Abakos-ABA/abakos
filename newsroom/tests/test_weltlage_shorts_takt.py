@@ -92,7 +92,7 @@ class ShortsTaktTest(unittest.TestCase):
         fake_up.upload_datei = upload
         fake_up.UploadHaltedForReview = UploadHaltedForReview
         fake_ent = types.ModuleType("weltlage_entscheid")
-        fake_ent.mitteilen = lambda titel, text, log=None: self.gemeldet.append(text)
+        fake_ent.mitteilen = lambda titel, text, log=None, art="routine": self.gemeldet.append(text)
 
         def _thumb(video_id, mp4, meta=None, log=print, **kw):
             self.thumbnail_aufrufe.append((video_id, mp4, meta))
@@ -248,7 +248,7 @@ class NachtragTaktTest(unittest.TestCase):
         fake_up.upload_datei = upload
         fake_up.UploadHaltedForReview = UploadHaltedForReview
         fake_ent = types.ModuleType("weltlage_entscheid")
-        fake_ent.mitteilen = lambda titel, text, log=None: self.gemeldet.append(text)
+        fake_ent.mitteilen = lambda titel, text, log=None, art="routine": self.gemeldet.append(text)
 
         def _thumb(video_id, mp4, meta=None, log=print, **kw):
             self.thumbnail_aufrufe.append((video_id, mp4, meta))
