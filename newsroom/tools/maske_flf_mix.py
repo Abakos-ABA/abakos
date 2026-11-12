@@ -89,6 +89,9 @@ def mix(dauer: float, seed: int, out: Path, ffmpeg: str = "ffmpeg", w: int = 192
         mund_starr: bool = True) -> dict:
     """mund_starr: Mund je Clip aus dem Standbild einfrieren und die fertige Spur pruefen (MundBewegtFehler -> Aufrufer nimmt CPU-Loop)."""
     clips = gute_clips()
+    if mund_starr:                                          # Kopf-Zittern je Clip: Stichprobe der fertigen Spur uebersieht kurze Clips (08.11.: clip_10 21,7 px)
+        import maske_mund
+        clips = [c for c in clips if maske_mund.kopf_bewegung(starrer_clip(c, ffmpeg), proben=24)["ok"]]
     if not clips:
         raise RuntimeError("keine geprueften FLF-Clips in flf/gut")
     rng = random.Random(seed)
@@ -127,6 +130,10 @@ def mix(dauer: float, seed: int, out: Path, ffmpeg: str = "ffmpeg", w: int = 192
         if not erg["mund"]["ok"]:
             out.unlink(missing_ok=True)
             raise MundBewegtFehler(f"Mund der Maske bewegt sich in der Sprecher-Spur: {erg['mund']}")
+        erg["kopf"] = maske_mund.kopf_bewegung(out)
+        if not erg["kopf"]["ok"]:
+            out.unlink(missing_ok=True)
+            raise MundBewegtFehler(f"Kopf der Maske zittert in der Sprecher-Spur: {erg['kopf']}")
     return erg
 
 

@@ -25,6 +25,8 @@ STRUKTUR_SIGMA = 4.0                   # Messung: nur Lippenform (Hochpass), Lic
 LICHT_SIGMA = 25.0                     # Licht vom Frame aus der Mund-Umgebung uebernehmen, Lippenform bleibt vom Standbild
 MUND_REST_GRENZE = 0.95                # mund_rest, Mittel ueber die Proben: eingefroren 0,47-0,82, Wan-Rohclips 1,12-2,05 (29.10.)
 
+KOPF_GRENZE = 14.0                     # kopf_bewegung, px (Maskenecken, 1280x720): Produktionsclips 0,5-12, Rede-Tests mit Nicken/Drehen 24-39 (31.10.)
+
 EINFRIER_STAND = "v2"                  # bei Aenderung an einfrieren() erhoehen -> Zwischenspeicher wird neu gerechnet
 
 _ref_cache: dict = {}
@@ -122,6 +124,29 @@ def mund_bewegung(pfad: Path, proben: int = 24) -> dict:
                 proben=len(werte), ok=bool(werte) and float(np.mean(werte)) <= MUND_REST_GRENZE)
 
 
+def kopf_bewegung(pfad: Path, proben: int = 12) -> dict:
+    """Wache: wie weit wandert die Maske gegen das Standbild? Ueber KOPF_GRENZE folgt der 2D-Mund der 3D-Drehung nicht mehr
+    (Mund sitzt versetzt, Vorfall 31.10.2026 «Mund bewegt sich» trotz Einfrieren) -> Clip nur mit stillem Kopf erzeugen."""
+    cap = cv2.VideoCapture(str(pfad))
+    n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 1
+    ref = cv2.cvtColor(referenz(), cv2.COLOR_BGR2GRAY)
+    x0, y0, x1, y1 = MASKE_BOX
+    ecken = np.array([[x0, y0], [x1, y0], [x0, y1], [x1, y1]], np.float32)
+    werte = []
+    for i in np.linspace(0, n - 1, min(proben, n)).astype(int):
+        cap.set(cv2.CAP_PROP_POS_FRAMES, int(i))
+        ok, f = cap.read()
+        if not ok:
+            continue
+        if f.shape[1] != RW:
+            f = cv2.resize(f, (RW, RH), interpolation=cv2.INTER_AREA)
+        w = ausrichtung(ref, cv2.cvtColor(f, cv2.COLOR_BGR2GRAY), MASKE_BOX, MUND_BOX)
+        werte.append(99.0 if w is None else float(np.linalg.norm(ecken @ w[:, :2].T + w[:, 2] - ecken, axis=1).max()))
+    cap.release()
+    mx = max(werte) if werte else 99.0
+    return dict(kopf_px_max=round(mx, 1), ok=bool(werte) and mx <= KOPF_GRENZE)
+
+
 def main():
     if len(sys.argv) < 3 or sys.argv[1] != "messen":
         print(__doc__)
@@ -129,7 +154,8 @@ def main():
     schlecht = 0
     for p in sys.argv[2:]:
         r = mund_bewegung(Path(p))
-        schlecht += not r["ok"]
+        r["kopf"] = kopf_bewegung(Path(p))
+        schlecht += not (r["ok"] and r["kopf"]["ok"])
         print(Path(p).name, r, flush=True)
     return 1 if schlecht else 0
 
