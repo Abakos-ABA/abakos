@@ -92,6 +92,50 @@ def _thumbnail_bild_bereitstellen(szene_id: str, titel: str | None, ordner, meta
         return eigenes if eigenes is not None and eigenes.exists() else None
 
 
+JARVIS_ORDNER = Path.home() / "projekte" / "jarvis"
+THUMBNAIL_TOR_PY = JARVIS_ORDNER / ".venv" / "Scripts" / "python.exe"
+THUMBNAIL_TOR_SKRIPT = JARVIS_ORDNER / "tools" / "thumbnail_mitte.py"
+
+
+def _thumbnail_tor(eintrag: dict, mp4: Path, log=print) -> str | None:
+    """Thumbnail-Pruefung VOR dem Upload (seit 13.11.2026, Vorfall GBR-Kanal: Raster-Kacheln mit abgeschnittenem
+    Text, im Raster von Hand entdeckt): Komposit bereitstellen, im 9:16-Ausschnitt per OCR pruefen (jarvis
+    tools/thumbnail_mitte.py: kein Text am Seitenrand, Schlagzeile ganz lesbar), bei Befund einmal frisch rendern
+    und erneut pruefen. Rueckgabe None = in Ordnung (oder Pruefung nicht moeglich), sonst der Grund."""
+    import subprocess
+    szene_id = eintrag.get("szene_id") or mp4.stem
+    ordner = Path(eintrag["ordner"]) if eintrag.get("ordner") else None
+    meta = eintrag.get("meta") or {}
+    titel = meta.get("title") or ""
+    erwartet = None
+    try:
+        from video import weltlage_thumbnail_thema as thema
+        if thema.schalter_aktiv():
+            erwartet = thema.kurz_titel([titel])
+    except Exception:   # noqa: BLE001 - ohne Schlagzeile nur die Randpruefung
+        pass
+    if not THUMBNAIL_TOR_PY.exists():
+        return None
+    grund = None
+    for versuch in (1, 2):
+        bild = _thumbnail_bild_bereitstellen(szene_id, titel, ordner, meta, log)
+        if bild is None or not Path(bild).exists():
+            return None          # kein Komposit: das meldet der Thumbnail-Nachtrag wie bisher
+        r = subprocess.run([str(THUMBNAIL_TOR_PY), str(THUMBNAIL_TOR_SKRIPT), str(bild)] + ([erwartet] if erwartet else []),
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=180,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        if r.returncode == 0:
+            return None
+        if r.returncode != 1:     # Werkzeugfehler (OCR-venv fehlt o.ae.): Upload nicht blockieren
+            log(f"Thumbnail-Tor: Pruefung nicht moeglich ({r.stderr[-200:]})")
+            return None
+        grund = (r.stdout or "").strip()[:200]
+        log(f"Thumbnail-Tor {szene_id} Versuch {versuch}: {grund}")
+        Path(bild).with_suffix(".json").unlink(missing_ok=True)    # Sidecar weg = naechster Aufruf rendert neu
+        Path(bild).unlink(missing_ok=True)
+    return f"Thumbnail im 9:16-Ausschnitt nicht ganz lesbar: {grund}"
+
+
 THUMBNAIL_STUDIO_ANLAEUFE = 2        # Studio-Anlaeufe innerhalb EINES Versuchs (Edge-Zombie, Speicher-Request fehlt)
 THUMBNAIL_ANLAUF_PAUSE_S = 20.0      # Pause zwischen zwei Anlaeufen
 
@@ -358,6 +402,21 @@ def takt(now: datetime | None = None, trocken: bool = False, jetzt: bool = False
     # Upload-Log brach mit FileNotFoundError ab, seit 29.10. kam darum kein einziger Weltlage-Short mehr hoch.
     log_pfad.parent.mkdir(parents=True, exist_ok=True)
     bekannte = {e.get("video_id") for e in verlauf.get("hochgeladen", [])}
+    tor = _thumbnail_tor(eintrag, mp4)
+    if tor:
+        # Upload gestoppt: Short ans Ende der Warteschlange, nach dem zweiten Fehlschlag zur Pruefung (Problemloeser)
+        q.pop(0)
+        eintrag["thumbnail_tor"] = int(eintrag.get("thumbnail_tor") or 0) + 1
+        if eintrag["thumbnail_tor"] < 2:
+            q.append(eintrag)
+        else:
+            verlauf.setdefault("zur_pruefung", []).append({
+                "szene_id": eintrag["szene_id"], "key": eintrag.get("key"), "titel": eintrag["meta"]["title"],
+                "mp4": str(mp4), "zeit": now.isoformat(timespec="seconds"), "fehler": tor})
+            verlauf["zur_pruefung"] = verlauf["zur_pruefung"][-50:]
+            _schreiben(VERLAUF_PFAD, verlauf)
+        _schreiben(QUEUE_PFAD, q)
+        return {"faellig": True, "slot": schluessel, "hochgeladen": False, "grund": tor}
     try:
         res = _verwaister_upload(log_pfad, bekannte, now)
         if res is None:
@@ -503,6 +562,9 @@ def nachtrag_takt(now: datetime | None = None, trocken: bool = False) -> dict:
         _schreiben(NACHTRAG_PFAD, liste)
         return {"faellig": True, "hochgeladen": False, "grund": f"Datei fehlt, verworfen: {mp4}"}
     (Path(eintrag["ordner"]) / "shorts").mkdir(parents=True, exist_ok=True)   # wie takt(), Befund 07.11.2026
+    tor = _thumbnail_tor(eintrag, mp4)      # Thumbnail-Pruefung vor dem Upload (13.11.2026), wie takt()
+    if tor:
+        return {"faellig": True, "hochgeladen": False, "grund": tor}
     try:
         res = upload_datei(mp4, eintrag["meta"], None, visibility="public",
                            log_path=Path(eintrag["ordner"]) / "shorts" / f"{eintrag['szene_id']}_nachtrag_upload.log")
