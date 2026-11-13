@@ -607,9 +607,24 @@ def oeffentlich_pruefen(video_id: str, minuten: float = 30, log=None) -> bool:
         time.sleep(30)
 
 
+_ANONYM_RE = re.compile(r"marlon|rexemre", re.IGNORECASE)   # Kanal ist anonym; «Morales» allein ist ein Nachrichtenname
+
+
+def anonym_pruefen(meta: dict) -> None:
+    """Anonymitaets-Regel (13.11.2026): Marlons Name oder marlonmorales.ch in Titel/Beschreibung/Tags stoppen den
+    Upload, bevor die Datei gewaehlt wird (Gegenstueck zu jarvis tools/kanal_anonym.py)."""
+    tags = meta.get("tags") or []
+    text = " ".join([str(meta.get("title") or ""), str(meta.get("description") or ""),
+                     tags if isinstance(tags, str) else " ".join(map(str, tags))])
+    m = _ANONYM_RE.search(text)
+    if m:
+        raise RuntimeError(f"Upload gestoppt (Anonymitaets-Regel): «{text[max(0, m.start() - 30):m.end() + 30]}»")
+
+
 def _wizard(page, video_path: str, meta: dict, thumb_path, visibility: str, log, shot, on_video_id,
             timeout_min: float, on_transfer=None) -> dict:
     """Gemeinsamer Upload-Assistent fuer Shorts-Jobs (run) und Weltlage-Folgen (upload_datei)."""
+    anonym_pruefen(meta)
     _open_upload_page(page)
     if f"/channel/{NEWS_YOUTUBE_CHANNEL_ID}" not in page.url:
         raise RuntimeError(f"Studio opened a different channel than {NEWS_YOUTUBE_CHANNEL_ID} "
