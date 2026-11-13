@@ -25,10 +25,23 @@ Ausgabe im Folgenordner (Standard data/weltlage_<datum>[_suffix]):
     python tools/weltlage_skript.py --news data/weltlage_20260930d/news.json   (vorhandene Meldungen wiederverwenden)
 
 Paket-Regeln (01.10.2026, nur Prompt analyse, paket_pruefen): Hook nennt alle Themen in ein bis zwei Saetzen mit
-Namen, Titel <= 70 Zeichen mit Personenname, Thumbnail-Felder (banderole/zeile1/zeile2/farbe), Ich-Form mit
-markierten Meinungssaetzen, genau eine konkrete Kommentarfrage als letzter Satz.
+Namen, Titel <= 70 Zeichen, beginnt mit dem gesuchten Schlagwort (Personenname/Land/Konflikt der Folge - Befund
+19.10.2026, Task 20261019-223623-e943: ein Titel mit dem Namen erst nach dem Doppelpunkt bekam praktisch keinen
+YouTube-Suchtraffic, siehe schlagwoerter_der_folge/voranstellen_falls_hinten), Thumbnail-Felder (banderole/zeile1/
+zeile2/farbe), Ich-Form mit markierten Meinungssaetzen, genau eine konkrete Kommentarfrage als letzter Satz.
+Experiment "BREAKING:"-Praefix (NEWS_WELTLAGE_TITEL_BREAKING, config/settings.py) wird erst beim Bauen von
+metadaten.json angehaengt (tools/weltlage_tageslauf.py metadaten()), nicht hier - der Pflicht-Check hier prueft
+den eigentlichen, vom Modell formulierten Titel.
 
 Veroeffentlicht nichts, rendert nichts, keine GPU (ausser mit NEWS_WELTLAGE_SKRIPT_LLM=ollama).
+
+Ersatz-KI (Vorfall 25.10.2026: Claude-Abo vom 24.10. 17:55 bis 25.10. 16:51 serverseitig gesperrt, «Your organization
+has disabled Claude subscription access», drei Laeufe im Schritt skript gescheitert): meldet die Claude-CLI einen
+Zugangsfehler (Abo/Limit/Anmeldung) oder bleibt der Server nach Wiederholungen weg (ueberlastet/5xx), holt frage_modell()
+den Text ueber die Ersatz-Kette von Jarvis (ki_oneshot.ask(lang=True): Codex (ChatGPT-Abo) -> lokales Ollama).
+Welche KI geantwortet hat, steht in skript.json meta.llm. Kommt gar kein Text, schreibt main() skript_fehler.txt in den
+Folgenordner (der Tageslauf nennt die echte Ursache, die Wache erkennt die Kategorie ki_zugang).
+NEWS_JARVIS_DIR (Standard ~/projekte/jarvis) zeigt auf den Jarvis-Ordner mit ki_oneshot.py.
 """
 import argparse
 import html
@@ -68,6 +81,13 @@ ORT_EU_RE = re.compile(r"\b(EU|Europäische Union|Europäischen Union|Europaparl
                       r"Europäische Kommission|Brüssel|von der Leyen|EU-Gipfel|Ministerrat|Mitgliedstaaten)\b")
 ORT_NAHOST_RE = re.compile(r"\b(Israel\w*|Gaza\w*|Nahost|Nahen Ostens?|Teheran|Iran\w*|Hamas|Hisbollah|Libanon\w*|"
                           r"Syrien\w*|Jerusalem|Beirut|Netanyahu\w*|Khamenei\w*)\b")
+# Weitere Laender/Konflikte, nach denen YouTube-Suchbegriffe tatsaechlich fragen (Beleg 19.10.2026, Task
+# 20261019-223623-e943: Suchbegriffe-Auswertung einzelner Videos zeigt "trump news deutsch", "ukraine krieg",
+# "3 weltkrieg" etc.), ergaenzend zu ORT_EU_RE/ORT_NAHOST_RE fuer Titel ohne EU-/Nahost-Bezug - dient NUR dem
+# Titel-Schlagwort-Check unten (voranstellen_falls_hinten/Pflicht-Pruefung), nicht der Orts-Wahl der Szene.
+SCHLAGWORT_REGION_RE = re.compile(r"\b(Russland\w*|Ukraine\w*|China\w*|Taiwan\w*|Nordkorea\w*|USA|Amerikas?|"
+                                 r"Mexiko\w*|Kanada\w*|Grönland\w*|Venezuela\w*|Weltkrieg\w*|Saudi-Arabien\w*|"
+                                 r"Katar\w*|Jemen\w*|Türkei\w*)\b")
 
 
 def ort_fuer_abschnitt(a: dict) -> str:
@@ -190,10 +210,30 @@ def vorgabe_block(vorgabe: str) -> str:
 
 
 # ------------------------------------------------------------------ LLM
-def _claude(prompt: str) -> str:
+# Standard aus dem Benutzerordner, kein fester Name (Vorfall 11.11.2026: Platzhalter «USER» -> keine Ersatz-KI)
+JARVIS_DIR = Path(os.environ.get("NEWS_JARVIS_DIR") or Path.home() / "projekte" / "jarvis")
+# Zugang weg (Abo gesperrt/beendet, Kontingent, Anmeldung): sofort Ersatz-Kette, kein Wiederholen
+ZUGANG_RE = re.compile(r"subscription access|oauth_not_allowed|not allowed for organization|use an anthropic api key"
+                       r"|subscription (?:has )?(?:expired|ended|lapsed|inactive)|usage limit|limit reached|hit your (?:\w+ )?limit|(?:weekly|session|5-hour) limit"
+                       r"|rate[ _-]?limit|too many requests|\b429\b|\b402\b|quota|credit balance|billing"
+                       r"|not logged in|please (?:run /?)?login|authentication[_ ]?(?:error|failed)|invalid (?:api key|token)"
+                       r"|token (?:has )?expired|\b401\b|\b403\b", re.I)
+# Server kurz weg: wiederholen, dann ebenfalls Ersatz-Kette
+TRANSIENT_RE = re.compile(r"overloaded|\b5\d\d\b|internal server error|timed? ?out|connection (?:reset|refused|error)"
+                          r"|ECONNRESET|service unavailable", re.I)
+CLAUDE_WIEDERHOLUNGEN = 3
+CLAUDE_WARTE_S = 30.0
+LLM_BENUTZT = {"name": ""}   # tatsaechlich benutzte KI (claude-cli/<modell> oder ersatz/<ki>), fuer skript.json meta.llm
+
+
+class KiZugangFehler(RuntimeError):
+    """Die Claude-CLI kann nicht antworten (Abo/Limit/Anmeldung oder Server dauerhaft weg) - nicht der Prompt ist schuld."""
+
+
+def _claude_einmal(prompt: str) -> str:
     cli = NEWS_CLAUDE_CLI
     if not Path(cli).exists():
-        raise RuntimeError(f"Claude-CLI nicht gefunden: {cli} (NEWS_CLAUDE_CLI setzen oder NEWS_WELTLAGE_SKRIPT_LLM=ollama)")
+        raise KiZugangFehler(f"Claude-CLI nicht gefunden: {cli} (NEWS_CLAUDE_CLI setzen oder NEWS_WELTLAGE_SKRIPT_LLM=ollama)")
     env = {k: v for k, v in os.environ.items() if k not in ("CLAUDECODE", "ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN")}
     cmd = [cli, "-p", "--output-format", "json", "--model", NEWS_WELTLAGE_SKRIPT_MODELL, "--setting-sources", "",
            "--tools", "", "--max-turns", "1"]
@@ -208,17 +248,69 @@ def _claude(prompt: str) -> str:
     return daten.get("result") or ""
 
 
+def _claude(prompt: str, einmal=None, schlafen=None) -> str:
+    """Claude-CLI mit Einordnung des Fehlers: Zugangsfehler -> sofort KiZugangFehler; Server-Fehler -> bis zu
+    CLAUDE_WIEDERHOLUNGEN Versuche im Abstand CLAUDE_WARTE_S, danach KiZugangFehler; alles andere bleibt RuntimeError
+    (Aufrufer entscheidet). einmal/schlafen nur fuer Tests."""
+    import time
+    einmal = einmal or _claude_einmal
+    schlafen = schlafen or time.sleep
+    letzter = ""
+    for versuch in range(1, CLAUDE_WIEDERHOLUNGEN + 1):
+        try:
+            return einmal(prompt)
+        except (RuntimeError, subprocess.TimeoutExpired, OSError) as e:
+            letzter = str(e)
+            if isinstance(e, KiZugangFehler) or ZUGANG_RE.search(letzter):
+                raise KiZugangFehler(letzter[:500]) from e
+            if not (TRANSIENT_RE.search(letzter) or isinstance(e, (subprocess.TimeoutExpired, OSError))):
+                raise
+            logger.warning("Claude-CLI vorübergehend weg (Versuch %d/%d): %s", versuch, CLAUDE_WIEDERHOLUNGEN, letzter[:160])
+            if versuch < CLAUDE_WIEDERHOLUNGEN:
+                schlafen(CLAUDE_WARTE_S)
+    raise KiZugangFehler(f"Claude-CLI nach {CLAUDE_WIEDERHOLUNGEN} Versuchen ohne Antwort: {letzter[:400]}")
+
+
+def _ersatz(prompt: str, grund: str, frage=None) -> str:
+    """Text ueber die Ersatz-Kette von Jarvis (ki_oneshot.ask(lang=True): Codex -> lokal). frage nur fuer Tests."""
+    if frage is None:
+        if not (JARVIS_DIR / "ki_oneshot.py").exists():
+            raise KiZugangFehler(f"{grund} - und keine Ersatz-Kette (ki_oneshot.py fehlt in {JARVIS_DIR})")
+        if str(JARVIS_DIR) not in sys.path:
+            sys.path.append(str(JARVIS_DIR))
+        import ki_oneshot
+
+        def frage(p):
+            text = ki_oneshot.ask(p, timeout=900, lang=True)
+            return text, ki_oneshot.LETZTE.get("ki") or "jarvis"
+    logger.warning("Claude-Abo nicht nutzbar (%s) - Ersatz-Kette von Jarvis", grund[:200])
+    try:
+        text, ki = frage(prompt)
+    except Exception as e:   # noqa: BLE001 - die Kette meldet selbst, welche KIs sie versucht hat
+        raise KiZugangFehler(f"{grund} - Ersatz-Kette: {str(e)[:300]}") from e
+    LLM_BENUTZT["name"] = f"ersatz/{ki}"
+    return text
+
+
 def frage_modell(prompt: str) -> dict:
     if NEWS_WELTLAGE_SKRIPT_LLM == "ollama":
         from config.llm_client import call_json
+        LLM_BENUTZT["name"] = f"ollama/{NEWS_MODEL_SCRIPT}"
         return call_json(prompt, model=NEWS_MODEL_SCRIPT, max_tokens=8000)
     from config.llm_client import _extract_json
-    text = _claude(prompt)
+    nur_json = "\n\nWICHTIG: Antworte nur mit dem JSON-Objekt, ohne Text davor oder danach."
+    try:
+        text = _claude(prompt)
+        LLM_BENUTZT["name"] = f"claude-cli/{NEWS_WELTLAGE_SKRIPT_MODELL}"
+        holen = _claude
+    except KiZugangFehler as e:
+        grund = str(e)
+        text = _ersatz(prompt, grund)
+        holen = lambda p: _ersatz(p, grund)   # noqa: E731
     try:
         return _extract_json(text)
     except json.JSONDecodeError:
-        text = _claude(prompt + "\n\nWICHTIG: Antworte nur mit dem JSON-Objekt, ohne Text davor oder danach.")
-        return _extract_json(text)
+        return _extract_json(holen(prompt + nur_json))
 
 
 # ------------------------------------------------------------------ Pruefen
@@ -328,11 +420,37 @@ def _nachnamen(s: dict) -> set[str]:
     return namen
 
 
+def schlagwoerter_der_folge(s: dict) -> set[str]:
+    """Namen + Laender/Konflikte dieser Folge, nach denen Leute auf YouTube wirklich suchen (Grundlage fuer den
+    Titel-Schlagwort-Check unten UND fuer tools/weltlage_shorts.py titel_frage, Ordnungsregel 8: ein Mechanismus
+    statt einer zweiten Kopie). Laender/Konflikte kommen aus dem schon vorhandenen Sprechtext der Folge, nicht aus
+    einer erfundenen Liste."""
+    text = " ".join([str(s.get("hook") or "")] + [a.get("text") or "" for a in s.get("abschnitte") or []])
+    return _nachnamen(s) | set(ORT_EU_RE.findall(text)) | set(ORT_NAHOST_RE.findall(text)) \
+        | set(SCHLAGWORT_REGION_RE.findall(text))
+
+
+def voranstellen_falls_hinten(text: str, schlagwoerter: set[str], kopf_woerter: int = 4) -> str:
+    """Stellt das erste gefundene Schlagwort (Name/Land/Konflikt) als «Schlagwort: ...» voran, wenn keines schon
+    in den ersten `kopf_woerter` Woertern steht - verschiebt nichts (keine Grammatik-Bruchstellen), haengt nur
+    voran. Ohne Treffer bleibt der Text unveraendert."""
+    if not schlagwoerter or not text:
+        return text
+    kopf = " ".join(text.split()[:kopf_woerter])
+    if any(re.search(rf"\b{re.escape(w)}", kopf) for w in schlagwoerter):
+        return text
+    for w in sorted(schlagwoerter, key=len, reverse=True):
+        if re.search(rf"\b{re.escape(w)}", text):
+            return f"{w}: {text}"
+    return text
+
+
 def paket_pruefen(s: dict) -> tuple[list[str], list[str]]:
     """Hook (alle Themen in ein bis zwei Saetzen), Titel-Schema, Thumbnail-Felder, Ich-Form/Meinung, Kommentarfrage."""
     hart, hinweis = [], []
     abschnitte = s.get("abschnitte") or []
     namen = _nachnamen(s)
+    schlagwoerter = schlagwoerter_der_folge(s)
     # Hook / Cold Open
     hook = sprechtext(str(s.get("hook") or ""))
     kern = hook.replace(HOOK_SCHLUSS, "").strip()
@@ -367,17 +485,27 @@ def paket_pruefen(s: dict) -> tuple[list[str], list[str]]:
     if fehlt:
         hart.append(f"Hook nennt nicht alle Themen der Folge: Meldung {', '.join(map(str, fehlt))} fehlt im Hook "
                     "(bzw. in «hook_themen» mit wörtlichem Stichwort).")
-    # Titel-Schema
+    # Titel-Schema (Befund 19.10.2026, Task 20261019-223623-e943: Titel wie "Von 190'000 auf 20'000 geschrumpft:
+    # Wie verlässlich ist Trumps Wähler-Zahl?" versteckten das gesuchte Schlagwort "Trump" nach dem Doppelpunkt
+    # und bekamen praktisch keinen YouTube-Suchtraffic - das Schlagwort (Name/Land/Konflikt) muss darum VORNE
+    # stehen, nicht nur irgendwo im Titel).
     for i, tv in enumerate(s.get("titel_varianten") or []):
         if len(tv) > TITEL_MAX:
             hart.append(f"Titel-Variante {i + 1} hat {len(tv)} Zeichen (höchstens {TITEL_MAX}).")
+        if schlagwoerter and any(re.search(rf"\b{re.escape(w)}", tv) for w in schlagwoerter) \
+                and voranstellen_falls_hinten(tv, schlagwoerter) != tv:
+            hart.append(f"Titel-Variante {i + 1} beginnt nicht mit dem gesuchten Schlagwort (Name/Land/Konflikt): "
+                        f"«{tv}».")
     titel = str(s.get("titel") or "")
     if len(titel) > TITEL_MAX:
         hart.append(f"Titel hat {len(titel)} Zeichen (höchstens {TITEL_MAX}).")
     elif len(titel) < TITEL_MIN:
         hinweis.append(f"Titel mit {len(titel)} Zeichen eher kurz (Ziel {TITEL_MIN} bis {TITEL_MAX}).")
-    if namen and not any(re.search(rf"\b{re.escape(n)}", titel) for n in namen):
+    if not schlagwoerter or not any(re.search(rf"\b{re.escape(w)}", titel) for w in schlagwoerter):
         hart.append("Titel nennt keine Person mit Namen (Schema «Person + Handlung», Nachname reicht).")
+    elif voranstellen_falls_hinten(titel, schlagwoerter) != titel:
+        hart.append("Titel beginnt nicht mit dem gesuchten Schlagwort (Name/Land/Konflikt) in den ersten Wörtern "
+                    f"- es steht erst weiter hinten: «{titel}».")
     if not titel.rstrip().endswith(("?", "!")):
         hinweis.append("Titel endet weder mit «?» noch mit «!» (Zuspitzung).")
     if len(re.findall(r"\b[A-ZÄÖÜ]{4,}\b", titel)) > 1:
@@ -670,6 +798,13 @@ def main():
     prompt = vorlage.replace("{{HEUTE}}", heute).replace("{{LAENGE}}", LAENGEN[args.laenge][2])         .replace("{{NEWS_TRANSCRIPT_OR_SOURCE}}", material)
     if args.vorgabe and args.vorgabe.exists() and args.vorgabe.read_text(encoding="utf-8").strip():
         prompt += vorgabe_block(args.vorgabe.read_text(encoding="utf-8"))
+    vielfalt = None   # Abwechslung je Folge (28.10.2026, tools/weltlage_vielfalt.py: Erzaehlform, Einstieg, Einordnung)
+    if args.prompt == "analyse":
+        import weltlage_vielfalt
+        if weltlage_vielfalt.AKTIV:
+            vielfalt = weltlage_vielfalt.waehlen(ordner.name)
+            prompt += weltlage_vielfalt.block(vielfalt)
+            logger.info("Variante: %s / Einstieg %s", vielfalt["format"], vielfalt["einstieg"])
     llm = f"claude-cli/{NEWS_WELTLAGE_SKRIPT_MODELL}" if NEWS_WELTLAGE_SKRIPT_LLM != "ollama" else f"ollama/{NEWS_MODEL_SCRIPT}"
     logger.info("Prompt %s, %d Meldungen, %d Zeichen Material, %s", args.prompt, len(news), len(material), llm)
 
@@ -679,9 +814,18 @@ def main():
             return hart, hinw, None
         zh, zw, zit = zitate_pruefen(sk, material)
         ph, pw = paket_pruefen(sk)
+        if vielfalt:
+            pw = pw + weltlage_vielfalt.einordnung_pruefen(sk)
         return hart + zh + ph, hinw + zw + pw, zit
 
-    s = _thumb_text(_ss(frage_modell(prompt)))
+    fehler_datei = ordner / "skript_fehler.txt"   # steht nur, wenn KEINE KI antwortete (Tageslauf/Wache lesen die Ursache)
+    fehler_datei.unlink(missing_ok=True)
+    try:
+        s = _thumb_text(_ss(frage_modell(prompt)))
+    except Exception as e:   # noqa: BLE001 - Ursache festhalten, dann wie bisher scheitern
+        fehler_datei.write_text(f"{type(e).__name__}: {str(e)[:800]}", encoding="utf-8")
+        raise
+    llm = LLM_BENUTZT["name"] or llm
     probleme, hinweise, zitate = alles_pruefen(s)
     if probleme:
         logger.warning("Neuversuch wegen: %s", probleme)
@@ -698,7 +842,7 @@ def main():
     meta = {"prompt": args.prompt, "laenge": args.laenge, "datum": datum, "erzeugt": jetzt.strftime("%d.%m.%Y %H:%M"), "llm": llm,
             "probleme": probleme, "hinweise": hinweise, "woerter_hook": woerter_hook, "woerter": woerter,
             "minuten": (woerter_hook + woerter) / 140, "zitate": zitate, "aussagen_kanaele": kanaele,
-            "zitate_geprueft": sum(1 for q in zitate or [] if q.get("pruefung") == "ok")}
+            "zitate_geprueft": sum(1 for q in zitate or [] if q.get("pruefung") == "ok"), "vielfalt": vielfalt}
     (ordner / "skript.json").write_text(json.dumps({"meta": meta, "skript": s}, indent=1, ensure_ascii=False),
                                         encoding="utf-8")
     (ordner / "skript.md").write_text(bericht_md(s, news, meta), encoding="utf-8")
