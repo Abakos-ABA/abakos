@@ -229,25 +229,75 @@ def produziere_einen(log=print) -> dict | None:
 
 
 LOCK = STATE_DIR / "weltlage_short_eigen.lock"
-LOCK_MAX_S = 3 * 3600
+LOCK_MAX_S = 100 * 60       # Lock aelter als das gilt als verwaist, auch bei lebender PID
+LAUF_MAX_S = 90 * 60        # harte Obergrenze je Lauf (Vorfall 15.11.2026: Laeufe warteten bis 2 Tage auf die GPU-Warteschlange)
 
 
-def _lock_nehmen() -> bool:
-    """Nur ein Auffuell-Lauf gleichzeitig (die Wache startet ihn stuendlich losggeloest); ein Lock aelter als 3 h
-    gilt als verwaist."""
-    try:
-        if LOCK.exists() and time.time() - LOCK.stat().st_mtime < LOCK_MAX_S:
+def _pid_lebt(pid: int) -> bool:
+    """Lebt der Prozess? (ohne psutil, das der Newsroom-venv nicht hat)"""
+    if os.name == "nt":
+        import ctypes
+        k = ctypes.windll.kernel32
+        k.OpenProcess.restype = ctypes.c_void_p
+        h = k.OpenProcess(0x1000, False, pid)   # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
             return False
-        LOCK.parent.mkdir(parents=True, exist_ok=True)
-        LOCK.write_text(str(os.getpid()), encoding="utf-8")
+        code = ctypes.c_ulong()
+        ok = k.GetExitCodeProcess(ctypes.c_void_p(h), ctypes.byref(code))
+        k.CloseHandle(ctypes.c_void_p(h))
+        return bool(ok) and code.value == 259   # STILL_ACTIVE
+    try:
+        os.kill(pid, 0)
         return True
     except OSError:
         return False
+
+def _lock_nehmen() -> bool:
+    """Nur ein Auffuell-Lauf gleichzeitig: Lock mit PID, gilt nur solange diese PID lebt und das Lock juenger als
+    LOCK_MAX_S ist. Atomar angelegt (O_EXCL), damit zwei gleichzeitige Starts nicht beide gewinnen."""
+    LOCK.parent.mkdir(parents=True, exist_ok=True)
+    for _ in range(2):
+        try:
+            fd = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, str(os.getpid()).encode())
+            os.close(fd)
+            return True
+        except FileExistsError:
+            try:
+                alt = time.time() - LOCK.stat().st_mtime
+                pid = int(LOCK.read_text(encoding="utf-8").split()[0])
+            except (OSError, ValueError, IndexError):
+                alt, pid = LOCK_MAX_S + 1, 0
+            if alt < LOCK_MAX_S and pid and _pid_lebt(pid):
+                return False
+            try:
+                LOCK.unlink()
+            except OSError:
+                return False
+        except OSError:
+            return False
+    return False
+
+
+def _watchdog_starten() -> None:
+    """Beendet den ganzen Lauf nach LAUF_MAX_S (auch das Kind-python) und raeumt das Lock."""
+    import threading
+
+    def halt():
+        try:
+            LOCK.unlink(missing_ok=True)
+            print(f"Zeitlimit {LAUF_MAX_S // 60} min erreicht, Lauf beendet", flush=True)
+        finally:
+            os._exit(3)
+    t = threading.Timer(LAUF_MAX_S, halt)
+    t.daemon = True
+    t.start()
 
 
 def auffuellen(ziel: int = ZIEL_WARTESCHLANGE, log=print) -> dict:
     if not _lock_nehmen():
         return {"gebaut": 0, "grund": "anderer Auffuell-Lauf aktiv"}
+    _watchdog_starten()
     gebaut, fehler = 0, []
     t0 = time.time()
     try:
@@ -263,7 +313,6 @@ def auffuellen(ziel: int = ZIEL_WARTESCHLANGE, log=print) -> dict:
         LOCK.unlink(missing_ok=True)
     return {"gebaut": gebaut, "in_warteschlange": _eigene_in_warteschlange(), "fehler": fehler,
             "dauer_s": round(time.time() - t0)}
-
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
