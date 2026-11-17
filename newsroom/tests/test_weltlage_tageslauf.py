@@ -655,5 +655,28 @@ class CaptureFrist(unittest.TestCase):
         self.assertLess(time.time() - t0, 20)
 
 
+class ZustandSpeichern(unittest.TestCase):
+    def test_speichern_ueberlebt_kurze_Dateisperre(self):
+        """15.11.2026: WinError 32 beim Ersetzen der Zustandsdatei riss den Tageslauf mit Exit 1 ab - jetzt Wiederholung."""
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as d:
+            alt = tl.ZUSTAND
+            tl.ZUSTAND = Path(d) / "z.json"
+            real = Path.replace
+            n = {"c": 0}
+            def sperre(self, ziel):
+                n["c"] += 1
+                if n["c"] < 3:
+                    raise PermissionError(32, "gesperrt")
+                return real(self, ziel)
+            try:
+                with mock.patch.object(Path, "replace", sperre):
+                    tl._speichern({"k": 1})
+                self.assertEqual(json.loads(tl.ZUSTAND.read_text(encoding="utf-8")), {"k": 1})
+                self.assertEqual(n["c"], 3)
+            finally:
+                tl.ZUSTAND = alt
+
+
 if __name__ == "__main__":
     unittest.main()

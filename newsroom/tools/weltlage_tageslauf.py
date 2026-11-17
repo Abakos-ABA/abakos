@@ -170,9 +170,19 @@ def _laden() -> dict:
 
 
 def _speichern(z: dict):
-    tmp = ZUSTAND.with_suffix(".tmp")
+    # Vorfall 15.11.2026: tmp.replace() scheiterte mit WinError 32 (Wache/Leser hielt die Datei kurz offen) und
+    # riss den Tageslauf im Fehlerpfad mit Exit 1 ab -> eigener tmp-Name je Prozess und Wiederholung.
+    tmp = ZUSTAND.with_suffix(f".{os.getpid()}.tmp")
     tmp.write_text(json.dumps(z, indent=1, ensure_ascii=False), encoding="utf-8")
-    tmp.replace(ZUSTAND)
+    for versuch in range(20):
+        try:
+            tmp.replace(ZUSTAND)
+            return
+        except PermissionError:
+            if versuch == 19:
+                tmp.unlink(missing_ok=True)
+                raise
+            time.sleep(0.25)
 
 
 def _eintrag(key: str, **felder) -> dict:
