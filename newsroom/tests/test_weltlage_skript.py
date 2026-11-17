@@ -107,6 +107,16 @@ class PaketPruefenTitelTest(unittest.TestCase):
         hart, _ = sk.paket_pruefen(s)
         self.assertTrue(any("Titel nennt keine Person mit Namen" in f for f in hart), hart)
 
+    def test_titel_mit_nato_und_estland_besteht(self):
+        # Befund 16.11.2026 (Tageslauf 00:00): Titel mit Nato/Estland (im Sprechtext vorhanden) galt als "ohne Namen".
+        s = _basis_skript("Putin greift die Nato jetzt mit Sabotage in Estland an?")
+        s["analyse"]["akteure"] = []
+        s["zitate"] = []
+        s["handlungen"] = []
+        s["abschnitte"][0]["text"] = "Die Nato reagiert auf den Anschlag in Estland."
+        hart, _ = sk.paket_pruefen(s)
+        self.assertFalse([f for f in hart if "Titel nennt keine Person" in f], hart)
+
 
 if __name__ == "__main__":
     unittest.main()

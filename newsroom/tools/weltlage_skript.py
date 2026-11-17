@@ -87,7 +87,8 @@ ORT_NAHOST_RE = re.compile(r"\b(Israel\w*|Gaza\w*|Nahost|Nahen Ostens?|Teheran|I
 # Titel-Schlagwort-Check unten (voranstellen_falls_hinten/Pflicht-Pruefung), nicht der Orts-Wahl der Szene.
 SCHLAGWORT_REGION_RE = re.compile(r"\b(Russland\w*|Ukraine\w*|China\w*|Taiwan\w*|Nordkorea\w*|USA|Amerikas?|"
                                  r"Mexiko\w*|Kanada\w*|Grönland\w*|Venezuela\w*|Weltkrieg\w*|Saudi-Arabien\w*|"
-                                 r"Katar\w*|Jemen\w*|Türkei\w*)\b")
+                                 r"Katar\w*|Jemen\w*|Türkei\w*|NATO|Nato|Estland\w*|Lettland\w*|Litauen\w*|Baltikum\w*|"
+                                 r"Polen\w*|Finnland\w*|Moskau\w*|Kreml\w*)\b")
 
 
 def ort_fuer_abschnitt(a: dict) -> str:
