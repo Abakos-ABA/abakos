@@ -3,3 +3,8 @@ chain/** text eol=lf
 chain-sdk/** text eol=lf
 scripts/*.sh text eol=lf
 legacy/** text eol=lf
+
+# WASM test fixtures are binary; the text rule above must not touch their bytes
+*.wasm binary
+*.wasm.* binary
+*.wasm.gzip binary
