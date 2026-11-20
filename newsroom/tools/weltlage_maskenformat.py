@@ -1,5 +1,8 @@
 """Weltlage Kompakt - Masken-Format (rexemre 27.10.2026). Spezifikation: docs/weltlage_maskenformat.md.
 
+Seit 20.11.2026 ohne Masken-Moderator (NEWS_MODERATOR=0, Standard): bauen() ruft ohne_moderator(), die Bildspur kommt aus
+tools/weltlage_bildspur.py (Karten, Filmmaterial, hoechstens 3 Quellen). Alles zum Sprecher unten gilt nur mit NEWS_MODERATOR=1.
+
 Neues Videoformat NEBEN dem Latara-Format (tools/weltlage_rohschnitt.py bleibt unveraendert). Schalter
 NEWS_MASKENFORMAT=1 (config/settings.py, Standard 0): tools/weltlage_tageslauf.py ruft dann im Schritt "schnitt"
 dieses Skript statt Rohschnitt/Lipsync, der Schritt "broll" entfaellt (B-Roll ist Teil des Formats).
@@ -546,6 +549,8 @@ def bauen(folge: Path, out: Path, max_s: float | None = None, host_arg: str | No
     (work / "plan.json").write_text(json.dumps(erg, ensure_ascii=False, indent=1), encoding="utf-8")
     if nur_plan:
         return erg
+    if os.environ.get("NEWS_MODERATOR", "0") != "1":
+        return ohne_moderator(folge, out, work, szenen, voll, ende, erg)
     host = None
     if host_arg is None and rede_aktiv():
         host = rede_spur(voll, ende, work / "host_spur.mp4", folgen_seed(folge, seed))
@@ -606,6 +611,94 @@ def bauen(folge: Path, out: Path, max_s: float | None = None, host_arg: str | No
     return erg
 
 
+def ohne_moderator(folge: Path, out: Path, work: Path, szenen: list, voll: Path, ende: float, erg: dict) -> dict:
+    """Bildspur ohne Masken-Moderator (Marlon 20.11.2026, tools/weltlage_bildspur.py): Kapitel-, Satz-, Zahlen- und
+    Zitatkarten, Filmmaterial aus broll/plan.json vollflaechig, hoechstens bildspur.QUELLEN_MAX Quellen-Screenshots.
+    Uhr und Logo wie bisher. Schreibt broll_lizenzen.json/broll_attribution.txt fuer die eingesetzten Clips."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import weltlage_bildspur as bs
+    texte = json.loads((folge / "texte.json").read_text(encoding="utf-8"))
+    nach_id = {t["id"]: t for t in texte["szenen"]}
+    zitate = texte.get("zitate") or []
+    bilder = json.loads((folge / "bilder.json").read_text(encoding="utf-8")) if (folge / "bilder.json").exists() else {}
+    bplan = folge / "broll" / "plan.json"
+    stellen = [w for w in json.loads(bplan.read_text(encoding="utf-8")).get("stellen", []) if w.get("clip")
+               and Path(w["clip"]).exists()] if bplan.exists() else []
+    meldungen = [s for s in szenen if (nach_id.get(s[0]) or {}).get("szene") == 5]
+    kicker_fest = {"coldopen": "Heute", "themen": "Die Themen", 6: "Weltlage Kompakt"}
+    bs_szenen = []
+    for sid, a, b in szenen:
+        if a >= ende - 0.05:
+            break
+        t = nach_id.get(sid) or {"text": "", "szene": None}
+        dauer = min(b, ende) - a
+        wav = folge / "audio" / f"{sid}.wav"
+        sz = {"t0": a, "dauer": dauer, "kicker": t.get("kurz") or kicker_fest.get(t.get("szene"), ""),
+              "saetze": bs.satz_zeiten(t.get("text") or "", dauer, pausen(wav, min_s=0.2) if wav.exists() else None)}
+        if not sz["saetze"]:
+            sz["saetze"] = [(0.0, dauer, "Weltlage Kompakt")]
+        if t.get("szene") == 5:
+            nr = next(i for i, m in enumerate(meldungen, 1) if m[0] == sid)
+            kurz = t.get("kurz") or ""
+            sz["kapitel"] = (f"{nr} / {len(meldungen)}", kurz[:1].upper() + kurz[1:])
+            lst = bilder.get(str(t.get("bild")), [])
+            if lst and Path(lst[0]["png"]).exists():
+                sz["bild"], sz["domain"] = lst[0]["png"], lst[0].get("domain", "")
+        sz["clips"] = [{"datei": w["clip"], "t": float(w["offset"]), "laenge": bs._laenge(w["clip"]), "k": w.get("k"),
+                        "nr": w.get("nr")} for w in stellen if w.get("meldung") == sid]
+        bs_szenen.append(sz)
+    segs = bs.plan_bauen(bs_szenen, work / "bild", zitate)
+    segs = [s for s in segs if s["t0"] < ende - 0.05]
+    segs[-1]["dauer"] = round(ende - segs[-1]["t0"], 3)
+    erg["bildspur"] = bs.statistik(segs)
+    erg["segmente"] = segs
+    (work / "plan.json").write_text(json.dumps(erg, ensure_ascii=False, indent=1), encoding="utf-8")
+    hhmm, datum, start_s = stand_aus_ordner(folge)
+    logo = work / "logo.png"
+    logo = logo if logo_png(logo) else None
+
+    def overlays(seg):
+        a, b = start_s + seg["t0"], start_s + seg["t0"] + seg["dauer"]
+        m0, m1 = int(a // 60), int(b // 60)
+        ov = []
+        for mm in sorted({m0, m1}):
+            p = work / f"uhr_{mm}.png"
+            if not p.exists():
+                uhr_png(f"{(mm // 60) % 24:02d}:{mm % 60:02d}", datum, p)
+            grenze = m1 * 60 - a
+            ov.append((p, "(W-w)/2:14" + ("" if m0 == m1 else (f"|lt(t,{grenze:.3f})" if mm == m0 else f"|gte(t,{grenze:.3f})"))))
+        if logo:
+            ov.append((logo, "W-w-36:30"))
+        return ov
+
+    for mm in {int((start_s + s["t0"]) // 60) for s in segs} | {int((start_s + s["t0"] + s["dauer"]) // 60) for s in segs}:
+        p = work / f"uhr_{mm}.png"                         # vorab, nicht parallel aus den Threads
+        if not p.exists():
+            uhr_png(f"{(mm // 60) % 24:02d}:{mm % 60:02d}", datum, p)
+    teile = bs.alle_rendern(segs, work, FFMPEG, overlays, parallel=3, log=lambda m: print(m, flush=True))
+    roh = bs.zusammenfuegen(teile, work / "roh.mp4", FFMPEG)
+    from weltlage_rohschnitt import master_ton
+    erg["ton_master"] = master_ton(voll, roh, out)
+    import weltlage_broll as wb
+    lizenzen = []
+    clip_k = {w["clip"]: w for w in stellen}
+    for s in segs:
+        w = clip_k.get(s.get("clip") or "")
+        if not w or not w.get("k"):
+            continue
+        k = w["k"]
+        lizenzen.append({"nr": w.get("nr"), "zeit": f"{int(s['t0'] // 60):02d}:{int(s['t0'] % 60):02d}", "t0": s["t0"],
+                         "dauer": s["dauer"], "variante": "voll", "meldung": w.get("meldung"), "motiv": w.get("motiv"),
+                         "quelle": k.get("quelle"), "titel": k.get("titel"), "urheber": k.get("urheber"),
+                         "lizenz": k.get("lizenz"), "lizenz_url": k.get("lizenz_url", ""), "seite": k.get("seite", ""),
+                         "attribution": wb.attribution_text(k)})
+    (folge / "broll_lizenzen.json").write_text(json.dumps({"master": str(out), "clips": lizenzen}, ensure_ascii=False,
+                                                          indent=1), encoding="utf-8")
+    (folge / "broll_attribution.txt").write_text(wb.attribution(lizenzen) if lizenzen else "", encoding="utf-8")
+    out.with_suffix(".attribution.txt").write_text("\n".join(l["attribution"] for l in lizenzen), encoding="utf-8")
+    return erg
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("folge")
@@ -620,7 +713,7 @@ def main():
     out = Path(a.out) if a.out else folge / f"{folge.name}.mp4"
     erg = bauen(folge, out, a.max_s, a.host, a.nur_plan, a.seed, Path(a.work) if a.work else None)
     print(json.dumps({k: v for k, v in erg.items() if k != "segmente"}, ensure_ascii=False))
-    print(" ".join(f"{s['layout']}:{s['dauer']:.0f}" for s in erg["segmente"]))
+    print(" ".join(f"{s.get('layout') or s.get('art')}:{s['dauer']:.0f}" for s in erg["segmente"]))
 
 
 if __name__ == "__main__":

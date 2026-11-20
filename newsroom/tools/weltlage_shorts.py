@@ -96,6 +96,20 @@ def _szenen_texte(ordner: Path) -> dict[str, str]:
     return {s["id"]: s["text"] for s in texte.get("szenen") or [] if s.get("id") and s.get("text")}
 
 
+def _skript_dict(ordner: Path) -> dict | None:
+    """Volles Skript-Dict (skript.json["skript"]) der Folge, falls vorhanden - Grundlage fuer
+    weltlage_skript.schlagwoerter_der_folge() (Namen/Laender/Konflikte, Ordnungsregel 8: kein zweiter Mechanismus).
+    Fehlt die Datei (sollte bei einer fertig geschnittenen Folge nicht vorkommen), bleibt der Schlagwort-Check
+    fuer diese Short einfach aus, statt abzustuerzen."""
+    pfad = ordner / "skript.json"
+    if not pfad.exists():
+        return None
+    try:
+        return json.loads(pfad.read_text(encoding="utf-8")).get("skript")
+    except (OSError, ValueError):
+        return None
+
+
 def _video_id(ordner: Path) -> str | None:
     pfad = ordner / "upload.log"
     if not pfad.exists():
@@ -160,8 +174,23 @@ def titel_frage(ordner: Path, kandidat: dict, meta: dict | None = None, index: i
             saetze = re.split(r"(?<=[.!?])\s+", kandidat["text"].strip())
             letzter = saetze[-1].strip() if saetze else ""
             titel = letzter if letzter.endswith("?") else basis
+        # Befund 19.10.2026 (Task 20261019-223623-e943): der aus der Fakten-Szene geschnittene Satz landet
+        # unveraendert als Short-Titel - stand das Schlagwort (Name/Land/Konflikt) erst spaet im Satz (Beispiel
+        # "Von 190'000 auf 20'000 geschrumpft: Wie verlässlich ist Trumps Wähler-Zahl?", nur 20 Aufrufe, 0 %
+        # YouTube-Suche), fand niemand die Short ueber die Suche. Dasselbe Schlagwort-voranstellen wie beim
+        # Haupttitel (weltlage_skript.paket_pruefen), ohne den Satz selbst zu zerschneiden.
+        if titel != basis:
+            import weltlage_skript
+            s = _skript_dict(ordner)
+            if s:
+                titel = weltlage_skript.voranstellen_falls_hinten(titel, weltlage_skript.schlagwoerter_der_folge(s))
     if titel == basis and index and index > 1:
         titel = f"{basis} – Teil {index}"
+    if titel != basis:   # Fragetitel bekommen das Schock-Label der Folge (steht am Anfang des Haupttitels, 21.10.2026)
+        m = re.match(r"^([A-ZÄÖÜ][A-ZÄÖÜ ]{3,22}!)\s", basis)
+        if m:
+            from video import weltlage_thumbnail_eil as eil
+            titel = eil.titel_mit_label(titel, m.group(1))
     return titel
 
 
@@ -272,17 +301,23 @@ def _outro_karte(ziel_png: Path):
 
 
 def _short_rendern(quelle: Path, start: float, dauer: float, ass: Path, ziel: Path,
-                   titelkarte: Path | None = None, log=print):
+                   titelkarte: Path | None = None, log=print, hintergrund: Path | None = None):
+    """hintergrund: festes Bild fuer die Flaeche ober-/unterhalb des 16:9-Bands statt der unscharf vergroesserten Quelle
+    (Bildspur ohne Moderator, 20.11.2026: dort wuerden die riesigen Kartenbuchstaben angeschnitten durchscheinen)."""
     ass_filter = str(ass).replace("\\", "/").replace(":", "\\:")
     eingaben = ["-ss", f"{start:.3f}", "-t", f"{dauer:.3f}", "-i", quelle]
-    filt = ("[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,gblur=sigma=40[bg];"
-            "[0:v]scale=1080:-2[fg];"
-            "[bg][fg]overlay=(W-w)/2:(H-h)/2[v1];"
+    bg = "[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,gblur=sigma=40[bg];"
+    if hintergrund is not None:
+        eingaben += ["-loop", "1", "-framerate", "25", "-t", f"{dauer:.3f}", "-i", hintergrund]
+        bg = "[1:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1[bg];"
+    filt = (bg + "[0:v]scale=1080:-2[fg];"
+            "[bg][fg]overlay=(W-w)/2:(H-h)/2:shortest=1[v1];"
             f"[v1]subtitles='{ass_filter}'[v2]")
     video_label = "[v2]"
     if titelkarte is not None:
+        ti = 2 if hintergrund is not None else 1
         eingaben += ["-loop", "1", "-t", f"{dauer:.3f}", "-i", titelkarte]
-        filt += ";[1:v]scale=1080:-1[tk];[v2][tk]overlay=0:60:enable='between(t,0,4)'[v]"
+        filt += f";[{ti}:v]scale=1080:-1[tk];[v2][tk]overlay=0:60:enable='between(t,0,4)'[v]"
         video_label = "[v]"
     _ffmpeg(eingaben + ["-filter_complex", filt, "-map", video_label, "-map", "0:a",
              "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-pix_fmt", "yuv420p",

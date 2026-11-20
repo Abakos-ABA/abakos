@@ -8,7 +8,9 @@ Ablauf je Short (CPU + eine kurze TTS-Strecke, keine Lipsync-Arbeit):
      einem frueheren eigenen Short aehnelt (weltlage_themen.aehnlichkeit, Verlauf state/weltlage_short_eigen.json).
   2. Skript: ein Modell-Aufruf (weltlage_skript.frage_modell), ~120 Woerter Sprechtext, Titel, Hashtags.
   3. Stimme: weltlage_tts.sprich (aktives Profil = maennliche Stimme, volle Aussprache-Kette inkl. Rueckhoeren).
-  4. Bild: Masken-Moderator (maske_flf_mix bzw. Loop + host_spur wie die Folgen), Untertitel, Titelkarte, 9:16.
+  4. Bild (seit 20.11.2026 ohne Masken-Moderator, NEWS_MODERATOR=0): tools/weltlage_bildspur.py - Filmmaterial
+     (Pexels/Pixabay/Commons/NASA/DVIDS-Suche wie weltlage_broll, Suchbegriffe vom Modell), grosse Stichwort- und
+     Zahlenkarten je Satz; darunter Untertitel, oben Titelkarte, 9:16.
   5. Einreihen in die Shorts-Warteschlange (weltlage_shorts_takt.einreihen); der Taktgeber laedt zu den Slots hoch.
 
     python tools/weltlage_short_eigen.py auffuellen [--ziel N]   Warteschlange auf N eigene Shorts auffuellen
@@ -39,8 +41,9 @@ KEY_PREFIX = "short-eigen"
 ZIEL_WARTESCHLANGE = 2           # so viele fertige eigene Shorts sollen in der Warteschlange liegen
 MAX_PRO_LAUF = 2                 # hoechstens so viele Shorts pro Aufruf (Laufzeit)
 THEMA_SCHWELLE = 0.5             # Aehnlichkeit (weltlage_themen.aehnlichkeit) ab der ein Thema als Wiederholung gilt
-WOERTER_MIN, WOERTER_MAX = 80, 118      # ~2,5 Woerter/s bei Tempo 1.15 -> 33 bis 48 s (Limit 59 s inkl. Rueckhoer-Pausen)
-KI_HINWEIS = ("Moderator und Stimme sind KI-generiert. Fakten stammen aus den unten genannten Quellen.")
+WOERTER_MIN, WOERTER_MAX = 72, 105      # ruhigere Stimme (Profil I, 20.11.2026) ~2,2 Woerter/s -> 33 bis 48 s (Limit 59 s)
+LAENGE_MAX = 59.0                # YouTube-Shorts-Grenze 60 s, 1 s Reserve
+KI_HINWEIS = ("Die Stimme ist KI-generiert. Fakten stammen aus den unten genannten Quellen.")
 HASHTAGS = "#Shorts #WeltlageKompakt #Nachrichten #Weltpolitik"
 
 PROMPT = """Du schreibst den Sprechtext fuer einen eigenstaendigen YouTube-Short (Hochformat, 40 bis 55 Sekunden) des
@@ -142,6 +145,109 @@ def _host_video(ordner: Path, ton: Path, ende: float, seed: int) -> Path:
     return host
 
 
+BILD_PROMPT = """Zu diesem Sprechtext eines deutschsprachigen Nachrichten-Shorts brauche ich Bildideen.
+
+Titel: {titel}
+Saetze:
+{saetze}
+
+1. "stichworte": fuer JEDEN Satz genau ein Stichwort fuer eine grosse Texteinblendung, 1 bis 4 Woerter, auf Deutsch
+   (Schweizer Schreibweise, ss statt ß), die Kernaussage des Satzes (Zahl mit Einheit, Name, Ort oder Schlagwort).
+2. "suche": 3 Motive fuer Symbol-Filmmaterial aus Stock-Archiven, je Motiv 2 bis 3 englische Suchbegriffe.
+{regeln}
+
+Antworte nur mit JSON: {{"stichworte": ["...", ...], "suche": [["...", "..."], ["...", "..."], ["...", "..."]]}}"""
+
+
+def bild_hinweise(ordner: Path, titel: str, saetze: list[str], log=print) -> dict:
+    """Stichwort je Satz + Suchbegriffe fuer Filmmaterial (ein Modell-Aufruf, zwischengespeichert in bild_hinweise.json)."""
+    f = ordner / "bild_hinweise.json"
+    if f.exists():
+        return json.loads(f.read_text(encoding="utf-8"))
+    import weltlage_broll as wb
+    import weltlage_skript as sk
+    try:
+        h = sk._ss(sk.frage_modell(BILD_PROMPT.format(titel=titel, regeln=wb.REGELN,
+                                                       saetze="\n".join(f"{i + 1}. {x}" for i, x in enumerate(saetze)))))
+    except Exception as e:   # noqa: BLE001 - ohne Hinweise: Titel als Stichwort, kein Filmmaterial
+        log(f"Bildhinweise nicht erhalten ({type(e).__name__}: {e})")
+        h = {}
+    h = {"stichworte": [str(x)[:40] for x in (h.get("stichworte") or [])],
+         "suche": [[str(q) for q in m][:3] for m in (h.get("suche") or []) if isinstance(m, list)][:3]}
+    f.write_text(json.dumps(h, ensure_ascii=False, indent=1), encoding="utf-8")
+    return h
+
+
+def filmmaterial(ordner: Path, suche: list[list[str]], thema: str = "", log=print) -> list[dict]:
+    """Je Motiv einen lizenzgeprueften Clip (weltlage_broll: Suche, Lizenzpruefung, 6-s-Ausschnitt 1920x1080)."""
+    import weltlage_broll as wb
+    from config.settings import NEWS_WELTLAGE_BROLL_QUELLEN
+    bdir = ordner / "broll"
+    bdir.mkdir(exist_ok=True)
+    quellen = [q.strip() for q in NEWS_WELTLAGE_BROLL_QUELLEN.split(",") if q.strip() and q.strip() != "augenzeugen"]
+    schluessel, gesehen, out, alle, stellen = wb.keys(), set(), [], {}, []
+    for i, begriffe in enumerate(suche, 1):
+        try:
+            gut, _ = wb.kandidaten(begriffe, quellen, schluessel, gesehen, log)
+        except Exception as e:   # noqa: BLE001
+            log(f"Filmmaterial Motiv {i}: Suche fehlgeschlagen ({e})")
+            continue
+        ks = []
+        for j, k in enumerate([k for k in gut if float(k.get("dauer") or 0) >= 5][:10]):
+            alle[f"k{i}_{j}"] = k
+            ks.append({"k": f"k{i}_{j}", "quelle": k["quelle"], "titel": k["titel"][:120],
+                       "beschreibung": k["beschreibung"][:220], "dauer": round(float(k.get("dauer") or 0), 1)})
+        if ks:
+            stellen.append({"nr": i, "motiv": ", ".join(begriffe), "satz": thema, "kandidaten": ks})
+    # Strenge Auswahl wie in den Folgen (weltlage_broll.clipwahl: kein falscher Ort, keine Personen/Marken);
+    # Befund Probe 20.11.: ohne sie kam fuer «Den Haag» ein neuseelaendisches Bezirksgericht mit Polizisten
+    try:
+        wahl = wb.clipwahl(stellen) if stellen else {}
+    except Exception as e:   # noqa: BLE001 - lieber ohne Filmmaterial als ungeprueft
+        log(f"Filmmaterial: Auswahl nicht moeglich ({type(e).__name__}: {e}) - nur Karten")
+        wahl = {}
+    for i, kid in sorted(wahl.items()):
+        k = alle.get(kid or "")
+        if not k:
+            log(f"Filmmaterial Motiv {i}: kein passender Clip")
+            continue
+        clip = bdir / f"clip{i:02d}_{k['quelle']}.mp4"
+        if (clip.exists() and clip.stat().st_size > 50_000) or wb.normalisieren(k, wb.CLIP_MAX, clip):
+            out.append({"datei": str(clip), "k": {x: v for x, v in k.items() if x != "herkunftstext"},
+                        "attribution": wb.attribution_text(k)})
+            log(f"Filmmaterial Motiv {i}: {k['quelle']} «{k['titel'][:60]}» ({k['lizenz']})")
+    return out
+
+
+def _bildspur_video(ordner: Path, ende: float, titel: str, text: str, words: list[dict], log=print) -> tuple[Path, list[dict]]:
+    """Bildspur ohne Moderator (tools/weltlage_bildspur.py) in 1920x1080: Stichwort-/Zahlenkarten je Satz, Filmmaterial
+    verteilt ueber den Short. Gibt (Video, eingesetzte Clips) zurueck."""
+    import weltlage_bildspur as bs
+    work = ordner / "_bild"
+    work.mkdir(exist_ok=True)
+    zeiten = bs.satz_zeiten_woerter(text, words) or [(0.0, ende, text)]
+    zeiten[-1] = (zeiten[-1][0], ende, zeiten[-1][2])
+    h = bild_hinweise(ordner, titel, [z[2] for z in zeiten], log)
+    stw = h.get("stichworte") or []
+    if len(stw) != len(zeiten):
+        stw = (stw + [titel] * len(zeiten))[:len(zeiten)]
+    clips = filmmaterial(ordner, h.get("suche") or [], f"{titel}: {text[:400]}", log)
+    # Clips gleichmaessig verteilen, nie auf den ersten Satz (dort steht die Titelkarte)
+    plaetze = sorted({min(len(zeiten) - 1, max(1, round(j * len(zeiten) / (len(clips) + 1))))
+                      for j in range(1, len(clips) + 1)})
+    for c, i in zip(clips, plaetze):
+        c.update(t=zeiten[i][0], laenge=bs._laenge(c["datei"]))
+    sz = {"t0": 0.0, "dauer": ende, "kicker": "", "saetze": zeiten, "stichworte": stw,
+          "clips": [c for c in clips if "t" in c]}
+    segs = bs.plan_bauen([sz], work, short=True)
+    segs[-1]["dauer"] = round(ende - segs[-1]["t0"], 3)
+    (work / "plan.json").write_text(json.dumps({"segmente": segs, "statistik": bs.statistik(segs)}, ensure_ascii=False,
+                                               indent=1), encoding="utf-8")
+    teile = bs.alle_rendern(segs, work, log=log)
+    eingesetzt = [c for c in sz["clips"] if c.get("benutzt")]
+    return bs.zusammenfuegen(teile, work / "bildspur.mp4"), eingesetzt
+
+
 def _tor(titel: str, text: str, meta_tts: dict) -> None:
     """Qualitaets- und Datenschutzpruefung vor dem Rendern/Einreihen (bleibt Pflicht, rexemre 29.10.2026): Stimm-Nachweis
     (aktives Profil), Whisper-Kontrolle der Vertonung und Text-Datenschutz (IBAN, Adresse, Mail, Telefon, Keys,
@@ -171,12 +277,16 @@ def baue(ordner: Path, titel: str, text: str, tags: list[str] | None = None, log
     wav = ordner / "short.wav"
     meta_tts = weltlage_tts.sprich(text, wav)
     ende = float(meta_tts["laenge_s"])
-    if ende > 59.0:
-        raise RuntimeError(f"Short zu lang ({ende:.1f} s, Limit 59 s) - Text kuerzen")
+    if ende > LAENGE_MAX:
+        raise RuntimeError(f"Short zu lang ({ende:.1f} s, Limit {LAENGE_MAX:g} s) - Text kuerzen")
     _tor(titel, text, meta_tts)
     seed = int(hashlib.sha256(f"{ordner.name}{titel}".encode()).hexdigest()[:8], 16)
-    host = _host_video(ordner, wav, ende, seed)
     words = ws._woerter_ausgerichtet(wav, text, log)
+    clips = []
+    if os.environ.get("NEWS_MODERATOR", "0") == "1":      # alter Masken-Moderator (bis 20.11.2026)
+        host = _host_video(ordner, wav, ende, seed)
+    else:
+        host, clips = _bildspur_video(ordner, ende, titel, text, words, log)
     ass = ws.untertitel(words, ordner / "short.ass", log)
     karte = ordner / "short_titel.png"
     ws._titelkarte(titel, karte)
@@ -184,13 +294,18 @@ def baue(ordner: Path, titel: str, text: str, tags: list[str] | None = None, log
     mit_ton = ordner / "host_mit_ton.mp4"      # _short_rendern mappt 0:a, die Host-Spur hat keinen Ton
     ws._ffmpeg(["-i", host, "-i", wav, "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-shortest",
                 mit_ton], log)
-    ws._short_rendern(mit_ton, 0.0, ende, ass, rohmp4, titelkarte=karte, log=log)
+    hg = None
+    if os.environ.get("NEWS_MODERATOR", "0") != "1":
+        import weltlage_bildspur as bs
+        hg = bs.marke_hintergrund(ordner / "_bild" / "marke.png")
+    ws._short_rendern(mit_ton, 0.0, ende, ass, rohmp4, titelkarte=karte, log=log, hintergrund=hg)
     # Ton: Stimme (mit Lautheit der Folgen) statt der Spur aus dem Host-Video, das hat keinen Ton
     mp4 = ordner / f"short_eigen_{ordner.name}.mp4"
     ws._ffmpeg(["-i", rohmp4, "-i", wav, "-map", "0:v", "-map", "1:a", "-af", "loudnorm=I=-14:TP=-1.5:LRA=11",
                 "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2", "-shortest",
                 "-movflags", "+faststart", mp4], log)
-    beschr = f"{titel}\n\n{KI_HINWEIS}\n\n{HASHTAGS}"
+    film = "".join(f"\n{c['attribution']}" for c in clips)
+    beschr = f"{titel}\n\n{KI_HINWEIS}" + (f"\n\nSymbolbilder:{film}" if film else "") + f"\n\n{HASHTAGS}"
     meta = {"title": titel if len(titel) <= 100 else titel[:97] + "...", "description": beschr,
             "tags": list(dict.fromkeys((tags or []) + ["Weltlage Kompakt", "Nachrichten", "Shorts"])),
             "language": "de", "dauer_s": ende}

@@ -1,5 +1,5 @@
 {
- "aktiv": "G",
+ "aktiv": "I",
  "profile": {
   "A": {
    "name": "Standard 30.09.2026 (Hoerprobe 2 aus Task d8b3)",
@@ -88,6 +88,35 @@
    "tempo_methode": "ffmpeg atempo=1.15 nach Chatterbox (tonhoehenneutral, WSOLA, keine Resampling-Beschleunigung); Chatterbox hat keinen Speed-Parameter",
    "kompatibel_mit": [
     "C"
+   ]
+  },
+  "H": {
+   "name": "Thorsten maennlich (rexemre 29.10.2026 per Telegram: maennliche Stimme, gleiche Aussprache-Knowledge): Thorsten Mueller, Referenz aus dem Thorsten-Voice-Datensatz (CC0, kommerziell nutzbar), Chatterbox-Klon; Parameter wie G, Tempo 1.15",
+   "ref": "config/brand/stimme/ref_thorsten.wav",
+   "ref_sha256": "479fa60f549d08c2d757f63df66458ffff081a830b308e4c405744b1074bbc2e",
+   "ref_quelle": "Thorsten-Voice Datensatz (Thorsten Mueller, CC0 1.0), Referenzausschnitt 5,2 s, 24 kHz mono, Pegel wie ref_kerstin_lebendig",
+   "exaggeration": 0.4,
+   "cfg": 0.4,
+   "temperature": 0.8,
+   "max_chars": 280,
+   "seed": null,
+   "tempo": 1.15,
+   "tempo_methode": "ffmpeg atempo=1.15 nach Chatterbox (tonhoehenneutral, WSOLA, keine Resampling-Beschleunigung); Chatterbox hat keinen Speed-Parameter"
+  },
+  "I": {
+   "name": "Thorsten ruhig (Marlon 20.11.2026: Stimme ruhig, klar, natuerlich): gleiche Referenz wie H, weniger Ueberzeichnung (exaggeration 0.3), stabilere Satzmelodie (temperature 0.7), kaum noch Nachbeschleunigung (tempo 1.05 statt 1.15)",
+   "ref": "config/brand/stimme/ref_thorsten.wav",
+   "ref_sha256": "479fa60f549d08c2d757f63df66458ffff081a830b308e4c405744b1074bbc2e",
+   "ref_quelle": "Thorsten-Voice Datensatz (Thorsten Mueller, CC0 1.0), Referenzausschnitt 5,2 s, 24 kHz mono, Pegel wie ref_kerstin_lebendig",
+   "exaggeration": 0.3,
+   "cfg": 0.4,
+   "temperature": 0.7,
+   "max_chars": 280,
+   "seed": null,
+   "tempo": 1.05,
+   "tempo_methode": "ffmpeg atempo=1.05 nach Chatterbox (tonhoehenneutral); 1.15 klang gehetzt",
+   "kompatibel_mit": [
+    "H"
    ]
   }
  }

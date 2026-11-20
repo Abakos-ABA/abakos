@@ -133,7 +133,7 @@ NEWS_WAN_TURBO_STEPS = int(os.environ.get("NEWS_WAN_TURBO_STEPS", "4"))
 NEWS_HOST_CLIP_PER_JOB = os.environ.get("NEWS_HOST_CLIP_PER_JOB", "1") == "1"
 # Lip-sync of the host's spoken segments with LatentSync 1.6 (vendor/LatentSync, .venv-lipsync,
 # models/latentsync). "0" = host clips stay mouth-closed voice-over.
-NEWS_LIPSYNC = os.environ.get("NEWS_LIPSYNC", "1") == "1"
+NEWS_LIPSYNC = os.environ.get("NEWS_LIPSYNC", "0") == "1"   # seit 29.10.2026 aus (Masken-Format, kein Lipsync)
 # Lipsync-Drosselstufen: EINZIGE Quelle fuer Schritte/Guidance/Fenster, die alle Lipsync-Pipelines (video/
 # freisteller_lipsync.py fuer Weltlage Kompakt + die daraus geschnittenen Shorts, video/lipsync.py fuer die
 # aeltere Master-Clip-Pipeline) verwenden statt jede ihre eigene hartkodierte Zahl zu pflegen. Werte aus der
@@ -385,7 +385,7 @@ NEWS_UPLOAD_TIMEOUT_MINUTEN = float(os.environ.get("NEWS_UPLOAD_TIMEOUT_MINUTEN"
 # Aufhaenger") ist jeder Short immer Hook+Fakten+Verweis (nie nur der Cold Open allein, siehe
 # tools/weltlage_shorts.py); SHORTS_MAX=2 passt zusammen mit den zwei Folgen-Produktionsstarts (seit 16.10.2026
 # 00:00/10:00) ungefaehr auf die vier taeglichen Upload-Slots (NEWS_WELTLAGE_SHORTS_SLOTS unten).
-NEWS_WELTLAGE_SHORTS = os.environ.get("NEWS_WELTLAGE_SHORTS", "1") == "1"
+NEWS_WELTLAGE_SHORTS = os.environ.get("NEWS_WELTLAGE_SHORTS", "0") == "1"   # Folgen-Ausschnitte aus seit 29.10.2026 (eigene Shorts: tools/weltlage_short_eigen.py)
 NEWS_WELTLAGE_SHORTS_MAX = int(os.environ.get("NEWS_WELTLAGE_SHORTS_MAX", "2"))
 NEWS_WELTLAGE_SHORTS_VERZUG_MINUTEN = float(os.environ.get("NEWS_WELTLAGE_SHORTS_VERZUG_MINUTEN", "30"))
 # Dauerhafte Freigabe + fester Takt (rexemre 13.10.2026 per Telegram, nach dem ersten echten Short ~400 Views/
@@ -472,3 +472,10 @@ def require(*names):
             f"Missing required setting(s): {', '.join(missing)}. Set them in newsroom/.env "
             f"(see newsroom/.env.example)."
         )
+
+# Masken-Format (rexemre 27.10.2026, docs/weltlage_maskenformat.md): maskierter Sprecher (Loop, kein Lipsync) +
+# Cyber-Noir-Uhr + viel B-Roll/Quellenbilder, Layout pro Folge variiert. Standard seit 28.10.2026 (rexemre, Loop B Wan I2V); 0 = altes Latara-Format.
+NEWS_MASKENFORMAT = os.environ.get("NEWS_MASKENFORMAT", "1") == "1"
+# Ohne Moderator (Marlon 20.11.2026: Maskenmann komplett raus): Bild nur aus Filmmaterial, Text-/Zahlen-/Zitatkarten
+# und wenigen Quellen-Screenshots (tools/weltlage_bildspur.py), gilt fuer Folgen und eigene Shorts. 1 = alter Masken-Moderator.
+NEWS_MODERATOR = os.environ.get("NEWS_MODERATOR", "0") == "1"
